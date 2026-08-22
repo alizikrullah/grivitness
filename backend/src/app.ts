@@ -8,7 +8,9 @@ import { checkHealth } from './config/health.js';
 import { errorMiddleware, notFoundMiddleware } from './middlewares/error.middleware.js';
 import authRoutes from './modules/auth/auth.routes.js';
 import goalsRoutes from './modules/goals/goals.routes.js';
+import stepsRoutes from './modules/steps/steps.routes.js';
 import usersRoutes from './modules/users/users.routes.js';
+import weightRoutes from './modules/weight/weight.routes.js';
 import { logger } from './utils/logger.js';
 import { sendSuccess } from './utils/response.js';
 
@@ -70,6 +72,8 @@ export const createApp = (): Express => {
   app.use('/api/auth', authRoutes);
   app.use('/api/users', usersRoutes);
   app.use('/api/goals', goalsRoutes);
+  app.use('/api/weight', weightRoutes);
+  app.use('/api/steps', stepsRoutes);
 
   // Wajib dipasang paling akhir, setelah semua route.
   app.use(notFoundMiddleware);
