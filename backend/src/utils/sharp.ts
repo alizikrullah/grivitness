@@ -58,3 +58,35 @@ export const convertToWebP = async (input: Buffer): Promise<ConvertedImage> => {
     );
   }
 };
+
+/**
+ * Sisi terpanjang salinan yang dikirim ke AI.
+ *
+ * Groq menagih gambar sebagai token, dan free tier dibatasi 8000 token per
+ * menit. Satu gambar 2048px memakan sekitar 5300 token, sehingga analisa foto
+ * badan yang mengirim dua gambar sekaligus hampir pasti menembus batas itu.
+ *
+ * 1024px menurunkannya sekitar empat kali lipat. Model vision men-downsample
+ * gambar masukan sendiri, jadi resolusi di atas ini tidak menambah akurasi —
+ * hanya menambah token, biaya, dan waktu tunggu.
+ */
+const MAX_DIMENSI_ANALISA_PX = 1024;
+
+/**
+ * Salinan kecil khusus untuk dikirim ke AI.
+ *
+ * Yang disimpan ke storage tetap hasil convertToWebP dengan resolusi penuh —
+ * user melihat fotonya sendiri, jadi kualitasnya tidak boleh dikorbankan.
+ * Kompresi lossy di sini tidak apa-apa karena hasilnya tidak pernah dilihat
+ * siapa pun, cuma dibaca model.
+ */
+export const toAnalysisBuffer = async (webp: Buffer): Promise<Buffer> =>
+  sharp(webp)
+    .resize({
+      width: MAX_DIMENSI_ANALISA_PX,
+      height: MAX_DIMENSI_ANALISA_PX,
+      fit: 'inside',
+      withoutEnlargement: true,
+    })
+    .webp({ quality: 80 })
+    .toBuffer();

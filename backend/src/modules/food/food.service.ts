@@ -5,7 +5,7 @@ import { AppError } from '../../utils/api-error.js';
 import { todayInJakarta } from '../../utils/daily-key.js';
 import { removeFile, removeFileSafely, uploadWebP } from '../../utils/directus-files.js';
 import { analyzeImages, FOOD_PROMPT } from '../../utils/groq.js';
-import { convertToWebP } from '../../utils/sharp.js';
+import { convertToWebP, toAnalysisBuffer } from '../../utils/sharp.js';
 import { timestampDayFilter } from '../../utils/query.js';
 import { recordActivitySafely } from '../streaks/streaks.service.js';
 import type { CreateFoodDto } from './food.validation.js';
@@ -72,7 +72,11 @@ export const create = async (
     // meninggalkan file tanpa cara membersihkannya.
     tx.onRollback(() => removeFileSafely(file.id), `file makanan ${file.id}`);
 
-    const analisaMentah = await analyzeImages([converted.buffer], FOOD_PROMPT);
+    // Yang dikirim ke AI salinan kecilnya, bukan yang tersimpan di storage.
+    const analisaMentah = await analyzeImages(
+      [await toAnalysisBuffer(converted.buffer)],
+      FOOD_PROMPT,
+    );
     const analisa = extractAnalisa(analisaMentah);
 
     const repo = forUser(userId, tx);

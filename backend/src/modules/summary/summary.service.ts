@@ -189,8 +189,7 @@ const getPeriod = async (userId: string, from: string, to: string): Promise<Peri
     days: hari,
     weight_start: awal,
     weight_end: akhir,
-    weight_change_kg:
-      awal === null || akhir === null ? null : Number((akhir - awal).toFixed(2)),
+    weight_change_kg: awal === null || akhir === null ? null : Number((akhir - awal).toFixed(2)),
     total_calories_in: kalori,
     avg_calories_in: rata(kalori, hari),
     total_steps: langkah,
@@ -205,9 +204,7 @@ const getPeriod = async (userId: string, from: string, to: string): Promise<Peri
 };
 
 const geserHari = (date: string, hari: number): string =>
-  new Date(new Date(`${date}T00:00:00Z`).getTime() + hari * 86_400_000)
-    .toISOString()
-    .slice(0, 10);
+  new Date(new Date(`${date}T00:00:00Z`).getTime() + hari * 86_400_000).toISOString().slice(0, 10);
 
 export const getWeekly = async (userId: string, from?: string): Promise<PeriodSummary> => {
   const mulai = from ?? geserHari(todayInJakarta(), -6);

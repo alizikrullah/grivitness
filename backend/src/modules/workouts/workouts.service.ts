@@ -86,10 +86,7 @@ interface SumberOlahraga {
  * calories_burned dari client diabaikan — kalau tidak, client bisa mengarang
  * angka kalori yang tidak sesuai dengan durasi dan berat badannya.
  */
-const resolveSumber = async (
-  userId: string,
-  data: CreateWorkoutDto,
-): Promise<SumberOlahraga> => {
+const resolveSumber = async (userId: string, data: CreateWorkoutDto): Promise<SumberOlahraga> => {
   if (data.workout_library_id) {
     const [library, weightKg] = await Promise.all([
       withRetry(

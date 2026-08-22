@@ -28,8 +28,7 @@ interface GroqResponse {
   choices?: GroqChoice[];
 }
 
-const toDataUri = (buffer: Buffer): string =>
-  `data:image/webp;base64,${buffer.toString('base64')}`;
+const toDataUri = (buffer: Buffer): string => `data:image/webp;base64,${buffer.toString('base64')}`;
 
 /**
  * Mengirim satu atau beberapa gambar ke Groq dan mengembalikan JSON hasilnya.
@@ -70,7 +69,7 @@ export const analyzeImages = async (
     })),
   ];
 
-  try {
+  const kirim = async (): Promise<string> => {
     const { data } = await axios.post<GroqResponse>(
       ENDPOINT,
       {
@@ -90,16 +89,64 @@ export const analyzeImages = async (
     );
 
     const raw = data.choices?.[0]?.message?.content;
+    if (!raw) throw AppError.upstream('Groq membalas tanpa isi');
 
-    if (!raw) {
-      throw AppError.upstream('Groq membalas tanpa isi');
-    }
+    return raw;
+  };
 
-    return parseJsonResponse(raw);
+  try {
+    return parseJsonResponse(await kirim());
   } catch (error) {
     if (error instanceof AppError) throw error;
-    throw translateAxiosError(error);
+
+    // Batas token per menit Groq gampang tersentuh: satu analisa foto badan
+    // mengirim dua gambar sekaligus, dan free tier hanya memberi 8000 token
+    // per menit. Groq menyebutkan sendiri berapa lama harus menunggu, jadi
+    // sekali percobaan ulang menyelamatkan sebagian besar kasusnya.
+    //
+    // Diulang HANYA untuk 429. Status lain berarti permintaannya memang salah,
+    // dan mengulanginya cuma membuang waktu user.
+    const tunggu = jedaRateLimit(error);
+
+    if (tunggu === null) throw translateAxiosError(error);
+
+    logger.warn({ tunggu_ms: tunggu }, 'Groq membatasi laju, menunggu lalu mencoba sekali lagi');
+    await new Promise((resolve) => setTimeout(resolve, tunggu));
+
+    try {
+      return parseJsonResponse(await kirim());
+    } catch (ulang) {
+      if (ulang instanceof AppError) throw ulang;
+      throw translateAxiosError(ulang);
+    }
   }
+};
+
+/** Batas atas menunggu. Lebih dari ini, user lebih baik disuruh mencoba lagi sendiri. */
+const MAKS_TUNGGU_MS = 20_000;
+
+/**
+ * Lama menunggu yang disarankan Groq saat kena rate limit, dalam milidetik.
+ * Mengembalikan null kalau error-nya bukan rate limit atau tunggunya kelewat lama.
+ */
+const jedaRateLimit = (error: unknown): number | null => {
+  if (!axios.isAxiosError(error) || error.response?.status !== 429) return null;
+
+  const retryAfter = error.response.headers['retry-after'] as string | undefined;
+  const dariHeader = retryAfter ? Number(retryAfter) * 1000 : Number.NaN;
+
+  // Header retry-after tidak selalu ada, tapi pesannya menyebutkan detiknya:
+  // "Please try again in 16.245s"
+  const pesan = JSON.stringify(error.response.data ?? '');
+  const cocok = /try again in ([\d.]+)s/i.exec(pesan);
+  const dariPesan = cocok?.[1] ? Number(cocok[1]) * 1000 : Number.NaN;
+
+  const tunggu = Number.isFinite(dariHeader) ? dariHeader : dariPesan;
+
+  if (!Number.isFinite(tunggu) || tunggu > MAKS_TUNGGU_MS) return null;
+
+  // Ditambah sedikit supaya tidak menembak persis di batas jendelanya.
+  return Math.ceil(tunggu) + 500;
 };
 
 /**

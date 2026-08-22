@@ -13,7 +13,12 @@ export const WeeklySummarySchema = z.object({
 
 export const MonthlySummarySchema = z.object({
   year: z.coerce.number().int().min(2000).max(2200).optional(),
-  month: z.coerce.number().int().min(1, 'Bulan antara 1-12').max(12, 'Bulan antara 1-12').optional(),
+  month: z.coerce
+    .number()
+    .int()
+    .min(1, 'Bulan antara 1-12')
+    .max(12, 'Bulan antara 1-12')
+    .optional(),
 });
 
 export type DailySummaryDto = z.infer<typeof DailySummarySchema>;

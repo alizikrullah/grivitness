@@ -3,11 +3,7 @@ import { Router } from 'express';
 import { authMiddleware } from '../../middlewares/auth.middleware.js';
 import { validateBody } from '../../middlewares/validate.middleware.js';
 import * as usersController from './users.controller.js';
-import {
-  CreateProfileSchema,
-  UpdateMeSchema,
-  UpdateProfileSchema,
-} from './users.validation.js';
+import { CreateProfileSchema, UpdateMeSchema, UpdateProfileSchema } from './users.validation.js';
 
 const router: Router = Router();
 

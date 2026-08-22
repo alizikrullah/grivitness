@@ -8,10 +8,7 @@ import {
 } from '../../middlewares/validate.middleware.js';
 import { DateRangeSchema, UuidParamSchema } from '../../utils/query.js';
 import * as measurementsController from './measurements.controller.js';
-import {
-  CreateMeasurementSchema,
-  UpdateMeasurementSchema,
-} from './measurements.validation.js';
+import { CreateMeasurementSchema, UpdateMeasurementSchema } from './measurements.validation.js';
 
 const router: Router = Router();
 

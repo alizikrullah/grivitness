@@ -22,7 +22,8 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{ts,js,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,js,json,md}\"",
-    "seed": "tsx scripts/seed-workout-library.ts"
+    "seed": "tsx scripts/seed-workout-library.ts",
+    "smoke:ai": "tsx scripts/smoke-ai.ts"
   },
   "dependencies": {
     "@directus/sdk": "^25.0.0",

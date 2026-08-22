@@ -266,3 +266,61 @@ describe('user_date_key — pengganti composite unique', () => {
     expect(punyaB.id).toEqual(expect.any(String));
   });
 });
+
+describe('GET /api/files/:id — penyajian file privat', () => {
+  /**
+   * File di Directus bersifat privat, jadi client tidak bisa memuatnya langsung.
+   * Backend yang menyajikannya setelah memastikan file itu memang dirujuk oleh
+   * catatan milik user yang sedang login.
+   *
+   * Baris food_logs dibuat langsung lewat repo, tanpa melewati endpoint upload,
+   * supaya test ini tidak memakai kuota Groq. Yang diuji di sini pemeriksaan
+   * kepemilikannya, bukan pipeline analisanya.
+   */
+  // UUID v4 yang sah. Versi dan variant bit-nya harus benar, kalau tidak
+  // validasi param menolaknya lebih dulu dan yang teruji jadi bukan
+  // pemeriksaan kepemilikan.
+  const FILE_ID = '11111111-2222-4333-8444-555555555555';
+
+  beforeAll(async () => {
+    await forUser(userA.id).create('food_logs', {
+      photo_url: `/api/files/${FILE_ID}`,
+      directus_file_id: null,
+      meal_type: 'LUNCH',
+      ai_analysis: {},
+      total_calories: 500,
+      protein_g: '20.00',
+      carbs_g: '60.00',
+      fat_g: '15.00',
+      logged_at: new Date().toISOString(),
+    });
+  });
+
+  it('menolak akses tanpa autentikasi', async () => {
+    const res = await request(app).get(`/api/files/${FILE_ID}`);
+
+    expect(res.status).toBe(401);
+  });
+
+  /**
+   * Inti pengamanannya: backend mengambil file memakai admin token, jadi tanpa
+   * pemeriksaan kepemilikan siapa pun yang punya akun bisa membuka foto badan
+   * user lain hanya dengan menebak id.
+   */
+  it('menolak file yang tidak dirujuk catatan milik user itu', async () => {
+    const res = await request(app)
+      .get(`/api/files/${FILE_ID}`)
+      .set('Authorization', `Bearer ${userB.token}`);
+
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('NOT_FOUND');
+  });
+
+  it('menolak id yang formatnya bukan uuid', async () => {
+    const res = await request(app)
+      .get('/api/files/bukan-uuid')
+      .set('Authorization', `Bearer ${userA.token}`);
+
+    expect(res.status).toBe(400);
+  });
+});

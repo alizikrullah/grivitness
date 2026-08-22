@@ -14,9 +14,6 @@ export const updateSettings = async (req: Request, res: Response): Promise<void>
   const user = getAuthUser(req);
   sendSuccess(
     res,
-    await notificationsService.updateSettings(
-      user.id,
-      req.body as UpdateNotificationSettingsDto,
-    ),
+    await notificationsService.updateSettings(user.id, req.body as UpdateNotificationSettingsDto),
   );
 };

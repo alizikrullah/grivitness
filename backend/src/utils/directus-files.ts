@@ -1,7 +1,8 @@
 import { deleteFile, uploadFiles } from '@directus/sdk';
 
 import { directus } from '../config/directus.js';
-import { env } from '../config/env.js';
+
+import { fileUrl } from '../modules/files/files.service.js';
 import { AppError } from './api-error.js';
 import { logger } from './logger.js';
 
@@ -17,9 +18,6 @@ export interface UploadedFile {
   id: string;
   url: string;
 }
-
-/** URL publik sebuah file di Directus. */
-export const fileUrl = (fileId: string): string => `${env.DIRECTUS_URL}/assets/${fileId}`;
 
 export const uploadWebP = async (
   buffer: Buffer,

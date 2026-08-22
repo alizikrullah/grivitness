@@ -75,7 +75,8 @@ export default tseslint.config(
   },
 
   {
-    files: ['**/*.test.ts', 'tests/**/*.ts'],
+    // smoke-ai.ts ikut di sini karena sama-sama memakai supertest.
+    files: ['**/*.test.ts', 'tests/**/*.ts', 'scripts/smoke-ai.ts'],
     rules: {
       'no-console': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',

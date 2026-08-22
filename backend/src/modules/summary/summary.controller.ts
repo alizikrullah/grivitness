@@ -5,11 +5,7 @@ import { getAuthUser } from '../../types/index.js';
 import { todayInJakarta } from '../../utils/daily-key.js';
 import { sendSuccess } from '../../utils/response.js';
 import * as summaryService from './summary.service.js';
-import type {
-  DailySummaryDto,
-  MonthlySummaryDto,
-  WeeklySummaryDto,
-} from './summary.validation.js';
+import type { DailySummaryDto, MonthlySummaryDto, WeeklySummaryDto } from './summary.validation.js';
 
 export const getDaily = async (req: Request, res: Response): Promise<void> => {
   const user = getAuthUser(req);
