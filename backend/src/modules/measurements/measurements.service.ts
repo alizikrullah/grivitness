@@ -1,0 +1,45 @@
+import { forUser } from '../../data/scoped.js';
+import type { BodyMeasurementRecord } from '../../types/directus-schema.js';
+import { dailyKey, todayInJakarta } from '../../utils/daily-key.js';
+import { type DateRangeDto, dateRangeFilter } from '../../utils/query.js';
+import type { CreateMeasurementDto, UpdateMeasurementDto } from './measurements.validation.js';
+
+export const create = async (
+  userId: string,
+  data: CreateMeasurementDto,
+): Promise<BodyMeasurementRecord> => {
+  const { logged_at: loggedAtInput, ...ukuran } = data;
+  const loggedAt = loggedAtInput ?? todayInJakarta();
+
+  return forUser(userId).create('body_measurements', {
+    ...ukuran,
+    logged_at: loggedAt,
+    user_date_key: dailyKey(userId, loggedAt),
+  });
+};
+
+/** Pencatatan terakhir, atau null kalau user belum pernah mengukur. */
+export const getLatest = async (userId: string): Promise<BodyMeasurementRecord | null> =>
+  forUser(userId).findOne('body_measurements', { sort: ['-logged_at'] });
+
+export const getRange = async (
+  userId: string,
+  range: DateRangeDto,
+): Promise<BodyMeasurementRecord[]> =>
+  forUser(userId).list('body_measurements', {
+    filter: dateRangeFilter(range),
+    sort: ['logged_at'],
+    limit: -1,
+  });
+
+export const update = async (
+  userId: string,
+  logId: string,
+  data: UpdateMeasurementDto,
+): Promise<BodyMeasurementRecord> => {
+  const repo = forUser(userId);
+
+  await repo.findById('body_measurements', logId);
+
+  return repo.update('body_measurements', logId, data);
+};
