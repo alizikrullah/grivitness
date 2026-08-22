@@ -19,6 +19,14 @@
  *    berisi "{user_id}:{YYYY-MM-DD}" dengan unique constraint satu kolom.
  */
 
+import {
+  ACTIVITY_LEVEL,
+  GENDER,
+  MEAL_TYPE,
+  WORKOUT_CATEGORY,
+  WORKOUT_INTENSITY,
+} from '../src/constants/enums.js';
+
 // ============================================================
 // TIPE DSL
 // ============================================================
@@ -76,26 +84,6 @@ export interface CollectionDef {
   note: string;
   fields: FieldDef[];
 }
-
-// ============================================================
-// ENUM — dipakai juga oleh Zod di layer validasi
-// ============================================================
-
-export const GENDER = ['MALE', 'FEMALE', 'OTHER'] as const;
-
-export const ACTIVITY_LEVEL = [
-  'SEDENTARY',
-  'LIGHTLY_ACTIVE',
-  'MODERATELY_ACTIVE',
-  'VERY_ACTIVE',
-  'EXTRA_ACTIVE',
-] as const;
-
-export const MEAL_TYPE = ['BREAKFAST', 'LUNCH', 'DINNER', 'SNACK'] as const;
-
-export const WORKOUT_INTENSITY = ['LOW', 'MEDIUM', 'HIGH'] as const;
-
-export const WORKOUT_CATEGORY = ['CARDIO', 'STRENGTH', 'FLEXIBILITY', 'SPORTS', 'OTHER'] as const;
 
 // ============================================================
 // HELPER — menekan pengulangan definisi field
