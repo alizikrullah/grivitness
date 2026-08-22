@@ -15,7 +15,9 @@ import { createDirectus, rest, schemaSnapshot, staticToken } from '@directus/sdk
 
 import { env } from '../src/config/env.js';
 
-const client = createDirectus(env.DIRECTUS_URL).with(staticToken(env.DIRECTUS_ADMIN_TOKEN)).with(rest());
+const client = createDirectus(env.DIRECTUS_URL)
+  .with(staticToken(env.DIRECTUS_ADMIN_TOKEN))
+  .with(rest());
 
 const OUTPUT_PATH = fileURLToPath(new URL('../directus/snapshot.json', import.meta.url));
 
@@ -43,7 +45,7 @@ const main = async () => {
 main().catch((error: unknown) => {
   const message =
     typeof error === 'object' && error !== null && 'errors' in error
-      ? JSON.stringify((error as { errors: unknown }).errors)
+      ? JSON.stringify(error.errors)
       : String(error);
 
   process.stderr.write(`\nGagal mengambil snapshot: ${message}\n\n`);

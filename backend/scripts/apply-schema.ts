@@ -28,8 +28,11 @@ import {
 
 import { env } from '../src/config/env.js';
 import { collections, type FieldDef } from '../directus/schema.js';
+import type { LiveCollection, LiveField, LiveRelation } from './directus-meta.js';
 
-const client = createDirectus(env.DIRECTUS_URL).with(staticToken(env.DIRECTUS_ADMIN_TOKEN)).with(rest());
+const client = createDirectus(env.DIRECTUS_URL)
+  .with(staticToken(env.DIRECTUS_ADMIN_TOKEN))
+  .with(rest());
 
 // ============================================================
 // OUTPUT
@@ -44,7 +47,7 @@ const heading = (line: string) => write(`\n\x1b[1m${line}\x1b[0m`);
 /** Error dari Directus SDK membawa array `errors`, bukan Error biasa. */
 const describeError = (error: unknown): string => {
   if (typeof error === 'object' && error !== null && 'errors' in error) {
-    const { errors } = error as { errors?: Array<{ message?: string }> };
+    const { errors } = error as { errors?: { message?: string }[] };
     if (Array.isArray(errors) && errors.length > 0) {
       return errors.map((e) => e.message ?? 'unknown').join('; ');
     }
@@ -163,7 +166,7 @@ const applyFields = async (): Promise<number> => {
   let created = 0;
 
   for (const def of collections) {
-    const current = await client.request(readFieldsByCollection(def.collection));
+    const current = (await client.request(readFieldsByCollection(def.collection))) as LiveField[];
     const existing = new Set(current.map((f) => f.field));
 
     const pending = def.fields.filter((f) => !f.primaryKey && !existing.has(f.field));
@@ -195,7 +198,7 @@ const relationKey = (collection: string, field: string) => `${collection}.${fiel
 const applyRelations = async (): Promise<number> => {
   heading('Tahap 3/3 — Relasi');
 
-  const current = await client.request(readRelations());
+  const current = (await client.request(readRelations())) as LiveRelation[];
   const existing = new Set(current.map((r) => relationKey(r.collection ?? '', r.field ?? '')));
 
   let created = 0;
@@ -244,7 +247,7 @@ const main = async () => {
   write(`Collection      : ${collections.length}`);
   write(`Total field     : ${collections.reduce((sum, c) => sum + c.fields.length, 0)}`);
 
-  const existingCollections = await client.request(readCollections());
+  const existingCollections = (await client.request(readCollections())) as LiveCollection[];
   const existing = new Set(existingCollections.map((c) => c.collection));
 
   const collectionsCreated = await applyCollections(existing);

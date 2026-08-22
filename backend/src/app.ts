@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
 
 import { env, isProduction } from './config/env.js';
+import { checkHealth } from './config/health.js';
 import { errorMiddleware, notFoundMiddleware } from './middlewares/error.middleware.js';
 import authRoutes from './modules/auth/auth.routes.js';
 import { logger } from './utils/logger.js';
@@ -45,16 +46,23 @@ export const createApp = (): Express => {
     pinoHttp({
       logger,
       // Health check membanjiri log tanpa memberi informasi berguna.
-      autoLogging: { ignore: (req) => req.url === '/health' },
+      autoLogging: { ignore: (req) => req.url?.startsWith('/health') ?? false },
     }),
   );
 
-  app.get('/health', (_req: Request, res: Response) => {
-    sendSuccess(res, {
-      status: 'ok',
-      environment: env.NODE_ENV,
-      uptime_seconds: Math.round(process.uptime()),
-    });
+  /**
+   * Membalas 503 kalau Directus tidak terjangkau, bukan 200. Load balancer dan
+   * Coolify memutuskan berdasarkan status code — membalas 200 padahal data layer
+   * mati membuat trafik tetap diarahkan ke instance yang tidak bisa melayani.
+   */
+  app.get('/health', async (_req: Request, res: Response) => {
+    const report = await checkHealth(env.NODE_ENV);
+    sendSuccess(res, report, report.status === 'ok' ? 200 : 503);
+  });
+
+  /** Liveness probe: cuma memastikan proses hidup, tanpa menyentuh Directus. */
+  app.get('/health/live', (_req: Request, res: Response) => {
+    sendSuccess(res, { status: 'ok', uptime_seconds: Math.round(process.uptime()) });
   });
 
   app.use('/api/auth', authRoutes);

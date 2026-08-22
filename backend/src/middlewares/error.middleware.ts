@@ -14,14 +14,14 @@ import { sendError } from '../utils/response.js';
 
 /** Struktur error yang dilempar SDK Directus. */
 interface DirectusError {
-  errors: Array<{
+  errors: {
     message?: string;
     extensions?: {
       code?: string;
       field?: string;
       collection?: string;
     };
-  }>;
+  }[];
 }
 
 const isDirectusError = (error: unknown): error is DirectusError =>

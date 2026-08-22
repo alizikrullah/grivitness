@@ -5,8 +5,8 @@
     "rootDir": "./src",
     "outDir": "./dist"
   },
-  // scripts/ sengaja tidak ikut di-build — dijalankan lewat tsx saat development,
-  // bukan bagian dari artefak production
+  // scripts/ dan berkas test sengaja tidak ikut di-build — keduanya alat
+  // development, bukan bagian dari artefak production
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "scripts"]
+  "exclude": ["node_modules", "dist", "scripts", "tests", "**/*.test.ts"]
 }

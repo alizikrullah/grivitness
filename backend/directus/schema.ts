@@ -33,15 +33,7 @@ import {
 
 /** Subset tipe field Directus yang dipakai project ini. */
 export type FieldType =
-  | 'uuid'
-  | 'string'
-  | 'text'
-  | 'integer'
-  | 'decimal'
-  | 'boolean'
-  | 'date'
-  | 'timestamp'
-  | 'json';
+  'uuid' | 'string' | 'text' | 'integer' | 'decimal' | 'boolean' | 'date' | 'timestamp' | 'json';
 
 export interface RelationDef {
   /** Collection tujuan dari relasi many-to-one ini. */
@@ -79,6 +71,14 @@ export interface FieldDef {
 
 export interface CollectionDef {
   collection: string;
+  /**
+   * Nama interface TypeScript yang di-generate untuk collection ini.
+   *
+   * Ditulis eksplisit karena bentuk jamak ke tunggal tidak bisa ditebak dengan
+   * aman: "notification_settings" tetap jadi NotificationSettingsRecord, bukan
+   * NotificationSetting, dan "workout_library" memang sudah tunggal.
+   */
+  typeName: string;
   /** Nama icon Material Design untuk navigasi admin panel. */
   icon: string;
   note: string;
@@ -207,6 +207,7 @@ export const collections: CollectionDef[] = [
   // ----------------------------------------------------------
   {
     collection: 'users',
+    typeName: 'UserRecord',
     icon: 'person',
     note: 'Akun aplikasi GriviTness. Terpisah dari directus_users — ini yang dipakai auth backend.',
     fields: [
@@ -240,6 +241,7 @@ export const collections: CollectionDef[] = [
 
   {
     collection: 'refresh_tokens',
+    typeName: 'RefreshTokenRecord',
     icon: 'key',
     note: 'Refresh token aktif per device. Dipakai untuk rotasi dan revoke saat logout.',
     fields: [
@@ -273,6 +275,7 @@ export const collections: CollectionDef[] = [
 
   {
     collection: 'user_profiles',
+    typeName: 'UserProfileRecord',
     icon: 'badge',
     note: 'Data fisik user. Dipisah dari users supaya tabel auth tetap lean.',
     fields: [
@@ -294,6 +297,7 @@ export const collections: CollectionDef[] = [
   // ----------------------------------------------------------
   {
     collection: 'goals',
+    typeName: 'GoalRecord',
     icon: 'flag',
     note: 'Target berat badan user. Hanya boleh satu yang is_active, di-enforce di service layer.',
     fields: [
@@ -322,6 +326,7 @@ export const collections: CollectionDef[] = [
   // ----------------------------------------------------------
   {
     collection: 'weight_logs',
+    typeName: 'WeightLogRecord',
     icon: 'monitor_weight',
     note: 'Berat badan harian. Satu baris per user per hari.',
     fields: [
@@ -337,6 +342,7 @@ export const collections: CollectionDef[] = [
 
   {
     collection: 'body_photos',
+    typeName: 'BodyPhotoRecord',
     icon: 'photo_camera',
     note: 'Foto badan tampak depan dan samping. Satu baris per user per hari.',
     fields: [
@@ -360,6 +366,7 @@ export const collections: CollectionDef[] = [
 
   {
     collection: 'food_logs',
+    typeName: 'FoodLogRecord',
     icon: 'restaurant',
     note: 'Log makanan hasil analisa foto oleh Groq Vision. Bisa banyak per hari.',
     fields: [
@@ -393,6 +400,7 @@ export const collections: CollectionDef[] = [
 
   {
     collection: 'workout_logs',
+    typeName: 'WorkoutLogRecord',
     icon: 'fitness_center',
     note: 'Log olahraga. Bisa banyak per hari. Sumbernya bisa dari library, custom workout, atau input manual.',
     fields: [
@@ -441,6 +449,7 @@ export const collections: CollectionDef[] = [
 
   {
     collection: 'step_logs',
+    typeName: 'StepLogRecord',
     icon: 'directions_walk',
     note: 'Langkah kaki harian dari pedometer. Satu baris per user per hari.',
     fields: [
@@ -461,6 +470,7 @@ export const collections: CollectionDef[] = [
 
   {
     collection: 'sleep_logs',
+    typeName: 'SleepLogRecord',
     icon: 'bedtime',
     note: 'Log tidur. Sengaja TIDAK unik per hari karena user bisa tidur siang juga.',
     fields: [
@@ -486,6 +496,7 @@ export const collections: CollectionDef[] = [
 
   {
     collection: 'water_logs',
+    typeName: 'WaterLogRecord',
     icon: 'water_drop',
     note: 'Log minum air. Berkali-kali per hari, di-aggregate SUM saat summary.',
     fields: [
@@ -503,6 +514,7 @@ export const collections: CollectionDef[] = [
 
   {
     collection: 'body_measurements',
+    typeName: 'BodyMeasurementRecord',
     icon: 'straighten',
     note: 'Ukuran lingkar badan. Semua kolom nullable karena user boleh isi sebagian saja.',
     fields: [
@@ -523,6 +535,7 @@ export const collections: CollectionDef[] = [
 
   {
     collection: 'mood_logs',
+    typeName: 'MoodLogRecord',
     icon: 'mood',
     note: 'Mood dan energi harian. Satu baris per user per hari.',
     fields: [
@@ -550,6 +563,7 @@ export const collections: CollectionDef[] = [
   // ----------------------------------------------------------
   {
     collection: 'streaks',
+    typeName: 'StreakRecord',
     icon: 'local_fire_department',
     note: 'Rekap streak per user. Satu baris per user, dibuat otomatis saat register.',
     fields: [
@@ -569,6 +583,7 @@ export const collections: CollectionDef[] = [
 
   {
     collection: 'notification_settings',
+    typeName: 'NotificationSettingsRecord',
     icon: 'notifications',
     note: 'Pengaturan reminder per user. Satu baris per user, dibuat otomatis saat register.',
     fields: [
@@ -622,6 +637,7 @@ export const collections: CollectionDef[] = [
   // ----------------------------------------------------------
   {
     collection: 'workout_library',
+    typeName: 'WorkoutLibraryRecord',
     icon: 'menu_book',
     note: 'Library olahraga global untuk semua user. Di-seed lewat npm run seed.',
     fields: [
@@ -638,6 +654,7 @@ export const collections: CollectionDef[] = [
 
   {
     collection: 'custom_workouts',
+    typeName: 'CustomWorkoutRecord',
     icon: 'add_circle',
     note: 'Library olahraga custom milik masing-masing user.',
     fields: [

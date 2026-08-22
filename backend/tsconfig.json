@@ -31,6 +31,9 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "scripts/**/*.ts"],
+  // tests/ dan vitest.config.ts ikut di sini supaya ESLint bisa menjalankan
+  // typed linting padanya. Keduanya dikecualikan dari tsconfig.build.json,
+  // jadi tidak ikut masuk artefak production.
+  "include": ["src/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts", "vitest.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

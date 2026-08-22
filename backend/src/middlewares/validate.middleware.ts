@@ -11,9 +11,9 @@ import { AppError } from '../utils/api-error.js';
  * dan field yang tidak dikenal sudah dibuang.
  */
 
-const formatIssues = (error: unknown): Array<{ field: string; message: string }> => {
+const formatIssues = (error: unknown): { field: string; message: string }[] => {
   if (typeof error === 'object' && error !== null && 'issues' in error) {
-    const { issues } = error as { issues: Array<{ path: PropertyKey[]; message: string }> };
+    const { issues } = error as { issues: { path: PropertyKey[]; message: string }[] };
     return issues.map((issue) => ({
       field: issue.path.join('.') || '(root)',
       message: issue.message,

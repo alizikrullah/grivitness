@@ -24,11 +24,7 @@ const passwordSchema = z
 export const RegisterSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
-  name: z
-    .string()
-    .trim()
-    .min(2, 'Nama minimal 2 karakter')
-    .max(100, 'Nama maksimal 100 karakter'),
+  name: z.string().trim().min(2, 'Nama minimal 2 karakter').max(100, 'Nama maksimal 100 karakter'),
 });
 
 export const LoginSchema = z.object({

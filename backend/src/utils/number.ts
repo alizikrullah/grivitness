@@ -9,11 +9,31 @@ import { AppError } from './api-error.js';
  * WAJIB lewat helper ini dulu sebelum dipakai berhitung.
  */
 export const toNumber = (value: string | number): number => {
-  if (typeof value === 'number') return value;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) {
+      throw new AppError(
+        500,
+        'INTERNAL_ERROR',
+        `Nilai numerik tidak valid dari database: ${value}`,
+      );
+    }
+    return value;
+  }
+
+  // Number('') dan Number('   ') menghasilkan 0, bukan NaN. Tanpa pemeriksaan
+  // ini, kolom decimal yang kosong akan terbaca sebagai berat 0 kg — salah,
+  // tapi tidak melempar error apa pun sehingga sulit terdeteksi.
+  if (value.trim() === '') {
+    throw new AppError(500, 'INTERNAL_ERROR', 'Nilai numerik kosong dari database');
+  }
 
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
-    throw new AppError(500, 'INTERNAL_ERROR', `Nilai numerik tidak valid dari database: "${value}"`);
+    throw new AppError(
+      500,
+      'INTERNAL_ERROR',
+      `Nilai numerik tidak valid dari database: "${value}"`,
+    );
   }
 
   return parsed;

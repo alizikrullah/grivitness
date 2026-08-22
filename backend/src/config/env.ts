@@ -26,7 +26,10 @@ const EnvSchema = z.object({
   DIRECTUS_URL: z.url({ message: 'DIRECTUS_URL harus berupa URL yang valid' }),
   DIRECTUS_ADMIN_TOKEN: z
     .string()
-    .min(1, 'DIRECTUS_ADMIN_TOKEN wajib diisi. Ambil di Directus > User Directory > user admin > field Token'),
+    .min(
+      1,
+      'DIRECTUS_ADMIN_TOKEN wajib diisi. Ambil di Directus > User Directory > user admin > field Token',
+    ),
   DIRECTUS_SYNC_USERS: z
     .enum(['true', 'false'])
     .default('true')
@@ -37,6 +40,14 @@ const EnvSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET minimal 32 karakter'),
   ACCESS_TOKEN_EXPIRY: z.string().default('15m'),
   REFRESH_TOKEN_EXPIRY: z.string().default('7d'),
+
+  // --- Rate limit ---
+  // Batas percobaan register & login per IP dalam satu jendela waktu.
+  // Dibuat bisa diatur karena angka yang pas untuk production terlalu ketat
+  // saat development, dan harus bisa dimatikan sepenuhnya saat menjalankan test.
+  RATE_LIMIT_WINDOW_MINUTES: z.coerce.number().int().positive().default(15),
+  RATE_LIMIT_AUTH_MAX: z.coerce.number().int().positive().default(10),
+  RATE_LIMIT_REFRESH_MAX: z.coerce.number().int().positive().default(60),
 
   // --- Groq ---
   // Sengaja tidak wajib: baru dibutuhkan saat module food & body-photos dikerjakan.
@@ -61,3 +72,4 @@ export const env = parsed.data;
 
 export const isProduction = env.NODE_ENV === 'production';
 export const isDevelopment = env.NODE_ENV === 'development';
+export const isTest = env.NODE_ENV === 'test';

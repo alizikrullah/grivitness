@@ -1,10 +1,13 @@
 import { randomBytes } from 'node:crypto';
 
-import { createItem, createUser, deleteItem, readItems, updateItem } from '@directus/sdk';
+import { createUser, readItems, updateItem } from '@directus/sdk';
 import bcrypt from 'bcryptjs';
 
 import { directus } from '../../config/directus.js';
 import { env } from '../../config/env.js';
+import { withRetry } from '../../data/retry.js';
+import { forUser } from '../../data/scoped.js';
+import { unitOfWork } from '../../data/unit-of-work.js';
 import type { UserRecord } from '../../types/directus-schema.js';
 import { AppError } from '../../utils/api-error.js';
 import {
@@ -30,7 +33,12 @@ export interface PublicUser {
   id: string;
   email: string;
   name: string;
-  created_at: string;
+  /**
+   * Bisa null secara tipe karena kolomnya memang nullable — Directus yang
+   * mengisinya lewat flag date-created, jadi tidak boleh NOT NULL di database.
+   * Dalam praktiknya selalu terisi setelah item berhasil dibuat.
+   */
+  created_at: string | null;
 }
 
 export interface AuthResult {
@@ -47,12 +55,24 @@ const toPublicUser = (user: UserRecord): PublicUser => ({
   created_at: user.created_at,
 });
 
+/**
+ * Collection `users` tidak dimiliki user mana pun — barisnya JUSTRU si user itu
+ * sendiri — jadi tidak bisa lewat forUser(). Ini salah satu dari sedikit tempat
+ * yang boleh menyentuh SDK langsung, dan alasannya harus tetap jelas.
+ */
 const findUserByEmail = async (email: string): Promise<UserRecord | null> => {
-  const rows = await directus.request(
-    readItems('users', {
-      filter: { email: { _eq: email } },
-      limit: 1,
-    }),
+  const rows = await withRetry(
+    () => directus.request(readItems('users', { filter: { email: { _eq: email } }, limit: 1 })),
+    'cari user by email',
+  );
+
+  return rows[0] ?? null;
+};
+
+const findUserById = async (id: string): Promise<UserRecord | null> => {
+  const rows = await withRetry(
+    () => directus.request(readItems('users', { filter: { id: { _eq: id } }, limit: 1 })),
+    'cari user by id',
   );
 
   return rows[0] ?? null;
@@ -69,14 +89,11 @@ const issueTokens = async (
   const accessToken = signAccessToken({ sub: user.id, email: user.email });
   const { token: refreshToken } = signRefreshToken(user.id);
 
-  await directus.request(
-    createItem('refresh_tokens', {
-      user_id: user.id,
-      token_hash: hashRefreshToken(refreshToken),
-      expires_at: refreshTokenExpiry(refreshToken).toISOString(),
-      user_agent: userAgent,
-    }),
-  );
+  await forUser(user.id).create('refresh_tokens', {
+    token_hash: hashRefreshToken(refreshToken),
+    expires_at: refreshTokenExpiry(refreshToken).toISOString(),
+    user_agent: userAgent,
+  });
 
   return { access_token: accessToken, refresh_token: refreshToken };
 };
@@ -122,11 +139,14 @@ const syncUserToDirectus = async (user: UserRecord): Promise<string | null> => {
 /**
  * Mendaftarkan user baru.
  *
- * REST API Directus tidak punya transaction, jadi penulisan ke beberapa collection
- * dilindungi compensating rollback sesuai CLAUDE.md section 4: apa pun yang sudah
- * terlanjur dibuat akan dihapus lagi kalau ada langkah yang gagal.
+ * Menulis ke tiga collection sekaligus. Directus tidak punya transaction, jadi
+ * seluruhnya dibungkus unitOfWork: kalau ada langkah yang gagal, apa pun yang
+ * sudah terlanjur dibuat otomatis ditarik kembali. Lihat data/unit-of-work.ts.
  */
-export const register = async (data: RegisterDto, userAgent: string | null): Promise<AuthResult> => {
+export const register = async (
+  data: RegisterDto,
+  userAgent: string | null,
+): Promise<AuthResult> => {
   const existing = await findUserByEmail(data.email);
   if (existing) {
     throw AppError.emailTaken();
@@ -134,61 +154,41 @@ export const register = async (data: RegisterDto, userAgent: string | null): Pro
 
   const passwordHash = await bcrypt.hash(data.password, BCRYPT_ROUNDS);
 
-  const rollback: Array<{ collection: 'users' | 'streaks' | 'notification_settings'; id: string }> = [];
+  const user = await unitOfWork(async (tx) => {
+    const created = await tx.create('users', {
+      email: data.email,
+      password_hash: passwordHash,
+      name: data.name,
+    });
 
-  try {
-    const user = await directus.request(
-      createItem('users', {
-        email: data.email,
-        password_hash: passwordHash,
-        name: data.name,
-      }),
-    );
-    rollback.push({ collection: 'users', id: user.id });
+    const repo = forUser(created.id, tx);
 
     // Dibuat sekalian saat register supaya module streaks dan notifications
     // tidak perlu menangani kasus "barisnya belum ada".
-    const streak = await directus.request(
-      createItem('streaks', {
-        user_id: user.id,
-        current_streak: 0,
-        longest_streak: 0,
-        last_logged_date: null,
-      }),
-    );
-    rollback.push({ collection: 'streaks', id: streak.id });
+    await repo.create('streaks', {
+      current_streak: 0,
+      longest_streak: 0,
+      last_logged_date: null,
+    });
 
-    const settings = await directus.request(
-      createItem('notification_settings', { user_id: user.id }),
-    );
-    rollback.push({ collection: 'notification_settings', id: settings.id });
+    await repo.create('notification_settings', {});
 
-    const directusUserId = await syncUserToDirectus(user);
+    const directusUserId = await syncUserToDirectus(created);
     if (directusUserId) {
-      await directus.request(updateItem('users', user.id, { directus_user_id: directusUserId }));
+      await tx.update('users', created.id, { directus_user_id: directusUserId });
+      return { ...created, directus_user_id: directusUserId };
     }
 
-    const tokens = await issueTokens(user, userAgent);
+    return created;
+  });
 
-    logger.info({ user_id: user.id }, 'User baru terdaftar');
+  // Sengaja DI LUAR unitOfWork. Kalau penerbitan token gagal, akun yang sudah
+  // jadi tidak perlu ikut dibatalkan — user tinggal login biasa.
+  const tokens = await issueTokens(user, userAgent);
 
-    return { user: toPublicUser(user), ...tokens };
-  } catch (error) {
-    // Urutan dibalik supaya anak dihapus sebelum induknya.
-    // Best-effort: kegagalan rollback tidak boleh menutupi error aslinya.
-    for (const item of rollback.reverse()) {
-      try {
-        await directus.request(deleteItem(item.collection, item.id));
-      } catch (cleanupError) {
-        logger.error(
-          { err: cleanupError, ...item },
-          'Rollback registrasi gagal, ada data menggantung yang perlu dibersihkan manual',
-        );
-      }
-    }
+  logger.info({ user_id: user.id }, 'User baru terdaftar');
 
-    throw error;
-  }
+  return { user: toPublicUser(user), ...tokens };
 };
 
 /**
@@ -226,14 +226,12 @@ export const refresh = async (rawToken: string, userAgent: string | null): Promi
   const payload = verifyRefreshToken(rawToken);
   const tokenHash = hashRefreshToken(rawToken);
 
-  const rows = await directus.request(
-    readItems('refresh_tokens', {
-      filter: { token_hash: { _eq: tokenHash } },
-      limit: 1,
-    }),
-  );
+  const repo = forUser(payload.sub);
 
-  const stored = rows[0];
+  const stored = await repo.findOne('refresh_tokens', {
+    filter: { token_hash: { _eq: tokenHash } },
+  });
+
   if (!stored) {
     throw AppError.invalidRefreshToken();
   }
@@ -251,18 +249,12 @@ export const refresh = async (rawToken: string, userAgent: string | null): Promi
     throw AppError.invalidRefreshToken();
   }
 
-  const users = await directus.request(
-    readItems('users', { filter: { id: { _eq: payload.sub } }, limit: 1 }),
-  );
-
-  const user = users[0];
+  const user = await findUserById(payload.sub);
   if (!user) {
     throw AppError.invalidRefreshToken();
   }
 
-  await directus.request(
-    updateItem('refresh_tokens', stored.id, { revoked_at: new Date().toISOString() }),
-  );
+  await repo.update('refresh_tokens', stored.id, { revoked_at: new Date().toISOString() });
 
   const tokens = await issueTokens(user, userAgent);
 
@@ -277,43 +269,44 @@ export const refresh = async (rawToken: string, userAgent: string | null): Promi
  * respons yang seragam mencegah endpoint ini dipakai menebak token yang valid.
  */
 export const logout = async (rawToken: string): Promise<void> => {
+  let userId: string;
   let tokenHash: string;
 
   try {
-    verifyRefreshToken(rawToken);
+    const payload = verifyRefreshToken(rawToken);
+    userId = payload.sub;
     tokenHash = hashRefreshToken(rawToken);
   } catch {
     return;
   }
 
-  const rows = await directus.request(
-    readItems('refresh_tokens', {
-      filter: { token_hash: { _eq: tokenHash }, revoked_at: { _null: true } },
-      limit: 1,
-    }),
-  );
+  const repo = forUser(userId);
 
-  const stored = rows[0];
+  const stored = await repo.findOne('refresh_tokens', {
+    filter: { token_hash: { _eq: tokenHash }, revoked_at: { _null: true } },
+  });
+
   if (!stored) return;
 
-  await directus.request(
-    updateItem('refresh_tokens', stored.id, { revoked_at: new Date().toISOString() }),
-  );
+  await repo.update('refresh_tokens', stored.id, { revoked_at: new Date().toISOString() });
 
-  logger.info({ user_id: stored.user_id }, 'User logout');
+  logger.info({ user_id: userId }, 'User logout');
 };
 
 /** Mencabut semua refresh token milik satu user. Dipakai saat terdeteksi token bocor. */
 const revokeAllForUser = async (userId: string): Promise<void> => {
-  const active = await directus.request(
-    readItems('refresh_tokens', {
-      filter: { user_id: { _eq: userId }, revoked_at: { _null: true } },
-      limit: -1,
-    }),
-  );
+  const repo = forUser(userId);
+
+  const active = await repo.list('refresh_tokens', {
+    filter: { revoked_at: { _null: true } },
+    limit: -1,
+  });
 
   const now = new Date().toISOString();
 
+  // Dijalankan paralel, bukan berurutan. Setiap panggilan adalah round-trip HTTP
+  // ke Directus, jadi menunggu satu per satu membuat pencabutan darurat ini
+  // lambat justru saat paling dibutuhkan.
   await Promise.all(
     active.map((token) =>
       directus.request(updateItem('refresh_tokens', token.id, { revoked_at: now })),

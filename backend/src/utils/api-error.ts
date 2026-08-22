@@ -72,7 +72,11 @@ export class AppError extends Error {
   }
 
   static invalidRefreshToken(): AppError {
-    return new AppError(401, 'INVALID_REFRESH_TOKEN', 'Refresh token tidak valid atau sudah dipakai');
+    return new AppError(
+      401,
+      'INVALID_REFRESH_TOKEN',
+      'Refresh token tidak valid atau sudah dipakai',
+    );
   }
 
   static upstream(message = 'Layanan eksternal sedang bermasalah'): AppError {
