@@ -16,6 +16,7 @@ import notificationsRoutes from './modules/notifications/notifications.routes.js
 import sleepRoutes from './modules/sleep/sleep.routes.js';
 import stepsRoutes from './modules/steps/steps.routes.js';
 import streaksRoutes from './modules/streaks/streaks.routes.js';
+import summaryRoutes from './modules/summary/summary.routes.js';
 import usersRoutes from './modules/users/users.routes.js';
 import waterRoutes from './modules/water/water.routes.js';
 import weightRoutes from './modules/weight/weight.routes.js';
@@ -92,6 +93,7 @@ export const createApp = (): Express => {
   app.use('/api/notifications', notificationsRoutes);
   app.use('/api/food', foodRoutes);
   app.use('/api/body-photos', bodyPhotosRoutes);
+  app.use('/api/summary', summaryRoutes);
 
   // Wajib dipasang paling akhir, setelah semua route.
   app.use(notFoundMiddleware);
