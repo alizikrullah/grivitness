@@ -4,6 +4,7 @@ import { ZodError } from 'zod';
 import { AppError, isAppError } from '../utils/api-error.js';
 import { logger } from '../utils/logger.js';
 import { sendError } from '../utils/response.js';
+import { translateUploadError } from './upload.middleware.js';
 
 /**
  * Error handler global. Dipasang PALING AKHIR di app.ts, setelah semua route.
@@ -82,7 +83,16 @@ export const errorMiddleware = (
     return;
   }
 
-  // 2. Validasi Zod yang lolos dari validate.middleware
+  // 2. Kegagalan upload dari Multer, misalnya file melebihi batas ukuran.
+  //    Tanpa penerjemahan ini, user menerima 500 dengan pesan teknis
+  //    "LIMIT_FILE_SIZE" yang tidak berarti apa-apa baginya.
+  const uploadError = translateUploadError(error);
+  if (uploadError) {
+    sendError(res, uploadError.statusCode, uploadError.code, uploadError.message);
+    return;
+  }
+
+  // 3. Validasi Zod yang lolos dari validate.middleware
   if (error instanceof ZodError) {
     const details = error.issues.map((issue) => ({
       field: issue.path.join('.'),
@@ -92,7 +102,7 @@ export const errorMiddleware = (
     return;
   }
 
-  // 3. Error dari Directus yang punya padanan jelas
+  // 4. Error dari Directus yang punya padanan jelas
   if (isDirectusError(error)) {
     const translated = translateDirectusError(error);
     if (translated) {
@@ -105,7 +115,7 @@ export const errorMiddleware = (
     return;
   }
 
-  // 4. Sisanya: bug. Detailnya dicatat di log, TIDAK dikirim ke client.
+  // 5. Sisanya: bug. Detailnya dicatat di log, TIDAK dikirim ke client.
   logger.error({ err: error, path: req.path, method: req.method }, 'Unhandled error');
   sendError(res, 500, 'INTERNAL_ERROR', 'Terjadi kesalahan di server');
 };

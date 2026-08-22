@@ -7,6 +7,8 @@ import { env, isProduction } from './config/env.js';
 import { checkHealth } from './config/health.js';
 import { errorMiddleware, notFoundMiddleware } from './middlewares/error.middleware.js';
 import authRoutes from './modules/auth/auth.routes.js';
+import bodyPhotosRoutes from './modules/body-photos/body-photos.routes.js';
+import foodRoutes from './modules/food/food.routes.js';
 import goalsRoutes from './modules/goals/goals.routes.js';
 import measurementsRoutes from './modules/measurements/measurements.routes.js';
 import moodRoutes from './modules/mood/mood.routes.js';
@@ -88,6 +90,8 @@ export const createApp = (): Express => {
   app.use('/api/workouts', workoutsRoutes);
   app.use('/api/streaks', streaksRoutes);
   app.use('/api/notifications', notificationsRoutes);
+  app.use('/api/food', foodRoutes);
+  app.use('/api/body-photos', bodyPhotosRoutes);
 
   // Wajib dipasang paling akhir, setelah semua route.
   app.use(notFoundMiddleware);
