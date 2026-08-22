@@ -1,0 +1,435 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+// Level aktivitas harian user, dipakai untuk kalkulasi TDEE
+// (Total Daily Energy Expenditure = total kalori yang dibakar per hari)
+enum ActivityLevel {
+  SEDENTARY        // kerja kantoran, hampir tidak olahraga
+  LIGHTLY_ACTIVE   // olahraga ringan 1-3x seminggu
+  MODERATELY_ACTIVE // olahraga sedang 3-5x seminggu
+  VERY_ACTIVE      // olahraga berat 6-7x seminggu
+  EXTRA_ACTIVE     // atlet atau kerja fisik berat
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+}
+
+enum WorkoutIntensity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum WorkoutCategory {
+  CARDIO
+  STRENGTH
+  FLEXIBILITY
+  SPORTS
+  OTHER
+}
+
+// Dua FK nullable di WorkoutLog (workout_library_id dan custom_workout_id)
+// menandakan darimana olahraga ini dipilih:
+// - workout_library_id ada -> dipilih dari global library
+// - custom_workout_id ada  -> dipilih dari custom workout milik user
+// - keduanya null          -> input nama olahraga manual lewat workout_name
+
+// ============================================================
+// USER & AUTH
+// ============================================================
+
+model User {
+  id                    String    @id @default(uuid())
+  email                 String    @unique
+  password_hash         String
+  name                  String
+  // Diisi setelah user dibuat di Directus untuk sinkronisasi user management
+  directus_user_id      String?   @unique
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+
+  profile               UserProfile?
+  goals                 Goal[]
+  weight_logs           WeightLog[]
+  body_photos           BodyPhoto[]
+  food_logs             FoodLog[]
+  workout_logs          WorkoutLog[]
+  step_logs             StepLog[]
+  sleep_logs            SleepLog[]
+  water_logs            WaterLog[]
+  streak                Streak?
+  notification_settings NotificationSettings?
+  body_measurements     BodyMeasurement[]
+  mood_logs             MoodLog[]
+  custom_workouts       CustomWorkout[]
+
+  @@map("users")
+}
+
+// Data fisik user, dipisah dari users supaya tabel users tetap lean
+// dan data ini bisa diupdate kapanpun tanpa menyentuh data auth
+model UserProfile {
+  id             String        @id @default(uuid())
+  user_id        String        @unique
+  height_cm      Decimal       @db.Decimal(5, 2)
+  birth_date     DateTime      @db.Date
+  gender         Gender
+  // Dipakai untuk kalkulasi TDEE dan calorie budget harian di Goal
+  activity_level ActivityLevel
+  created_at     DateTime      @default(now())
+  updated_at     DateTime      @updatedAt
+
+  user           User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+// ============================================================
+// GOAL
+// ============================================================
+
+// User bisa punya banyak goal (misal ganti target), tapi hanya satu is_active = true
+// Enforce ini di level aplikasi saat user buat goal baru:
+// update goal lama jadi is_active = false, baru insert goal baru
+model Goal {
+  id                   String   @id @default(uuid())
+  user_id              String
+  target_weight_kg     Decimal  @db.Decimal(5, 2)
+  target_date          DateTime @db.Date
+  // Dikalkulasi otomatis dari TDEE user dikurangi deficit yang diinginkan
+  // Bisa juga di-override manual oleh user
+  daily_calorie_budget Int
+  is_active            Boolean  @default(true)
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  user                 User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("goals")
+}
+
+// ============================================================
+// DAILY LOGS
+// ============================================================
+
+// Satu baris per hari per user, di-enforce oleh @@unique
+model WeightLog {
+  id         String   @id @default(uuid())
+  user_id    String
+  weight_kg  Decimal  @db.Decimal(5, 2)
+  logged_at  DateTime @db.Date
+  notes      String?
+  created_at DateTime @default(now())
+
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, logged_at])
+  @@index([user_id, logged_at])
+  @@map("weight_logs")
+}
+
+// Satu baris per hari per user
+// front dan side photo wajib keduanya, tidak boleh salah satu
+// directus_file_id disimpan untuk keperluan delete file dari Directus storage
+// ai_analysis menyimpan raw JSON response dari Groq supaya tidak ada data yang hilang
+model BodyPhoto {
+  id                     String   @id @default(uuid())
+  user_id                String
+  front_photo_url        String
+  side_photo_url         String
+  front_directus_file_id String
+  side_directus_file_id  String
+  // Contoh isi ai_analysis:
+  // {
+  //   "posture_notes": "...",
+  //   "visible_progress": "...",
+  //   "estimated_body_fat_percent": 22.5,
+  //   "recommendations": ["...", "..."]
+  // }
+  ai_analysis            Json?
+  logged_at              DateTime @db.Date
+  created_at             DateTime @default(now())
+
+  user                   User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, logged_at])
+  @@index([user_id, logged_at])
+  @@map("body_photos")
+}
+
+// Bisa multiple per hari (sarapan, makan siang, makan malam, snack)
+// total_calories, protein_g, carbs_g, fat_g di-extract dari ai_analysis
+// dan disimpan sebagai kolom sendiri supaya gampang di-query untuk summary harian
+// tanpa perlu parse JSON setiap kali
+model FoodLog {
+  id               String   @id @default(uuid())
+  user_id          String
+  photo_url        String
+  directus_file_id String
+  meal_type        MealType
+  // Contoh isi ai_analysis:
+  // {
+  //   "foods_detected": ["nasi putih", "ayam goreng", "tempe"],
+  //   "total_calories": 650,
+  //   "protein_g": 35.5,
+  //   "carbs_g": 70.2,
+  //   "fat_g": 18.0,
+  //   "confidence": "high"
+  // }
+  ai_analysis      Json
+  total_calories   Int
+  protein_g        Decimal  @db.Decimal(6, 2)
+  carbs_g          Decimal  @db.Decimal(6, 2)
+  fat_g            Decimal  @db.Decimal(6, 2)
+  notes            String?
+  // Pakai DateTime bukan Date karena food log perlu timestamp
+  // supaya bisa sort urutan makan dalam sehari
+  logged_at        DateTime
+  created_at       DateTime @default(now())
+
+  user             User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, logged_at])
+  @@map("food_logs")
+}
+
+// Bisa multiple per hari (olahraga pagi + olahraga sore)
+// workout_name selalu wajib diisi sebagai display name
+// calories_burned bisa auto-fill dari library (duration * calories_per_minute)
+// atau diisi manual kalau workout sumber-nya manual
+model WorkoutLog {
+  id                  String           @id @default(uuid())
+  user_id             String
+  workout_library_id  String?
+  custom_workout_id   String?
+  // Selalu ada: auto-fill dari library/custom, atau input manual
+  workout_name        String
+  duration_minutes    Int
+  calories_burned     Int
+  intensity           WorkoutIntensity
+  notes               String?
+  logged_at           DateTime         @db.Date
+  created_at          DateTime         @default(now())
+
+  user                User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  workout_library     WorkoutLibrary?  @relation(fields: [workout_library_id], references: [id])
+  custom_workout      CustomWorkout?   @relation(fields: [custom_workout_id], references: [id])
+
+  @@index([user_id, logged_at])
+  @@map("workout_logs")
+}
+
+// Satu baris per hari per user
+// distance_km dan calories_burned dikalkulasi otomatis di backend
+// berdasarkan jumlah steps dan berat badan user saat itu
+model StepLog {
+  id              String   @id @default(uuid())
+  user_id         String
+  steps           Int
+  // Estimasi: steps * 0.0008 km (rata-rata panjang langkah 80cm)
+  distance_km     Decimal  @db.Decimal(6, 3)
+  // Estimasi: steps * 0.04 kalori (rata-rata per kg berat badan)
+  calories_burned Int
+  logged_at       DateTime @db.Date
+  created_at      DateTime @default(now())
+
+  user            User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, logged_at])
+  @@index([user_id, logged_at])
+  @@map("step_logs")
+}
+
+// TIDAK ada unique per hari karena user bisa tidur siang juga
+// Di summary harian, aggregate SUM(duration_minutes) per hari
+// duration_minutes dikalkulasi otomatis di backend: sleep_end - sleep_start
+model SleepLog {
+  id               String   @id @default(uuid())
+  user_id          String
+  sleep_start      DateTime
+  sleep_end        DateTime
+  // Dikalkulasi di backend, disimpan untuk kemudahan query
+  duration_minutes Int
+  // 1 = sangat buruk, 2 = buruk, 3 = cukup, 4 = baik, 5 = sangat baik
+  // Validate di level aplikasi bahwa nilainya 1-5
+  quality_score    Int
+  notes            String?
+  // Tanggal hari tidur dimulai (untuk grouping di summary)
+  logged_at        DateTime @db.Date
+  created_at       DateTime @default(now())
+
+  user             User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, logged_at])
+  @@map("sleep_logs")
+}
+
+// Berkali-kali per hari, tidak ada unique constraint
+// Di summary harian, aggregate SUM(amount_ml) per hari
+model WaterLog {
+  id         String   @id @default(uuid())
+  user_id    String
+  amount_ml  Int
+  // Pakai DateTime bukan Date supaya ada timestamp per tegukan
+  logged_at  DateTime
+  created_at DateTime @default(now())
+
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, logged_at])
+  @@map("water_logs")
+}
+
+// ============================================================
+// STREAK & NOTIFICATIONS
+// ============================================================
+
+// Satu baris per user, di-update setiap kali user berhasil log data lengkap dalam satu hari
+// "Data lengkap" = minimal: weight_log + food_log + workout_log ada di hari itu
+// Logika update streak ada di backend setiap kali user submit daily log
+model Streak {
+  id               String    @id @default(uuid())
+  user_id          String    @unique
+  current_streak   Int       @default(0)
+  longest_streak   Int       @default(0)
+  // Untuk cek apakah hari ini sudah dihitung atau belum
+  last_logged_date DateTime? @db.Date
+  updated_at       DateTime  @updatedAt
+
+  user             User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("streaks")
+}
+
+// Satu baris per user, auto-created saat register
+// expo_push_token diisi dari client setelah user grant permission notifikasi
+// reminder_time format "HH:mm" dalam timezone WIB
+model NotificationSettings {
+  id                            String   @id @default(uuid())
+  user_id                       String   @unique
+  expo_push_token               String?
+  weight_reminder_enabled       Boolean  @default(true)
+  weight_reminder_time          String   @default("21:00")
+  water_reminder_enabled        Boolean  @default(true)
+  // Reminder minum air setiap N jam
+  water_reminder_interval_hours Int      @default(2)
+  workout_reminder_enabled      Boolean  @default(true)
+  workout_reminder_time         String   @default("07:00")
+  photo_reminder_enabled        Boolean  @default(true)
+  photo_reminder_time           String   @default("08:00")
+  created_at                    DateTime @default(now())
+  updated_at                    DateTime @updatedAt
+
+  user                          User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("notification_settings")
+}
+
+// ============================================================
+// BODY MEASUREMENTS
+// ============================================================
+
+// Semua kolom ukuran nullable karena user boleh isi sebagian saja
+// Satu baris per hari per user
+model BodyMeasurement {
+  id             String   @id @default(uuid())
+  user_id        String
+  waist_cm       Decimal? @db.Decimal(5, 2)
+  hips_cm        Decimal? @db.Decimal(5, 2)
+  chest_cm       Decimal? @db.Decimal(5, 2)
+  left_arm_cm    Decimal? @db.Decimal(5, 2)
+  right_arm_cm   Decimal? @db.Decimal(5, 2)
+  left_thigh_cm  Decimal? @db.Decimal(5, 2)
+  right_thigh_cm Decimal? @db.Decimal(5, 2)
+  logged_at      DateTime @db.Date
+  created_at     DateTime @default(now())
+
+  user           User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, logged_at])
+  @@index([user_id, logged_at])
+  @@map("body_measurements")
+}
+
+// ============================================================
+// MOOD LOG
+// ============================================================
+
+// Satu baris per hari per user
+// mood_score dan energy_score: validate di level aplikasi bahwa nilainya 1-5
+model MoodLog {
+  id           String   @id @default(uuid())
+  user_id      String
+  // 1 = sangat buruk, 5 = sangat baik
+  mood_score   Int
+  // 1 = sangat lelah, 5 = sangat berenergi
+  energy_score Int
+  notes        String?
+  logged_at    DateTime @db.Date
+  created_at   DateTime @default(now())
+
+  user         User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, logged_at])
+  @@index([user_id, logged_at])
+  @@map("mood_logs")
+}
+
+// ============================================================
+// WORKOUT LIBRARY
+// ============================================================
+
+// Library global yang tersedia untuk semua user
+// Di-seed awal dengan jenis olahraga umum
+// calories_burned_per_minute adalah estimasi untuk berat badan 70kg
+// Backend akan scale nilai ini berdasarkan berat badan aktual user
+model WorkoutLibrary {
+  id                         String          @id @default(uuid())
+  name                       String
+  category                   WorkoutCategory
+  // Estimasi kalori per menit untuk berat badan 70kg
+  calories_burned_per_minute Decimal         @db.Decimal(5, 2)
+  description                String?
+  created_at                 DateTime        @default(now())
+
+  workout_logs               WorkoutLog[]
+
+  @@map("workout_library")
+}
+
+// Library olahraga custom milik masing-masing user
+// User bisa tambah olahraga yang tidak ada di global library
+model CustomWorkout {
+  id                         String          @id @default(uuid())
+  user_id                    String
+  name                       String
+  category                   WorkoutCategory
+  calories_burned_per_minute Decimal         @db.Decimal(5, 2)
+  description                String?
+  created_at                 DateTime        @default(now())
+
+  user                       User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  workout_logs               WorkoutLog[]
+
+  @@map("custom_workouts")
+}

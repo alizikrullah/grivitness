@@ -1,0 +1,17 @@
+# Normalisasi line ending: LF di repo, otomatis CRLF di working copy Windows.
+# Penting karena development di Windows tapi deploy ke Linux (Coolify).
+* text=auto eol=lf
+
+# File yang wajib LF walau di Windows
+*.sh text eol=lf
+
+# Binary — jangan disentuh
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary

@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    // Node 20+ mendukung penuh ES2023
+    "target": "ES2023",
+    "lib": ["ES2023"],
+
+    // WAJIB NodeNext karena package.json pakai "type": "module".
+    // Konsekuensinya: semua relative import harus berekstensi .js
+    // contoh: import { env } from './config/env.js'
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "moduleDetection": "force",
+
+    // Type-only import wajib ditulis eksplisit `import type { ... }`.
+    // Mencegah import yang cuma dipakai sebagai tipe ikut ter-emit ke runtime.
+    "verbatimModuleSyntax": true,
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+
+    "sourceMap": true,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "scripts/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}
