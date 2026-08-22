@@ -1,0 +1,674 @@
+/**
+ * ============================================================
+ * SUMBER KEBENARAN SCHEMA GriviTness
+ * ============================================================
+ *
+ * File ini mendefinisikan seluruh collection, field, dan relasi di Directus.
+ * Apply ke Directus dengan: npm run schema:apply
+ *
+ * JANGAN bikin atau ubah collection lewat UI Directus. Ubah di sini, lalu apply.
+ * Rujukan data model lengkap dengan komentar ada di schema-reference.prisma.
+ *
+ * Catatan penting soal keterbatasan Directus dibanding ORM biasa:
+ *
+ * 1. Tidak ada tipe enum. Semua enum jadi kolom string dengan dropdown choices.
+ *    Jaminan nilainya ada di Zod (`*.validation.ts`), bukan di database.
+ *
+ * 2. Tidak ada composite unique constraint. Collection yang butuh jaminan
+ *    "satu baris per user per hari" memakai field turunan `user_date_key`
+ *    berisi "{user_id}:{YYYY-MM-DD}" dengan unique constraint satu kolom.
+ */
+
+// ============================================================
+// TIPE DSL
+// ============================================================
+
+/** Subset tipe field Directus yang dipakai project ini. */
+export type FieldType =
+  | 'uuid'
+  | 'string'
+  | 'text'
+  | 'integer'
+  | 'decimal'
+  | 'boolean'
+  | 'date'
+  | 'timestamp'
+  | 'json';
+
+export interface RelationDef {
+  /** Collection tujuan dari relasi many-to-one ini. */
+  relatedCollection: string;
+  onDelete: 'CASCADE' | 'SET NULL' | 'NO ACTION';
+  /**
+   * Nama field kebalikan (one-to-many) yang dibuat di collection tujuan.
+   * Isi null kalau tidak perlu, misal relasi ke collection sistem Directus.
+   */
+  oneField?: string | null;
+}
+
+export interface FieldDef {
+  field: string;
+  type: FieldType;
+  /** Default false — mayoritas field wajib diisi. */
+  nullable?: boolean;
+  unique?: boolean;
+  primaryKey?: boolean;
+  defaultValue?: string | number | boolean | null;
+  maxLength?: number;
+  /** Total digit untuk tipe decimal. */
+  precision?: number;
+  /** Digit di belakang koma untuk tipe decimal. */
+  scale?: number;
+  /** Pilihan nilai untuk field enum. Otomatis jadi dropdown di admin panel. */
+  choices?: readonly string[];
+  /** Flag khusus Directus, misal 'uuid', 'date-created', 'date-updated', 'file'. */
+  special?: readonly string[];
+  readonly?: boolean;
+  hidden?: boolean;
+  note?: string;
+  relation?: RelationDef;
+}
+
+export interface CollectionDef {
+  collection: string;
+  /** Nama icon Material Design untuk navigasi admin panel. */
+  icon: string;
+  note: string;
+  fields: FieldDef[];
+}
+
+// ============================================================
+// ENUM — dipakai juga oleh Zod di layer validasi
+// ============================================================
+
+export const GENDER = ['MALE', 'FEMALE', 'OTHER'] as const;
+
+export const ACTIVITY_LEVEL = [
+  'SEDENTARY',
+  'LIGHTLY_ACTIVE',
+  'MODERATELY_ACTIVE',
+  'VERY_ACTIVE',
+  'EXTRA_ACTIVE',
+] as const;
+
+export const MEAL_TYPE = ['BREAKFAST', 'LUNCH', 'DINNER', 'SNACK'] as const;
+
+export const WORKOUT_INTENSITY = ['LOW', 'MEDIUM', 'HIGH'] as const;
+
+export const WORKOUT_CATEGORY = ['CARDIO', 'STRENGTH', 'FLEXIBILITY', 'SPORTS', 'OTHER'] as const;
+
+// ============================================================
+// HELPER — menekan pengulangan definisi field
+// ============================================================
+
+/** Primary key UUID, di-generate otomatis oleh Directus. */
+const pk = (): FieldDef => ({
+  field: 'id',
+  type: 'uuid',
+  primaryKey: true,
+  special: ['uuid'],
+  readonly: true,
+  hidden: true,
+});
+
+/** Diisi otomatis Directus saat item dibuat. Nullable karena diisi setelah insert. */
+const createdAt = (): FieldDef => ({
+  field: 'created_at',
+  type: 'timestamp',
+  nullable: true,
+  special: ['date-created'],
+  readonly: true,
+  note: 'Diisi otomatis oleh Directus saat item dibuat',
+});
+
+/** Diisi otomatis Directus setiap item diupdate. */
+const updatedAt = (): FieldDef => ({
+  field: 'updated_at',
+  type: 'timestamp',
+  nullable: true,
+  special: ['date-updated'],
+  readonly: true,
+  note: 'Diisi otomatis oleh Directus setiap item diubah',
+});
+
+/**
+ * Relasi many-to-one ke collection users.
+ * @param oneField nama field kebalikan yang muncul di collection users
+ */
+const userFk = (oneField: string, options: { unique?: boolean } = {}): FieldDef => ({
+  field: 'user_id',
+  type: 'uuid',
+  unique: options.unique ?? false,
+  note: 'Pemilik data ini',
+  relation: { relatedCollection: 'users', onDelete: 'CASCADE', oneField },
+});
+
+/**
+ * Pengganti composite unique @@unique([user_id, logged_at]).
+ * Diisi backend dengan format "{user_id}:{YYYY-MM-DD}" lewat utils/daily-key.ts.
+ * UUID 36 karakter + ':' + tanggal 10 karakter = 47, jadi 64 sudah cukup.
+ */
+const userDateKey = (): FieldDef => ({
+  field: 'user_date_key',
+  type: 'string',
+  maxLength: 64,
+  unique: true,
+  hidden: true,
+  note: 'Kunci unik "{user_id}:{YYYY-MM-DD}". Pengganti composite unique yang tidak didukung Directus. Diisi backend, jangan diedit manual.',
+});
+
+/** Tanggal log, tanpa jam. */
+const loggedAtDate = (): FieldDef => ({
+  field: 'logged_at',
+  type: 'date',
+  note: 'Tanggal log dalam format YYYY-MM-DD',
+});
+
+const enumField = (
+  field: string,
+  choices: readonly string[],
+  options: { nullable?: boolean; defaultValue?: string; note?: string } = {},
+): FieldDef => ({
+  field,
+  type: 'string',
+  maxLength: 32,
+  choices,
+  nullable: options.nullable ?? false,
+  ...(options.defaultValue !== undefined ? { defaultValue: options.defaultValue } : {}),
+  ...(options.note !== undefined ? { note: options.note } : {}),
+});
+
+const decimalField = (
+  field: string,
+  precision: number,
+  scale: number,
+  options: { nullable?: boolean; note?: string } = {},
+): FieldDef => ({
+  field,
+  type: 'decimal',
+  precision,
+  scale,
+  nullable: options.nullable ?? false,
+  ...(options.note !== undefined ? { note: options.note } : {}),
+});
+
+/** Relasi ke file di Directus storage. Nullable supaya file bisa dihapus dari admin panel. */
+const fileFk = (field: string, note: string): FieldDef => ({
+  field,
+  type: 'uuid',
+  nullable: true,
+  special: ['file'],
+  note,
+  relation: { relatedCollection: 'directus_files', onDelete: 'SET NULL', oneField: null },
+});
+
+const notes = (): FieldDef => ({
+  field: 'notes',
+  type: 'text',
+  nullable: true,
+  note: 'Catatan bebas dari user',
+});
+
+// ============================================================
+// DEFINISI COLLECTION
+// ============================================================
+
+export const collections: CollectionDef[] = [
+  // ----------------------------------------------------------
+  // USER & AUTH
+  // ----------------------------------------------------------
+  {
+    collection: 'users',
+    icon: 'person',
+    note: 'Akun aplikasi GriviTness. Terpisah dari directus_users — ini yang dipakai auth backend.',
+    fields: [
+      pk(),
+      {
+        field: 'email',
+        type: 'string',
+        maxLength: 255,
+        unique: true,
+        note: 'Dipakai sebagai identitas login',
+      },
+      {
+        field: 'password_hash',
+        type: 'string',
+        maxLength: 255,
+        hidden: true,
+        note: 'Hash bcrypt. JANGAN pernah dikirim ke client.',
+      },
+      { field: 'name', type: 'string', maxLength: 255 },
+      {
+        field: 'directus_user_id',
+        type: 'uuid',
+        nullable: true,
+        unique: true,
+        note: 'Id di directus_users, diisi kalau DIRECTUS_SYNC_USERS=true',
+      },
+      createdAt(),
+      updatedAt(),
+    ],
+  },
+
+  {
+    collection: 'refresh_tokens',
+    icon: 'key',
+    note: 'Refresh token aktif per device. Dipakai untuk rotasi dan revoke saat logout.',
+    fields: [
+      pk(),
+      userFk('refresh_tokens'),
+      {
+        field: 'token_hash',
+        type: 'string',
+        maxLength: 64,
+        unique: true,
+        hidden: true,
+        note: 'SHA-256 hex dari refresh token. Token mentah tidak pernah disimpan.',
+      },
+      { field: 'expires_at', type: 'timestamp' },
+      {
+        field: 'revoked_at',
+        type: 'timestamp',
+        nullable: true,
+        note: 'Terisi saat logout atau saat token dirotasi',
+      },
+      {
+        field: 'user_agent',
+        type: 'string',
+        maxLength: 255,
+        nullable: true,
+        note: 'Untuk membedakan session mobile dan web',
+      },
+      createdAt(),
+    ],
+  },
+
+  {
+    collection: 'user_profiles',
+    icon: 'badge',
+    note: 'Data fisik user. Dipisah dari users supaya tabel auth tetap lean.',
+    fields: [
+      pk(),
+      userFk('profile', { unique: true }),
+      decimalField('height_cm', 5, 2, { note: 'Tinggi badan dalam sentimeter' }),
+      { field: 'birth_date', type: 'date', note: 'Dipakai menghitung usia untuk rumus BMR' },
+      enumField('gender', GENDER),
+      enumField('activity_level', ACTIVITY_LEVEL, {
+        note: 'Menentukan activity multiplier pada kalkulasi TDEE',
+      }),
+      createdAt(),
+      updatedAt(),
+    ],
+  },
+
+  // ----------------------------------------------------------
+  // GOAL
+  // ----------------------------------------------------------
+  {
+    collection: 'goals',
+    icon: 'flag',
+    note: 'Target berat badan user. Hanya boleh satu yang is_active, di-enforce di service layer.',
+    fields: [
+      pk(),
+      userFk('goals'),
+      decimalField('target_weight_kg', 5, 2),
+      { field: 'target_date', type: 'date' },
+      {
+        field: 'daily_calorie_budget',
+        type: 'integer',
+        note: 'Dihitung dari TDEE dikurangi defisit, bisa di-override manual',
+      },
+      {
+        field: 'is_active',
+        type: 'boolean',
+        defaultValue: true,
+        note: 'Hanya satu goal aktif per user',
+      },
+      createdAt(),
+      updatedAt(),
+    ],
+  },
+
+  // ----------------------------------------------------------
+  // DAILY LOGS
+  // ----------------------------------------------------------
+  {
+    collection: 'weight_logs',
+    icon: 'monitor_weight',
+    note: 'Berat badan harian. Satu baris per user per hari.',
+    fields: [
+      pk(),
+      userFk('weight_logs'),
+      decimalField('weight_kg', 5, 2),
+      loggedAtDate(),
+      userDateKey(),
+      notes(),
+      createdAt(),
+    ],
+  },
+
+  {
+    collection: 'body_photos',
+    icon: 'photo_camera',
+    note: 'Foto badan tampak depan dan samping. Satu baris per user per hari.',
+    fields: [
+      pk(),
+      userFk('body_photos'),
+      { field: 'front_photo_url', type: 'string', maxLength: 500 },
+      { field: 'side_photo_url', type: 'string', maxLength: 500 },
+      fileFk('front_directus_file_id', 'File foto tampak depan di Directus storage'),
+      fileFk('side_directus_file_id', 'File foto tampak samping di Directus storage'),
+      {
+        field: 'ai_analysis',
+        type: 'json',
+        nullable: true,
+        note: 'Raw JSON hasil analisa Groq Vision, disimpan utuh',
+      },
+      loggedAtDate(),
+      userDateKey(),
+      createdAt(),
+    ],
+  },
+
+  {
+    collection: 'food_logs',
+    icon: 'restaurant',
+    note: 'Log makanan hasil analisa foto oleh Groq Vision. Bisa banyak per hari.',
+    fields: [
+      pk(),
+      userFk('food_logs'),
+      { field: 'photo_url', type: 'string', maxLength: 500 },
+      fileFk('directus_file_id', 'File foto makanan di Directus storage'),
+      enumField('meal_type', MEAL_TYPE),
+      {
+        field: 'ai_analysis',
+        type: 'json',
+        note: 'Raw JSON hasil analisa Groq Vision, disimpan utuh',
+      },
+      {
+        field: 'total_calories',
+        type: 'integer',
+        note: 'Di-extract dari ai_analysis, jadi kolom sendiri supaya gampang di-aggregate',
+      },
+      decimalField('protein_g', 6, 2),
+      decimalField('carbs_g', 6, 2),
+      decimalField('fat_g', 6, 2),
+      notes(),
+      {
+        field: 'logged_at',
+        type: 'timestamp',
+        note: 'Pakai timestamp, bukan date, supaya urutan makan dalam sehari bisa di-sort',
+      },
+      createdAt(),
+    ],
+  },
+
+  {
+    collection: 'workout_logs',
+    icon: 'fitness_center',
+    note: 'Log olahraga. Bisa banyak per hari. Sumbernya bisa dari library, custom workout, atau input manual.',
+    fields: [
+      pk(),
+      userFk('workout_logs'),
+      {
+        field: 'workout_library_id',
+        type: 'uuid',
+        nullable: true,
+        note: 'Terisi kalau olahraga dipilih dari library global',
+        relation: {
+          relatedCollection: 'workout_library',
+          onDelete: 'SET NULL',
+          oneField: 'workout_logs',
+        },
+      },
+      {
+        field: 'custom_workout_id',
+        type: 'uuid',
+        nullable: true,
+        note: 'Terisi kalau olahraga dipilih dari custom workout milik user',
+        relation: {
+          relatedCollection: 'custom_workouts',
+          onDelete: 'SET NULL',
+          oneField: 'workout_logs',
+        },
+      },
+      {
+        field: 'workout_name',
+        type: 'string',
+        maxLength: 255,
+        note: 'Selalu diisi sebagai display name, walau kedua FK di atas kosong',
+      },
+      { field: 'duration_minutes', type: 'integer' },
+      {
+        field: 'calories_burned',
+        type: 'integer',
+        note: 'calories_per_minute * durasi * (berat_user / 70)',
+      },
+      enumField('intensity', WORKOUT_INTENSITY),
+      notes(),
+      loggedAtDate(),
+      createdAt(),
+    ],
+  },
+
+  {
+    collection: 'step_logs',
+    icon: 'directions_walk',
+    note: 'Langkah kaki harian dari pedometer. Satu baris per user per hari.',
+    fields: [
+      pk(),
+      userFk('step_logs'),
+      { field: 'steps', type: 'integer' },
+      decimalField('distance_km', 6, 3, { note: 'Estimasi: steps * 0.0008' }),
+      {
+        field: 'calories_burned',
+        type: 'integer',
+        note: 'Estimasi: steps * berat_kg * 0.0005',
+      },
+      loggedAtDate(),
+      userDateKey(),
+      createdAt(),
+    ],
+  },
+
+  {
+    collection: 'sleep_logs',
+    icon: 'bedtime',
+    note: 'Log tidur. Sengaja TIDAK unik per hari karena user bisa tidur siang juga.',
+    fields: [
+      pk(),
+      userFk('sleep_logs'),
+      { field: 'sleep_start', type: 'timestamp' },
+      { field: 'sleep_end', type: 'timestamp' },
+      {
+        field: 'duration_minutes',
+        type: 'integer',
+        note: 'Dihitung backend dari sleep_end - sleep_start',
+      },
+      {
+        field: 'quality_score',
+        type: 'integer',
+        note: '1 = sangat buruk sampai 5 = sangat baik. Divalidasi Zod.',
+      },
+      notes(),
+      loggedAtDate(),
+      createdAt(),
+    ],
+  },
+
+  {
+    collection: 'water_logs',
+    icon: 'water_drop',
+    note: 'Log minum air. Berkali-kali per hari, di-aggregate SUM saat summary.',
+    fields: [
+      pk(),
+      userFk('water_logs'),
+      { field: 'amount_ml', type: 'integer' },
+      {
+        field: 'logged_at',
+        type: 'timestamp',
+        note: 'Pakai timestamp supaya ada jam per tegukan',
+      },
+      createdAt(),
+    ],
+  },
+
+  {
+    collection: 'body_measurements',
+    icon: 'straighten',
+    note: 'Ukuran lingkar badan. Semua kolom nullable karena user boleh isi sebagian saja.',
+    fields: [
+      pk(),
+      userFk('body_measurements'),
+      decimalField('waist_cm', 5, 2, { nullable: true }),
+      decimalField('hips_cm', 5, 2, { nullable: true }),
+      decimalField('chest_cm', 5, 2, { nullable: true }),
+      decimalField('left_arm_cm', 5, 2, { nullable: true }),
+      decimalField('right_arm_cm', 5, 2, { nullable: true }),
+      decimalField('left_thigh_cm', 5, 2, { nullable: true }),
+      decimalField('right_thigh_cm', 5, 2, { nullable: true }),
+      loggedAtDate(),
+      userDateKey(),
+      createdAt(),
+    ],
+  },
+
+  {
+    collection: 'mood_logs',
+    icon: 'mood',
+    note: 'Mood dan energi harian. Satu baris per user per hari.',
+    fields: [
+      pk(),
+      userFk('mood_logs'),
+      {
+        field: 'mood_score',
+        type: 'integer',
+        note: '1 = sangat buruk sampai 5 = sangat baik. Divalidasi Zod.',
+      },
+      {
+        field: 'energy_score',
+        type: 'integer',
+        note: '1 = sangat lelah sampai 5 = sangat berenergi. Divalidasi Zod.',
+      },
+      notes(),
+      loggedAtDate(),
+      userDateKey(),
+      createdAt(),
+    ],
+  },
+
+  // ----------------------------------------------------------
+  // STREAK & NOTIFICATIONS
+  // ----------------------------------------------------------
+  {
+    collection: 'streaks',
+    icon: 'local_fire_department',
+    note: 'Rekap streak per user. Satu baris per user, dibuat otomatis saat register.',
+    fields: [
+      pk(),
+      userFk('streak', { unique: true }),
+      { field: 'current_streak', type: 'integer', defaultValue: 0 },
+      { field: 'longest_streak', type: 'integer', defaultValue: 0 },
+      {
+        field: 'last_logged_date',
+        type: 'date',
+        nullable: true,
+        note: 'Untuk cek apakah hari ini sudah dihitung',
+      },
+      updatedAt(),
+    ],
+  },
+
+  {
+    collection: 'notification_settings',
+    icon: 'notifications',
+    note: 'Pengaturan reminder per user. Satu baris per user, dibuat otomatis saat register.',
+    fields: [
+      pk(),
+      userFk('notification_settings', { unique: true }),
+      {
+        field: 'expo_push_token',
+        type: 'string',
+        maxLength: 255,
+        nullable: true,
+        note: 'Diisi client setelah user memberi izin notifikasi',
+      },
+      { field: 'weight_reminder_enabled', type: 'boolean', defaultValue: true },
+      {
+        field: 'weight_reminder_time',
+        type: 'string',
+        maxLength: 5,
+        defaultValue: '21:00',
+        note: 'Format HH:mm, timezone WIB',
+      },
+      { field: 'water_reminder_enabled', type: 'boolean', defaultValue: true },
+      {
+        field: 'water_reminder_interval_hours',
+        type: 'integer',
+        defaultValue: 2,
+        note: 'Reminder minum air setiap N jam',
+      },
+      { field: 'workout_reminder_enabled', type: 'boolean', defaultValue: true },
+      {
+        field: 'workout_reminder_time',
+        type: 'string',
+        maxLength: 5,
+        defaultValue: '07:00',
+        note: 'Format HH:mm, timezone WIB',
+      },
+      { field: 'photo_reminder_enabled', type: 'boolean', defaultValue: true },
+      {
+        field: 'photo_reminder_time',
+        type: 'string',
+        maxLength: 5,
+        defaultValue: '08:00',
+        note: 'Format HH:mm, timezone WIB',
+      },
+      createdAt(),
+      updatedAt(),
+    ],
+  },
+
+  // ----------------------------------------------------------
+  // WORKOUT LIBRARY
+  // ----------------------------------------------------------
+  {
+    collection: 'workout_library',
+    icon: 'menu_book',
+    note: 'Library olahraga global untuk semua user. Di-seed lewat npm run seed.',
+    fields: [
+      pk(),
+      { field: 'name', type: 'string', maxLength: 255 },
+      enumField('category', WORKOUT_CATEGORY),
+      decimalField('calories_burned_per_minute', 5, 2, {
+        note: 'Estimasi untuk berat badan 70kg. Backend men-scale sesuai berat user.',
+      }),
+      { field: 'description', type: 'text', nullable: true },
+      createdAt(),
+    ],
+  },
+
+  {
+    collection: 'custom_workouts',
+    icon: 'add_circle',
+    note: 'Library olahraga custom milik masing-masing user.',
+    fields: [
+      pk(),
+      userFk('custom_workouts'),
+      { field: 'name', type: 'string', maxLength: 255 },
+      enumField('category', WORKOUT_CATEGORY),
+      decimalField('calories_burned_per_minute', 5, 2, {
+        note: 'Estimasi untuk berat badan 70kg',
+      }),
+      { field: 'description', type: 'text', nullable: true },
+      createdAt(),
+    ],
+  },
+];
+
+/**
+ * Urutan pembuatan collection penting karena relasi merujuk collection lain.
+ * Script apply-schema membuat semua collection dulu, baru field, baru relasi,
+ * jadi urutan di array ini hanya memengaruhi urutan tampilan di admin panel.
+ */
+export const collectionNames = collections.map((c) => c.collection);
