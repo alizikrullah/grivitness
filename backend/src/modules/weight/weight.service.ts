@@ -4,6 +4,7 @@ import { AppError } from '../../utils/api-error.js';
 import { dailyKey, todayInJakarta } from '../../utils/daily-key.js';
 import { toNumber } from '../../utils/number.js';
 import { type DateRangeDto, dateRangeFilter } from '../../utils/query.js';
+import { recordActivitySafely } from '../streaks/streaks.service.js';
 import type { CreateWeightDto, UpdateWeightDto } from './weight.validation.js';
 
 /** Log berat ditambah selisih terhadap catatan sebelumnya. */
@@ -34,12 +35,19 @@ export const create = async (userId: string, data: CreateWeightDto): Promise<Wei
   // user_date_key WAJIB diisi. Inilah yang membuat aturan satu log per hari
   // dijamin database, bukan sekadar pengecekan aplikasi yang bisa kena race
   // condition saat dua request datang bersamaan. Lihat CLAUDE.md section 13.
-  return forUser(userId).create('weight_logs', {
+  const log = await forUser(userId).create('weight_logs', {
     weight_kg: data.weight_kg,
     logged_at: loggedAt,
     user_date_key: dailyKey(userId, loggedAt),
     notes: data.notes ?? null,
   });
+
+  // Streak diperbarui SETELAH log benar-benar tersimpan. Versi "safely" sengaja
+  // dipakai: kegagalan memperbarui streak tidak boleh membuat log yang sudah
+  // masuk dianggap gagal oleh user.
+  await recordActivitySafely(userId);
+
+  return log;
 };
 
 export const getToday = async (userId: string): Promise<WeightLogRecord | null> =>

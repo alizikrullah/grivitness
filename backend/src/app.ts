@@ -10,11 +10,14 @@ import authRoutes from './modules/auth/auth.routes.js';
 import goalsRoutes from './modules/goals/goals.routes.js';
 import measurementsRoutes from './modules/measurements/measurements.routes.js';
 import moodRoutes from './modules/mood/mood.routes.js';
+import notificationsRoutes from './modules/notifications/notifications.routes.js';
 import sleepRoutes from './modules/sleep/sleep.routes.js';
 import stepsRoutes from './modules/steps/steps.routes.js';
+import streaksRoutes from './modules/streaks/streaks.routes.js';
 import usersRoutes from './modules/users/users.routes.js';
 import waterRoutes from './modules/water/water.routes.js';
 import weightRoutes from './modules/weight/weight.routes.js';
+import workoutsRoutes from './modules/workouts/workouts.routes.js';
 import { logger } from './utils/logger.js';
 import { sendSuccess } from './utils/response.js';
 
@@ -82,6 +85,9 @@ export const createApp = (): Express => {
   app.use('/api/sleep', sleepRoutes);
   app.use('/api/measurements', measurementsRoutes);
   app.use('/api/mood', moodRoutes);
+  app.use('/api/workouts', workoutsRoutes);
+  app.use('/api/streaks', streaksRoutes);
+  app.use('/api/notifications', notificationsRoutes);
 
   // Wajib dipasang paling akhir, setelah semua route.
   app.use(notFoundMiddleware);

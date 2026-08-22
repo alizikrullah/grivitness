@@ -2,6 +2,7 @@ import { forUser } from '../../data/scoped.js';
 import type { SleepLogRecord } from '../../types/directus-schema.js';
 import { todayInJakarta } from '../../utils/daily-key.js';
 import { type DateRangeDto, dateRangeFilter } from '../../utils/query.js';
+import { recordActivitySafely } from '../streaks/streaks.service.js';
 import type { CreateSleepDto } from './sleep.validation.js';
 
 /**
@@ -39,7 +40,7 @@ export const create = async (userId: string, data: CreateSleepDto): Promise<Slee
   // konsisten dengan kedua timestamp-nya.
   const durationMinutes = Math.round((selesai - mulai) / 60_000);
 
-  return forUser(userId).create('sleep_logs', {
+  const log = await forUser(userId).create('sleep_logs', {
     sleep_start: data.sleep_start,
     sleep_end: data.sleep_end,
     duration_minutes: durationMinutes,
@@ -47,6 +48,10 @@ export const create = async (userId: string, data: CreateSleepDto): Promise<Slee
     notes: data.notes ?? null,
     logged_at: tanggalMulaiWib(data.sleep_start),
   });
+
+  await recordActivitySafely(userId);
+
+  return log;
 };
 
 export interface SleepDay {

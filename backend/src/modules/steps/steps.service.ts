@@ -4,6 +4,7 @@ import { caloriesFromSteps, distanceFromSteps } from '../../utils/calories.js';
 import { dailyKey, todayInJakarta } from '../../utils/daily-key.js';
 import { toNumber } from '../../utils/number.js';
 import { type DateRangeDto, dateRangeFilter } from '../../utils/query.js';
+import { recordActivitySafely } from '../streaks/streaks.service.js';
 import type { CreateStepsDto, UpdateStepsDto } from './steps.validation.js';
 
 /**
@@ -35,12 +36,16 @@ export const create = async (userId: string, data: CreateStepsDto): Promise<Step
   const loggedAt = data.logged_at ?? todayInJakarta();
   const weightKg = await beratUntukEstimasi(userId);
 
-  return forUser(userId).create('step_logs', {
+  const log = await forUser(userId).create('step_logs', {
     steps: data.steps,
     ...turunan(data.steps, weightKg),
     logged_at: loggedAt,
     user_date_key: dailyKey(userId, loggedAt),
   });
+
+  await recordActivitySafely(userId);
+
+  return log;
 };
 
 export const getToday = async (userId: string): Promise<StepLogRecord | null> =>

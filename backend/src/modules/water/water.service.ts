@@ -2,6 +2,7 @@ import { forUser } from '../../data/scoped.js';
 import type { WaterLogRecord } from '../../types/directus-schema.js';
 import { todayInJakarta } from '../../utils/daily-key.js';
 import { type DateRangeDto, timestampDayFilter, timestampRangeFilter } from '../../utils/query.js';
+import { recordActivitySafely } from '../streaks/streaks.service.js';
 import type { CreateWaterDto } from './water.validation.js';
 
 export interface WaterDay {
@@ -10,11 +11,16 @@ export interface WaterDay {
   logs: WaterLogRecord[];
 }
 
-export const create = async (userId: string, data: CreateWaterDto): Promise<WaterLogRecord> =>
-  forUser(userId).create('water_logs', {
+export const create = async (userId: string, data: CreateWaterDto): Promise<WaterLogRecord> => {
+  const log = await forUser(userId).create('water_logs', {
     amount_ml: data.amount_ml,
     logged_at: data.logged_at ?? new Date().toISOString(),
   });
+
+  await recordActivitySafely(userId);
+
+  return log;
+};
 
 /**
  * Log air untuk satu tanggal beserta totalnya.
