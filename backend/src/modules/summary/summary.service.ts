@@ -1,9 +1,28 @@
 import { forUser } from '../../data/scoped.js';
+import { loadUserMetrics } from '../../data/user-metrics.js';
 import { AppError } from '../../utils/api-error.js';
-import { calculateAge, calculateBMR, calculateTDEE } from '../../utils/calories.js';
+import { calculateTDEE, daysBetween, planWeightChange } from '../../utils/calories.js';
 import { todayInJakarta } from '../../utils/daily-key.js';
 import { toNumber } from '../../utils/number.js';
 import { dateRangeFilter, timestampDayFilter, timestampRangeFilter } from '../../utils/query.js';
+import { type DailyTargets, dailyTargets } from '../../utils/targets.js';
+
+/**
+ * Rincian dari mana pengeluaran energi hari itu datang.
+ *
+ * Dipisah supaya user bisa melihat susunannya, bukan cuma satu angka besar yang
+ * harus dipercaya begitu saja.
+ */
+export interface EnergyBreakdown {
+  /** Physical Activity Level hari itu, hasil membagi habis 24 jam. */
+  pal: number;
+  /** Metabolisme basal dikali PAL — hidup dan kegiatan sehari-hari. */
+  baseline: number;
+  /** Kalori bersih dari berjalan, di atas metabolisme istirahat. */
+  step_calories: number;
+  /** Kalori bersih dari olahraga tercatat. */
+  workout_calories: number;
+}
 
 export interface DailySummary {
   date: string;
@@ -13,6 +32,8 @@ export interface DailySummary {
   calorie_budget: number | null;
   /** Sisa jatah kalori hari ini. Negatif berarti sudah lewat budget. */
   calories_remaining: number | null;
+  /** Null selama profil belum diisi atau user belum pernah menimbang. */
+  energy: EnergyBreakdown | null;
   protein_g: number;
   carbs_g: number;
   fat_g: number;
@@ -23,7 +44,7 @@ export interface DailySummary {
   /**
    * Kalori dari olahraga saja, terpisah dari calories_out.
    *
-   * calories_out sudah memuat TDEE dan langkah, jadi angkanya tidak bisa
+   * calories_out memuat metabolisme dan langkah juga, jadi angkanya tidak bisa
    * dipakai untuk menjawab "olahraga tadi membakar berapa". Dipisah di sini
    * supaya layar bisa menampilkan durasi dan kalorinya berdampingan tanpa
    * harus memanggil endpoint olahraga lagi.
@@ -32,44 +53,26 @@ export interface DailySummary {
   mood_score: number | null;
   energy_score: number | null;
   has_body_photo: boolean;
+  /**
+   * Target harian yang diturunkan dari tubuh dan tujuan user.
+   *
+   * Dikirim dari sini supaya layar tidak perlu menghitung apa pun, dan supaya
+   * angka target tidak lagi ditulis sebagai konstanta di kode mobile — yang
+   * membuatnya sama untuk semua orang dan mustahil dipertanggungjawabkan.
+   */
+  targets: DailyTargets;
 }
-
-/**
- * Kalori keluar = TDEE + olahraga + langkah.
- *
- * Kalau profil belum diisi, TDEE tidak bisa dihitung dan yang tersisa hanya
- * kalori aktivitas. Nilainya jadi jauh lebih kecil dari kenyataan, tapi itu
- * lebih jujur daripada menebak metabolisme basal user.
- */
-const hitungKaloriKeluar = (tdee: number | null, workout: number, steps: number): number =>
-  (tdee ?? 0) + workout + steps;
-
-/** TDEE saat ini, atau null kalau profil belum diisi atau belum pernah menimbang. */
-const tdeeSaatIni = async (userId: string, weightKg: number | null): Promise<number | null> => {
-  if (weightKg === null) return null;
-
-  const profile = await forUser(userId).findOne('user_profiles');
-  if (!profile) return null;
-
-  const bmr = calculateBMR({
-    weightKg,
-    heightCm: toNumber(profile.height_cm),
-    age: calculateAge(profile.birth_date),
-    gender: profile.gender,
-  });
-
-  return calculateTDEE(bmr, profile.activity_level);
-};
 
 export const getDaily = async (userId: string, date: string): Promise<DailySummary> => {
   const repo = forUser(userId);
   const hari = { logged_at: { _eq: date } };
   const hariTimestamp = timestampDayFilter(date);
 
-  // Dua belas query yang tidak saling bergantung. Berurutan berarti menumpuk
-  // dua belas kali latensi HTTP ke Directus; paralel cuma selama yang paling
+  // Tiga belas query yang tidak saling bergantung. Berurutan berarti menumpuk
+  // tiga belas kali latensi HTTP ke Directus; paralel cuma selama yang paling
   // lambat. Ini alasan CLAUDE.md section 4 mewajibkan Promise.all.
   const [
+    metrics,
     weightLog,
     goal,
     kaloriMasuk,
@@ -84,6 +87,7 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
     mood,
     fotoBadan,
   ] = await Promise.all([
+    loadUserMetrics(userId),
     repo.findOne('weight_logs', { filter: hari }),
     repo.findOne('goals', { filter: { is_active: { _eq: true } } }),
     repo.sum('food_logs', 'total_calories', hariTimestamp),
@@ -100,22 +104,78 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
   ]);
 
   const weightKg = weightLog ? toNumber(weightLog.weight_kg) : null;
-  const tdee = await tdeeSaatIni(userId, weightKg);
-
-  const kaloriKeluar = hitungKaloriKeluar(tdee, workoutKalori, stepLog?.calories_burned ?? 0);
+  const langkah = stepLog?.steps ?? 0;
   const budget = goal?.daily_calorie_budget ?? null;
+
+  /**
+   * Berat yang dipakai berhitung: yang tercatat hari itu kalau ada, kalau tidak
+   * yang terakhir diketahui. Rekap hari lampau jadi memakai berat yang benar
+   * pada hari itu, bukan berat hari ini yang bisa sudah jauh berbeda.
+   */
+  const beratHitung = weightKg ?? metrics.weightKg;
+
+  /**
+   * Pengeluaran energi lewat metode faktorial: 24 jam dibagi habis.
+   *
+   * Rumus lama `TDEE + olahraga + langkah` menjumlahkan tiga hal yang saling
+   * menabrak — pengali aktivitas mendeskripsikan seluruh hari, jadi apa pun yang
+   * ditambahkan sesudahnya menghitung ulang jam yang sama. Efeknya defisit
+   * terlihat lebih besar daripada kenyataan.
+   */
+  const energi =
+    metrics.bmr === null
+      ? null
+      : calculateTDEE({
+          bmr: metrics.bmr,
+          weightKg: beratHitung,
+          activityLevel: metrics.activityLevel,
+          sleepMinutes: tidur > 0 ? tidur : null,
+          steps: langkah,
+          workoutMinutes: workoutMenit,
+          workoutCalories: workoutKalori,
+        });
+
+  /**
+   * Rencana dihitung ulang di sini semata untuk mengetahui berapa langkah
+   * tambahan yang dibutuhkan target — bukan untuk mengubah budget yang sudah
+   * tersimpan di goal. Budget harus stabil; kalau ikut berubah tiap kali layar
+   * dibuka, user tidak pernah tahu berapa yang boleh dimakan.
+   */
+  const rencana =
+    goal && metrics.complete
+      ? planWeightChange({
+          currentWeightKg: beratHitung,
+          targetWeightKg: toNumber(goal.target_weight_kg),
+          heightCm: metrics.heightCm,
+          age: metrics.age,
+          gender: metrics.gender,
+          activityLevel: metrics.activityLevel,
+          daysRemaining: Math.max(daysBetween(date, goal.target_date), 1),
+        })
+      : null;
 
   return {
     date,
     weight_kg: weightKg,
     calories_in: kaloriMasuk,
-    calories_out: kaloriKeluar,
+    // Tanpa profil, metabolisme tidak bisa dihitung dan yang tersisa cuma kalori
+    // aktivitas. Angkanya jadi jauh lebih kecil dari kenyataan, tapi itu lebih
+    // jujur daripada menebak metabolisme basal user.
+    calories_out: energi ? energi.tdee : (stepLog?.calories_burned ?? 0) + workoutKalori,
     calorie_budget: budget,
     calories_remaining: budget === null ? null : budget - kaloriMasuk,
+    energy: energi
+      ? {
+          pal: energi.pal,
+          baseline: energi.baseline,
+          step_calories: energi.step_calories,
+          workout_calories: energi.workout_calories,
+        }
+      : null,
     protein_g: protein,
     carbs_g: karbo,
     fat_g: lemak,
-    steps: stepLog?.steps ?? 0,
+    steps: langkah,
     water_ml: air,
     sleep_minutes: tidur,
     workout_minutes: workoutMenit,
@@ -123,6 +183,15 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
     mood_score: mood?.mood_score ?? null,
     energy_score: mood?.energy_score ?? null,
     has_body_photo: fotoBadan > 0,
+    targets: dailyTargets({
+      weightKg: beratHitung,
+      age: metrics.age,
+      gender: metrics.gender,
+      calorieBudget: budget,
+      isDeficit: budget !== null && energi !== null && budget < energi.tdee,
+      extraStepsForGoal: rencana?.extra_steps_needed ?? 0,
+      workoutMinutes: workoutMenit,
+    }),
   };
 };
 

@@ -332,7 +332,16 @@ export interface WorkoutLibraryRecord {
   id: string;
   name: string;
   category: WorkoutCategory;
-  /** Estimasi untuk berat badan 70kg. Backend men-scale sesuai berat user. */
+  /**
+   * Nilai MET dari Compendium of Physical Activities (Ainsworth dkk. 2011). Ini DATA
+   * SUMBERNYA — calories_burned_per_minute cuma turunannya.
+   */
+  met: DecimalString | null;
+  /**
+   * Kalori BERSIH per menit untuk berat 70kg, diturunkan dari met lewat (MET-1) x 3.5 x 70 /
+   * 200. Bersih artinya sudah dikurangi metabolisme istirahat, yang sudah ditanggung TDEE.
+   * Backend men-scale sesuai berat user.
+   */
   calories_burned_per_minute: DecimalString;
   description: string | null;
   /** Diisi otomatis oleh Directus saat item dibuat */
@@ -346,7 +355,10 @@ export interface CustomWorkoutRecord {
   user_id: string;
   name: string;
   category: WorkoutCategory;
-  /** Estimasi untuk berat badan 70kg */
+  /**
+   * Kalori BERSIH per menit untuk berat 70kg, di atas metabolisme istirahat. Skala yang sama
+   * dengan workout_library supaya kedua sumber bisa dibandingkan.
+   */
   calories_burned_per_minute: DecimalString;
   description: string | null;
   /** Diisi otomatis oleh Directus saat item dibuat */

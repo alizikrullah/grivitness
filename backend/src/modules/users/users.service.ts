@@ -4,8 +4,9 @@ import { directus } from '../../config/directus.js';
 import { withRetry } from '../../data/retry.js';
 import { forUser } from '../../data/scoped.js';
 import type { UserProfileRecord, UserRecord } from '../../types/directus-schema.js';
+import { ACTIVITY_LEVEL_LABEL } from '../../constants/enums.js';
 import { AppError } from '../../utils/api-error.js';
-import { calculateAge, calculateBMR, calculateTDEE } from '../../utils/calories.js';
+import { baselineTDEE, calculateAge, calculateBMR } from '../../utils/calories.js';
 import { toNumber } from '../../utils/number.js';
 import type { CreateProfileDto, UpdateMeDto, UpdateProfileDto } from './users.validation.js';
 
@@ -29,10 +30,26 @@ export interface ProfileWithDerived {
   birth_date: string;
   gender: UserProfileRecord['gender'];
   activity_level: UserProfileRecord['activity_level'];
+  /**
+   * Penjelasan activity_level dalam bahasa yang bisa dijawab user.
+   *
+   * Sejak TDEE memakai metode faktorial, field ini TIDAK lagi berarti "seberapa
+   * aktif kamu" — tidur, langkah, dan olahraga sudah punya potongan waktunya
+   * sendiri. Yang ditanyakan sekarang adalah seperti apa sisa harimu, praktisnya
+   * seperti apa pekerjaanmu. Label ini yang menyampaikan pergeseran itu ke layar.
+   */
+  activity_label: string;
   age: number;
   /** Berat terakhir yang tercatat, dipakai sebagai dasar perhitungan. */
   current_weight_kg: number | null;
   bmr: number | null;
+  /**
+   * TDEE untuk hari biasa: tidur normal, gerak seadanya, tanpa olahraga.
+   *
+   * Sengaja acuan dan bukan hari ini, karena angka ini jadi dasar budget kalori.
+   * Kalau ikut naik-turun mengikuti aktivitas harian, user tidak pernah tahu
+   * berapa yang boleh dimakan sampai harinya berakhir.
+   */
   tdee: number | null;
   created_at: string | null;
   updated_at: string | null;
@@ -108,10 +125,14 @@ const withDerived = (profile: UserProfileRecord, weightKg: number | null): Profi
     birth_date: profile.birth_date,
     gender: profile.gender,
     activity_level: profile.activity_level,
+    activity_label: ACTIVITY_LEVEL_LABEL[profile.activity_level],
     age,
     current_weight_kg: weightKg,
     bmr,
-    tdee: bmr === null ? null : calculateTDEE(bmr, profile.activity_level),
+    tdee:
+      bmr === null || weightKg === null
+        ? null
+        : baselineTDEE(bmr, weightKg, profile.activity_level),
     created_at: profile.created_at,
     updated_at: profile.updated_at,
   };

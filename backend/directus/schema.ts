@@ -644,8 +644,20 @@ export const collections: CollectionDef[] = [
       pk(),
       { field: 'name', type: 'string', maxLength: 255 },
       enumField('category', WORKOUT_CATEGORY),
+      decimalField('met', 4, 1, {
+        // Nullable karena baris yang sudah ada sebelum kolom ini memang belum
+        // punya nilai MET. Mengisinya dengan angka bawaan akan mengarang data
+        // yang terlihat resmi — biarkan kosong sampai npm run seed mengisinya.
+        nullable: true,
+        note:
+          'Nilai MET dari Compendium of Physical Activities (Ainsworth dkk. 2011). ' +
+          'Ini DATA SUMBERNYA — calories_burned_per_minute cuma turunannya.',
+      }),
       decimalField('calories_burned_per_minute', 5, 2, {
-        note: 'Estimasi untuk berat badan 70kg. Backend men-scale sesuai berat user.',
+        note:
+          'Kalori BERSIH per menit untuk berat 70kg, diturunkan dari met lewat ' +
+          '(MET-1) x 3.5 x 70 / 200. Bersih artinya sudah dikurangi metabolisme ' +
+          'istirahat, yang sudah ditanggung TDEE. Backend men-scale sesuai berat user.',
       }),
       { field: 'description', type: 'text', nullable: true },
       createdAt(),
@@ -663,7 +675,9 @@ export const collections: CollectionDef[] = [
       { field: 'name', type: 'string', maxLength: 255 },
       enumField('category', WORKOUT_CATEGORY),
       decimalField('calories_burned_per_minute', 5, 2, {
-        note: 'Estimasi untuk berat badan 70kg',
+        note:
+          'Kalori BERSIH per menit untuk berat 70kg, di atas metabolisme istirahat. ' +
+          'Skala yang sama dengan workout_library supaya kedua sumber bisa dibandingkan.',
       }),
       { field: 'description', type: 'text', nullable: true },
       createdAt(),

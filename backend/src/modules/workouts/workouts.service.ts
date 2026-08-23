@@ -3,6 +3,7 @@ import { readItems } from '@directus/sdk';
 import { directus } from '../../config/directus.js';
 import { withRetry } from '../../data/retry.js';
 import { forUser } from '../../data/scoped.js';
+import { loadUserMetrics } from '../../data/user-metrics.js';
 import type {
   CustomWorkoutRecord,
   WorkoutLibraryRecord,
@@ -20,9 +21,6 @@ import type {
   LibraryQueryDto,
   UpdateWorkoutDto,
 } from './workouts.validation.js';
-
-/** Berat acuan yang dipakai nilai kalori di library. */
-const BERAT_ACUAN_KG = 70;
 
 /**
  * workout_library itu data GLOBAL, bukan milik user, jadi memang tidak lewat
@@ -66,14 +64,8 @@ export const removeCustom = async (userId: string, id: string): Promise<void> =>
 };
 
 /** Berat badan terakhir, atau berat acuan kalau user belum pernah menimbang. */
-const beratUntukEstimasi = async (userId: string): Promise<number> => {
-  const log = await forUser(userId).findOne('weight_logs', {
-    sort: ['-logged_at'],
-    fields: ['weight_kg'],
-  });
-
-  return log ? toNumber(log.weight_kg) : BERAT_ACUAN_KG;
-};
+const beratUntukEstimasi = async (userId: string): Promise<number> =>
+  (await loadUserMetrics(userId)).weightKg;
 
 interface SumberOlahraga {
   workout_name: string;
