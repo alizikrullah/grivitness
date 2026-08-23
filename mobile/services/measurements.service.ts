@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { get, patch, post } from '@/lib/api';
+import { del, get, patch, post } from '@/lib/api';
 import { invalidateAfterLog, qk } from '@/lib/query';
 import type { BodyMeasurement } from '@/types';
 
@@ -55,6 +55,18 @@ export const useSaveMeasurement = () => {
       id
         ? patch<BodyMeasurement>('/api/measurements/' + id, body)
         : post<BodyMeasurement>('/api/measurements', body),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ['measurements'] });
+      invalidateAfterLog(client);
+    },
+  });
+};
+
+export const useDeleteMeasurement = () => {
+  const client = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => del('/api/measurements/' + id),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['measurements'] });
       invalidateAfterLog(client);

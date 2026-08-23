@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import { LogActions } from '@/components/features/LogActions';
 import { BatteryChargingIcon, SmileyIcon } from 'phosphor-react-native';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
@@ -20,7 +21,7 @@ import {
 import { colors, metricColors } from '@/constants/colors';
 import { spacing } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
-import { useMoodRange, useMoodToday, useSaveMood } from '@/services/mood.service';
+import { useDeleteMood, useMoodRange, useMoodToday, useSaveMood } from '@/services/mood.service';
 import { dateRange, dayLabel, shiftDays, todayWIB } from '@/utils/date';
 
 export default function MoodScreen() {
@@ -32,6 +33,9 @@ export default function MoodScreen() {
   const today = useMoodToday();
   const riwayat = useMoodRange(awal, hariIni);
   const saveMood = useSaveMood();
+  const deleteMood = useDeleteMood();
+
+  const logHariIni = today.data ?? null;
 
   const [mood, setMood] = useState<number | null>(null);
   const [energi, setEnergi] = useState<number | null>(null);
@@ -88,6 +92,26 @@ export default function MoodScreen() {
         <Header
           title="Mood & energi"
           subtitle={today.data ? 'Sudah dicatat hari ini' : 'Satu catatan per hari'}
+          action={
+            logHariIni ? (
+              <LogActions
+                row
+                onDelete={() =>
+                  deleteMood.mutate(logHariIni.id, {
+                    // Form dibuka ulang sebagai kosong setelah dihapus. Tanpa ini,
+                    // nilai yang barusan dihapus masih terpampang di layar.
+                    onSuccess: () => {
+                      setMood(null);
+                      setEnergi(null);
+                      setCatatan('');
+                      setTerisi(false);
+                    },
+                  })
+                }
+                deleteMessage="Catatan mood hari ini akan dihapus."
+              />
+            ) : undefined
+          }
         />
 
         {today.isPending ? (

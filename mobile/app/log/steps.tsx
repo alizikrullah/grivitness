@@ -3,6 +3,7 @@ import { DeviceMobileIcon, FootprintsIcon } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { LogActions } from '@/components/features/LogActions';
 import { GoalProgress } from '@/components/features/Metrics';
 import {
   BarChart,
@@ -20,7 +21,12 @@ import {
 import { colors, metricColors } from '@/constants/colors';
 import { spacing } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
-import { useSaveSteps, useStepsRange, useStepsToday } from '@/services/steps.service';
+import {
+  useDeleteSteps,
+  useSaveSteps,
+  useStepsRange,
+  useStepsToday,
+} from '@/services/steps.service';
 import { dateRange, dayLabel, shiftDays, todayWIB } from '@/utils/date';
 import { thousands } from '@/utils/format';
 
@@ -78,6 +84,9 @@ export default function StepsScreen() {
   const today = useStepsToday();
   const riwayat = useStepsRange(awal, hariIni);
   const saveSteps = useSaveSteps();
+  const deleteSteps = useDeleteSteps();
+
+  const logHariIni = today.data ?? null;
 
   const sensor = useLangkahSensor();
 
@@ -107,7 +116,19 @@ export default function StepsScreen() {
 
   return (
     <Screen>
-      <Header title="Langkah kaki" subtitle="Satu catatan per hari" />
+      <Header
+        title="Langkah kaki"
+        subtitle="Satu catatan per hari"
+        action={
+          logHariIni ? (
+            <LogActions
+              onDelete={() => deleteSteps.mutate(logHariIni.id)}
+              deleteMessage="Catatan langkah hari ini akan dihapus."
+              row
+            />
+          ) : undefined
+        }
+      />
 
       {today.isPending ? (
         <Loading />

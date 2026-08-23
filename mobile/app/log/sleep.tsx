@@ -1,4 +1,6 @@
-import { MoonStarsIcon, SunHorizonIcon, TrashIcon } from 'phosphor-react-native';
+import { MoonStarsIcon, SunHorizonIcon } from 'phosphor-react-native';
+import { LogActions } from '@/components/features/LogActions';
+import { SleepEditSheet } from '@/components/features/SleepEditSheet';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 
@@ -8,7 +10,6 @@ import {
   EmptyState,
   ErrorNote,
   Header,
-  IconCircle,
   Input,
   Loading,
   Screen,
@@ -22,6 +23,7 @@ import { SCORE_LABEL } from '@/constants/labels';
 import { spacing, typography } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
 import { useCreateSleep, useDeleteSleep, useSleepToday } from '@/services/sleep.service';
+import type { SleepLog } from '@/types';
 import { shiftDays, timeWIB, todayWIB, wibToISO } from '@/utils/date';
 import { duration } from '@/utils/format';
 
@@ -37,6 +39,7 @@ export default function SleepScreen() {
   const [kualitas, setKualitas] = useState<number | null>(4);
   const [catatan, setCatatan] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [diedit, setDiedit] = useState<SleepLog | null>(null);
 
   const jamValid = FORMAT_JAM.test(mulai) && FORMAT_JAM.test(bangun);
 
@@ -166,18 +169,25 @@ export default function SleepScreen() {
 
         <Button label="Simpan tidur" onPress={simpan} loading={createSleep.isPending} size="lg" />
 
-        <SectionHeader title="Tidur hari ini" />
+        <SectionHeader
+          title="Tidur hari ini"
+          action={
+            <Text variant="caption" tone="tertiary">
+              total {duration(today.data?.total_minutes ?? 0)}
+            </Text>
+          }
+        />
 
         {today.isPending ? (
           <Loading />
-        ) : (today.data?.length ?? 0) === 0 ? (
+        ) : (today.data?.logs.length ?? 0) === 0 ? (
           <EmptyState
             icon={<MoonStarsIcon size={30} color={colors.textTertiary} weight="duotone" />}
             title="Belum ada catatan tidur"
             message="Isi jam tidur dan bangun di atas."
           />
         ) : (
-          today.data?.map((log) => (
+          today.data?.logs.map((log) => (
             <Card key={log.id} padding="md">
               <View style={styles.logRow}>
                 <View style={styles.logText}>
@@ -193,14 +203,20 @@ export default function SleepScreen() {
                   ) : null}
                 </View>
 
-                <IconCircle size={36} onPress={() => deleteSleep.mutate(log.id)}>
-                  <TrashIcon size={16} color={colors.textSecondary} weight="regular" />
-                </IconCircle>
+                <LogActions
+                  onEdit={() => setDiedit(log)}
+                  onDelete={() => deleteSleep.mutate(log.id)}
+                  deleteMessage="Catatan tidur ini akan dihapus permanen."
+                />
               </View>
             </Card>
           ))
         )}
       </Screen>
+
+      {diedit ? (
+        <SleepEditSheet key={diedit.id} log={diedit} onClose={() => setDiedit(null)} />
+      ) : null}
     </KeyboardAvoidingView>
   );
 }

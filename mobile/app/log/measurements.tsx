@@ -3,9 +3,12 @@ import { RulerIcon } from 'phosphor-react-native';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 
+import { LogActions } from '@/components/features/LogActions';
+import { MeasurementEditSheet } from '@/components/features/MeasurementEditSheet';
 import {
   Button,
   Card,
+  EmptyState,
   ErrorNote,
   Header,
   Input,
@@ -20,24 +23,33 @@ import { spacing } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
 import {
   MEASUREMENT_PARTS,
+  useDeleteMeasurement,
   useLatestMeasurement,
+  useMeasurementRange,
   useSaveMeasurement,
   type MeasurementInput,
   type MeasurementKey,
 } from '@/services/measurements.service';
-import { longDate, todayWIB } from '@/utils/date';
+import type { BodyMeasurement } from '@/types';
+import { longDate, shiftDays, todayWIB } from '@/utils/date';
 import { toNum } from '@/utils/format';
 
 export default function MeasurementsScreen() {
   const router = useRouter();
 
+  const hariIni = todayWIB();
+
   const latest = useLatestMeasurement();
+  // Setahun ke belakang. Ukuran badan dicatat jarang — sebulan terakhir saja
+  // sering hanya berisi satu baris, dan riwayat sependek itu tidak ada gunanya.
+  const riwayat = useMeasurementRange(shiftDays(hariIni, -365), hariIni);
   const saveMeasurement = useSaveMeasurement();
+  const deleteMeasurement = useDeleteMeasurement();
 
   const [nilai, setNilai] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
+  const [diedit, setDiedit] = useState<BodyMeasurement | null>(null);
 
-  const hariIni = todayWIB();
   const sudahHariIni = latest.data?.logged_at === hariIni;
 
   const ubah = (key: MeasurementKey, teks: string) =>
@@ -130,34 +142,57 @@ export default function MeasurementsScreen() {
               size="lg"
             />
 
-            {latest.data ? (
-              <>
-                <SectionHeader title="Pengukuran terakhir" />
-                <Card>
-                  <View>
-                    <Text variant="caption" tone="tertiary">
-                      {longDate(latest.data.logged_at)}
-                    </Text>
+            <SectionHeader title="Riwayat pengukuran" />
 
-                    {MEASUREMENT_PARTS.map((bagian) => {
-                      const angka = toNum(latest.data?.[bagian.key]);
-                      if (angka === null) return null;
+            {riwayat.isPending ? (
+              <Loading />
+            ) : (riwayat.data?.length ?? 0) === 0 ? (
+              <EmptyState
+                icon={<RulerIcon size={30} color={colors.textTertiary} weight="duotone" />}
+                title="Belum ada pengukuran"
+                message="Isi salah satu ukuran di atas untuk mulai mencatat."
+              />
+            ) : (
+              // Terbaru di atas. getRange mengurutkan menaik, jadi dibalik di sini
+              // daripada meminta backend mengurutkan berbeda hanya untuk layar ini.
+              [...(riwayat.data ?? [])].reverse().map((log) => (
+                <Card key={log.id} padding="md">
+                  <View style={styles.logRow}>
+                    <View style={styles.logBody}>
+                      <Text variant="label">{longDate(log.logged_at)}</Text>
 
-                      return (
-                        <Row
-                          key={bagian.key}
-                          label={bagian.label}
-                          value={angka.toFixed(1) + ' cm'}
-                        />
-                      );
-                    })}
+                      {MEASUREMENT_PARTS.map((bagian) => {
+                        const angka = toNum(log[bagian.key]);
+                        if (angka === null) return null;
+
+                        return (
+                          <Row
+                            key={bagian.key}
+                            label={bagian.label}
+                            value={angka.toFixed(1) + ' cm'}
+                          />
+                        );
+                      })}
+                    </View>
+
+                    <LogActions
+                      onEdit={() => setDiedit(log)}
+                      onDelete={() => deleteMeasurement.mutate(log.id)}
+                      deleteMessage={
+                        'Pengukuran ' + longDate(log.logged_at) + ' akan dihapus permanen.'
+                      }
+                    />
                   </View>
                 </Card>
-              </>
-            ) : null}
+              ))
+            )}
           </>
         )}
       </Screen>
+
+      {diedit ? (
+        <MeasurementEditSheet key={diedit.id} log={diedit} onClose={() => setDiedit(null)} />
+      ) : null}
     </KeyboardAvoidingView>
   );
 }
@@ -166,4 +201,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.background },
   hint: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
   hintText: { flex: 1 },
+  logRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  logBody: { flex: 1 },
 });

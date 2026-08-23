@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { api, del, get, unwrap } from '@/lib/api';
+import { api, del, get, patch, unwrap } from '@/lib/api';
 import { invalidateAfterLog, qk } from '@/lib/query';
 import type { FoodDay, FoodLog, MealType } from '@/types';
 
@@ -67,6 +67,37 @@ export const useCreateFood = () => {
         api.post('/api/food', form, { headers: { 'Content-Type': 'multipart/form-data' } }),
       );
     },
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ['food'] });
+      invalidateAfterLog(client);
+    },
+  });
+};
+
+export interface FoodEditInput {
+  id: string;
+  meal_type?: MealType;
+  notes?: string | null;
+  /** Daftar makanan hasil AI yang sudah dibetulkan user. */
+  foods_detected?: string[];
+  total_calories?: number;
+  protein_g?: number;
+  carbs_g?: number;
+  fat_g?: number;
+}
+
+/**
+ * Mengoreksi log makanan tanpa memotret ulang.
+ *
+ * Analisa AI sering meleset pada hidangan yang mirip, dan sebelum ini satu
+ * satunya jalan keluar adalah menghapus lalu mencatat dari awal — yang berarti
+ * satu panggilan AI lagi hanya untuk membetulkan satu kata.
+ */
+export const useUpdateFood = () => {
+  const client = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, ...body }: FoodEditInput) => patch<FoodLog>('/api/food/' + id, body),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['food'] });
       invalidateAfterLog(client);
