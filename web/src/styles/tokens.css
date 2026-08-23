@@ -1,0 +1,54 @@
+/*
+ * Token desain sebagai custom property CSS.
+ *
+ * Nilainya dicerminkan dari src/constants/colors.ts. Yang di TypeScript dipakai
+ * ketika warnanya harus dihitung atau dikirim ke Recharts sebagai prop; yang di
+ * sini dipakai untuk styling biasa, supaya CSS tidak perlu melewati JavaScript
+ * hanya untuk mewarnai satu tepi.
+ *
+ * Radius mengikuti bahasa visual referensi: kartu besar, kontrol sedang, chip
+ * dan tombol utama sepenuhnya bulat. Nilai kecil seperti 8px sengaja tidak ada —
+ * terlalu kaku untuk tampilan ini.
+ */
+:root {
+  --bg: #0a0a0b;
+  --surface: #141416;
+  --surface-alt: #1c1c1f;
+  --surface-high: #26262a;
+
+  --primary: #f2333f;
+  --primary-dim: #c9202b;
+  --primary-soft: rgba(242, 51, 63, 0.14);
+
+  --text-primary: #f7f7f8;
+  --text-secondary: #9a9aa2;
+  --text-tertiary: #5f5f68;
+
+  --success: #2ed573;
+  --warning: #ffa726;
+  --danger: #f2333f;
+
+  --border: #232327;
+  --border-soft: rgba(255, 255, 255, 0.06);
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+
+  --radius-card: 24px;
+  --radius-lg: 18px;
+  --radius-md: 14px;
+  --radius-pill: 999px;
+
+  --font: 'Plus Jakarta Sans Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* Kedalaman dibentuk dari garis tepi tipis, bukan bayangan — di tema segelap
+     ini bayangan nyaris tidak terlihat. Bayangan hanya untuk elemen melayang. */
+  --shadow-float: 0 12px 32px rgba(0, 0, 0, 0.45);
+
+  --sidebar-width: 248px;
+  --content-max: 1180px;
+}

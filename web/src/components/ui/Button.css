@@ -1,0 +1,104 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background 0.15s ease,
+    opacity 0.15s ease,
+    transform 0.1s ease;
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-full {
+  width: 100%;
+}
+
+.btn-sm {
+  padding: 7px 14px;
+  font-size: 13px;
+}
+
+.btn-md {
+  padding: 10px 20px;
+  font-size: 14px;
+}
+
+.btn-lg {
+  padding: 14px 26px;
+  font-size: 15px;
+}
+
+/* Merah dipakai hemat tapi berani: satu layar idealnya punya satu titik merah
+   dominan. Kalau merah ada di mana-mana, tidak ada lagi yang menonjol. */
+.btn-primary {
+  background: var(--primary);
+  color: var(--white, #fff);
+  /* Bayangan hanya untuk elemen melayang — tombol utama salah satunya. */
+  box-shadow: 0 8px 20px rgba(242, 51, 63, 0.28);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--primary-dim);
+}
+
+.btn-secondary {
+  background: var(--surface-high);
+  color: var(--text-primary);
+  border: 1px solid var(--border-soft);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--border);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--surface-alt);
+  color: var(--text-primary);
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--primary-soft);
+}
+
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: btn-spin 0.7s linear infinite;
+}
+
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Menghormati setelan sistem. Animasi berputar terus-menerus bisa memicu
+   ketidaknyamanan bagi sebagian orang. */
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .btn-spinner {
+    transition: none;
+    animation-duration: 2s;
+  }
+}

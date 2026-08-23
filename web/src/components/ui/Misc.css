@@ -1,0 +1,136 @@
+.misc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: 7px 0;
+}
+
+.misc-row-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.misc-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.misc-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: var(--space-sm) 0;
+}
+
+.misc-bar {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-high);
+  overflow: hidden;
+}
+
+.misc-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  transition: width 0.35s ease;
+}
+
+.misc-pill {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-pill);
+  background: var(--surface-high);
+  border: 1px solid var(--border-soft);
+}
+
+.misc-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-2xl);
+}
+
+.misc-spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--surface-high);
+  border-top-color: var(--primary);
+  animation: misc-spin 0.8s linear infinite;
+}
+
+@keyframes misc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.misc-error {
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-md);
+  background: var(--primary-soft);
+  border: 1px solid var(--danger);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.misc-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  text-align: center;
+  padding: var(--space-2xl) var(--space-lg);
+  border-radius: var(--radius-card);
+  border: 1px dashed var(--border);
+}
+
+.misc-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--surface-alt);
+  margin-bottom: var(--space-xs);
+}
+
+.misc-skeleton {
+  border-radius: var(--radius-md);
+  background: linear-gradient(90deg, var(--surface-alt), var(--surface-high), var(--surface-alt));
+  background-size: 200% 100%;
+  animation: misc-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes misc-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.misc-icon-circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .misc-spinner,
+  .misc-skeleton {
+    animation-duration: 3s;
+  }
+
+  .misc-bar-fill {
+    transition: none;
+  }
+}

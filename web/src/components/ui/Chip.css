@@ -1,0 +1,29 @@
+.chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.chip {
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-high);
+  border: 1px solid var(--border-soft);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.chip:hover:not(.chip-active) {
+  color: var(--text-primary);
+  background: var(--border);
+}
+
+.chip-active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
