@@ -1,15 +1,16 @@
 import { useRouter } from 'expo-router';
 import {
   BarbellIcon,
-  BellIcon,
+  CameraIcon,
   CaretRightIcon,
-  FireIcon,
+  DropIcon,
   PencilSimpleIcon,
+  ScalesIcon,
   SignOutIcon,
   TargetIcon,
 } from 'phosphor-react-native';
 import { useState } from 'react';
-import { Alert, StyleSheet, Switch, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 
 import {
   Button,
@@ -36,6 +37,10 @@ import {
   useNotificationSettings,
   useUpdateNotificationSettings,
 } from '@/services/misc.service';
+import { ReminderRow } from '@/components/features/ReminderRow';
+import { ReminderSheet, type ReminderKind } from '@/components/features/ReminderSheet';
+import { useReminderScheduler } from '@/hooks/useReminderScheduler';
+import { pengingatDidukung } from '@/lib/reminders';
 import { useProfile } from '@/services/users.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { longDate, shiftDays, todayWIB } from '@/utils/date';
@@ -52,6 +57,10 @@ export default function ProfileScreen() {
   const updateSettings = useUpdateNotificationSettings();
 
   const [sheetGoal, setSheetGoal] = useState(false);
+  const [sheetReminder, setSheetReminder] = useState<ReminderKind | null>(null);
+
+  // Jadwal di perangkat disusun ulang setiap pengaturan berubah.
+  useReminderScheduler(settings.data);
 
   const keluar = () => {
     Alert.alert('Keluar dari akun?', 'Kamu perlu masuk lagi untuk melihat catatanmu.', [
@@ -167,42 +176,59 @@ export default function ProfileScreen() {
       <SectionHeader title="Pengingat" />
 
       <Card padding="md">
-        <View>
-          <Toggle
-            icon={<BellIcon size={18} color={colors.textSecondary} weight="duotone" />}
-            label="Timbang berat badan"
-            hint={settings.data?.weight_reminder_time}
-            value={settings.data?.weight_reminder_enabled ?? false}
-            onChange={(v) => ubahReminder('weight_reminder_enabled', v)}
-          />
-          <Toggle
-            icon={<FireIcon size={18} color={colors.textSecondary} weight="duotone" />}
-            label="Minum air"
-            hint={
-              settings.data
-                ? 'Tiap ' + settings.data.water_reminder_interval_hours + ' jam'
-                : undefined
-            }
-            value={settings.data?.water_reminder_enabled ?? false}
-            onChange={(v) => ubahReminder('water_reminder_enabled', v)}
-          />
-          <Toggle
-            icon={<BarbellIcon size={18} color={colors.textSecondary} weight="duotone" />}
-            label="Olahraga"
-            hint={settings.data?.workout_reminder_time}
-            value={settings.data?.workout_reminder_enabled ?? false}
-            onChange={(v) => ubahReminder('workout_reminder_enabled', v)}
-          />
-          <Toggle
-            icon={<BellIcon size={18} color={colors.textSecondary} weight="duotone" />}
-            label="Foto badan"
-            hint={settings.data?.photo_reminder_time}
-            value={settings.data?.photo_reminder_enabled ?? false}
-            onChange={(v) => ubahReminder('photo_reminder_enabled', v)}
-            last
-          />
-        </View>
+        {settings.data ? (
+          <View>
+            <ReminderRow
+              icon={<ScalesIcon size={18} color={colors.textSecondary} weight="duotone" />}
+              label="Timbang berat"
+              value={settings.data.weight_reminder_time}
+              enabled={settings.data.weight_reminder_enabled}
+              onToggle={(v) => ubahReminder('weight_reminder_enabled', v)}
+              onPressValue={() => setSheetReminder('weight')}
+            />
+            <ReminderRow
+              icon={<DropIcon size={18} color={colors.textSecondary} weight="duotone" />}
+              label="Minum air"
+              value={'Tiap ' + settings.data.water_reminder_interval_hours + ' jam'}
+              enabled={settings.data.water_reminder_enabled}
+              onToggle={(v) => ubahReminder('water_reminder_enabled', v)}
+              onPressValue={() => setSheetReminder('water')}
+            />
+            <ReminderRow
+              icon={<BarbellIcon size={18} color={colors.textSecondary} weight="duotone" />}
+              label="Olahraga"
+              value={settings.data.workout_reminder_time}
+              enabled={settings.data.workout_reminder_enabled}
+              onToggle={(v) => ubahReminder('workout_reminder_enabled', v)}
+              onPressValue={() => setSheetReminder('workout')}
+            />
+            <ReminderRow
+              icon={<CameraIcon size={18} color={colors.textSecondary} weight="duotone" />}
+              label="Foto badan"
+              value={settings.data.photo_reminder_time}
+              enabled={settings.data.photo_reminder_enabled}
+              onToggle={(v) => ubahReminder('photo_reminder_enabled', v)}
+              onPressValue={() => setSheetReminder('photo')}
+              last
+            />
+          </View>
+        ) : (
+          <Loading />
+        )}
       </Card>
+
+      {/* Expo Go tidak bisa menjadwalkan notifikasi sejak SDK 53, jadi
+          pengaturan di atas tersimpan tapi tidak akan pernah berbunyi di sana.
+          Lebih baik dikatakan terus terang daripada dibiarkan user menunggu
+          notifikasi yang tidak mungkin datang. */}
+      {!pengingatDidukung() ? (
+        <Card variant="outline" padding="md">
+          <Text variant="caption" tone="secondary">
+            Pengaturan tersimpan, tapi notifikasinya belum bisa berbunyi di Expo Go. Perlu dev build
+            supaya pengingat benar-benar muncul.
+          </Text>
+        </Card>
+      ) : null}
 
       <Button
         label="Keluar"
@@ -212,6 +238,15 @@ export default function ProfileScreen() {
       />
 
       <GoalSheet visible={sheetGoal} onClose={() => setSheetGoal(false)} />
+
+      {sheetReminder && settings.data ? (
+        <ReminderSheet
+          key={sheetReminder}
+          kind={sheetReminder}
+          settings={settings.data}
+          onClose={() => setSheetReminder(null)}
+        />
+      ) : null}
     </Screen>
   );
 }
@@ -222,41 +257,6 @@ const Stat = ({ label, value }: { label: string; value: string }) => (
     <Text variant="caption" tone="tertiary">
       {label}
     </Text>
-  </View>
-);
-
-const Toggle = ({
-  icon,
-  label,
-  hint,
-  value,
-  onChange,
-  last = false,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  hint?: string;
-  value: boolean;
-  onChange: (value: boolean) => void;
-  last?: boolean;
-}) => (
-  <View style={[styles.toggle, !last && styles.toggleBorder]}>
-    {icon}
-    <View style={styles.toggleText}>
-      <Text variant="bodyMedium">{label}</Text>
-      {hint ? (
-        <Text variant="caption" tone="tertiary">
-          {hint}
-        </Text>
-      ) : null}
-    </View>
-    <Switch
-      value={value}
-      onValueChange={onChange}
-      trackColor={{ false: colors.surfaceHigh, true: colors.primary }}
-      thumbColor={colors.white}
-      ios_backgroundColor={colors.surfaceHigh}
-    />
   </View>
 );
 
