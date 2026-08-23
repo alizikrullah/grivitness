@@ -1,11 +1,12 @@
+import { type EnergyProfile, loadEnergyProfile } from '../../data/energy-profile.js';
 import { forUser } from '../../data/scoped.js';
 import { unitOfWork } from '../../data/unit-of-work.js';
-import { loadUserMetrics, type UserMetrics } from '../../data/user-metrics.js';
 import type { GoalRecord } from '../../types/directus-schema.js';
 import { AppError } from '../../utils/api-error.js';
 import { daysBetween, planWeightChange, type WeightPlan } from '../../utils/calories.js';
 import { todayInJakarta } from '../../utils/daily-key.js';
 import { toNumber } from '../../utils/number.js';
+import type { ObservedTdee } from '../../utils/observed-tdee.js';
 import type { CreateGoalDto, UpdateGoalDto } from './goals.validation.js';
 
 /**
@@ -35,28 +36,46 @@ export interface GoalWithProgress extends GoalRecord {
    * dengan angka yang bisa dijalankan, bukan cuma vonis bisa atau tidak.
    */
   plan: WeightPlan | null;
+  /**
+   * Hasil mengukur TDEE dari catatan berat dan makanan user sendiri.
+   *
+   * Ini yang membedakan angka di sini dari kalkulator mana pun: rumus cuma
+   * dipakai sebagai titik awal, lalu digeser ke arah yang benar-benar terjadi
+   * pada tubuh user ini. Null kalau profil belum lengkap.
+   */
+  observed_tdee: ObservedTdee | null;
 }
+
+/**
+ * Rasio TDEE terukur terhadap hasil rumus.
+ *
+ * Dikirim ke simulasi sebagai RASIO, bukan angka mutlak, supaya koreksinya ikut
+ * menyusut bersama berat badan sepanjang program.
+ */
+const faktorKoreksi = (p: EnergyProfile): number =>
+  p.observed && p.observed.estimated > 0 ? p.observed.tdee / p.observed.estimated : 1;
 
 /** Menyusun rencana untuk goal ini, atau null kalau datanya belum cukup. */
 const susunRencana = (
   goal: Pick<GoalRecord, 'target_weight_kg' | 'target_date'>,
-  m: UserMetrics,
+  p: EnergyProfile,
   daysRemaining: number,
 ): WeightPlan | null => {
-  if (!m.complete) return null;
+  if (!p.complete) return null;
 
   return planWeightChange({
-    currentWeightKg: m.weightKg,
+    currentWeightKg: p.weightKg,
     targetWeightKg: toNumber(goal.target_weight_kg),
-    heightCm: m.heightCm,
-    age: m.age,
-    gender: m.gender,
-    activityLevel: m.activityLevel,
+    heightCm: p.heightCm,
+    age: p.age,
+    gender: p.gender,
+    activityLevel: p.activityLevel,
     daysRemaining: Math.max(daysRemaining, 1),
+    tdeeFactor: faktorKoreksi(p),
   });
 };
 
-const withProgress = (goal: GoalRecord, m: UserMetrics): GoalWithProgress => {
+const withProgress = (goal: GoalRecord, m: EnergyProfile): GoalWithProgress => {
   const daysRemaining = Math.max(daysBetween(todayInJakarta(), goal.target_date), 0);
   const targetKg = toNumber(goal.target_weight_kg);
 
@@ -70,13 +89,14 @@ const withProgress = (goal: GoalRecord, m: UserMetrics): GoalWithProgress => {
     tdee: rencana?.tdee ?? null,
     achievable: rencana?.achievable ?? null,
     plan: rencana,
+    observed_tdee: m.observed,
   };
 };
 
 export const getActive = async (userId: string): Promise<GoalWithProgress | null> => {
   const [goal, metrics] = await Promise.all([
     forUser(userId).findOne('goals', { filter: { is_active: { _eq: true } } }),
-    loadUserMetrics(userId),
+    loadEnergyProfile(userId),
   ]);
 
   return goal ? withProgress(goal, metrics) : null;
@@ -98,7 +118,7 @@ export const create = async (userId: string, data: CreateGoalDto): Promise<GoalW
 
   const [aktifLama, metrics] = await Promise.all([
     repo.findOne('goals', { filter: { is_active: { _eq: true } } }),
-    loadUserMetrics(userId),
+    loadEnergyProfile(userId),
   ]);
 
   const budget = data.daily_calorie_budget ?? autoBudget(metrics, data);
@@ -130,7 +150,7 @@ export const create = async (userId: string, data: CreateGoalDto): Promise<GoalW
  * budget-nya ditahan di batas aman dan ketidakcocokannya dilaporkan lewat
  * `plan.achievable` beserta tanggal realistisnya.
  */
-const autoBudget = (m: UserMetrics, data: CreateGoalDto): number => {
+const autoBudget = (m: EnergyProfile, data: CreateGoalDto): number => {
   const rencana = susunRencana(
     { target_weight_kg: String(data.target_weight_kg), target_date: data.target_date },
     m,
@@ -180,7 +200,7 @@ export const update = async (
     return scoped.update('goals', goalId, data);
   });
 
-  const metrics = await loadUserMetrics(userId);
+  const metrics = await loadEnergyProfile(userId);
 
   return withProgress(updated, metrics);
 };

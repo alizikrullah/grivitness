@@ -5,8 +5,10 @@ import { withRetry } from '../../data/retry.js';
 import { forUser } from '../../data/scoped.js';
 import type { UserProfileRecord, UserRecord } from '../../types/directus-schema.js';
 import { ACTIVITY_LEVEL_LABEL } from '../../constants/enums.js';
+import { type EnergyProfile, loadEnergyProfile } from '../../data/energy-profile.js';
 import { AppError } from '../../utils/api-error.js';
-import { baselineTDEE, calculateAge, calculateBMR } from '../../utils/calories.js';
+import { calculateAge, calculateBMR } from '../../utils/calories.js';
+import type { ObservedTdee } from '../../utils/observed-tdee.js';
 import { toNumber } from '../../utils/number.js';
 import type { CreateProfileDto, UpdateMeDto, UpdateProfileDto } from './users.validation.js';
 
@@ -49,8 +51,18 @@ export interface ProfileWithDerived {
    * Sengaja acuan dan bukan hari ini, karena angka ini jadi dasar budget kalori.
    * Kalau ikut naik-turun mengikuti aktivitas harian, user tidak pernah tahu
    * berapa yang boleh dimakan sampai harinya berakhir.
+   *
+   * Sudah dikoreksi pengukuran kalau datanya memadai — lihat `observed_tdee`.
    */
   tdee: number | null;
+  /**
+   * Hasil mengukur TDEE dari catatan berat dan makanan user sendiri.
+   *
+   * Rumus cuma titik awal. Begitu ada cukup data, angkanya digeser ke arah yang
+   * benar-benar terjadi pada tubuh user ini — karena Mifflin-St Jeor tahu soal
+   * 498 orang di tahun 1990, dan tidak tahu apa-apa soal orang ini.
+   */
+  observed_tdee: ObservedTdee | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -96,18 +108,9 @@ export const updateMe = async (userId: string, data: UpdateMeDto): Promise<Publi
   return toPublicUser(updated);
 };
 
-/** Berat badan terakhir yang tercatat, atau null kalau user belum pernah menimbang. */
-const latestWeightKg = async (userId: string): Promise<number | null> => {
-  const log = await forUser(userId).findOne('weight_logs', {
-    sort: ['-logged_at'],
-    fields: ['weight_kg'],
-  });
-
-  return log ? toNumber(log.weight_kg) : null;
-};
-
-const withDerived = (profile: UserProfileRecord, weightKg: number | null): ProfileWithDerived => {
+const withDerived = (profile: UserProfileRecord, energy: EnergyProfile): ProfileWithDerived => {
   const age = calculateAge(profile.birth_date);
+  const weightKg = energy.hasWeight ? energy.weightKg : null;
 
   const bmr =
     weightKg === null
@@ -129,10 +132,8 @@ const withDerived = (profile: UserProfileRecord, weightKg: number | null): Profi
     age,
     current_weight_kg: weightKg,
     bmr,
-    tdee:
-      bmr === null || weightKg === null
-        ? null
-        : baselineTDEE(bmr, weightKg, profile.activity_level),
+    tdee: energy.baselineTdee,
+    observed_tdee: energy.observed,
     created_at: profile.created_at,
     updated_at: profile.updated_at,
   };
@@ -141,16 +142,16 @@ const withDerived = (profile: UserProfileRecord, weightKg: number | null): Profi
 export const getProfile = async (userId: string): Promise<ProfileWithDerived> => {
   // Dua query yang tidak saling bergantung, jadi dijalankan bersamaan.
   // Berurutan berarti menumpuk dua kali latensi tanpa alasan.
-  const [profile, weightKg] = await Promise.all([
+  const [profile, energy] = await Promise.all([
     forUser(userId).findOne('user_profiles'),
-    latestWeightKg(userId),
+    loadEnergyProfile(userId),
   ]);
 
   if (!profile) {
     throw AppError.notFound('Profil belum diisi. Buat dulu lewat POST /api/users/me/profile');
   }
 
-  return withDerived(profile, weightKg);
+  return withDerived(profile, energy);
 };
 
 export const createProfile = async (
@@ -163,9 +164,9 @@ export const createProfile = async (
   }
 
   const created = await forUser(userId).create('user_profiles', data);
-  const weightKg = await latestWeightKg(userId);
+  const energy = await loadEnergyProfile(userId);
 
-  return withDerived(created, weightKg);
+  return withDerived(created, energy);
 };
 
 export const updateProfile = async (
@@ -180,7 +181,7 @@ export const updateProfile = async (
   }
 
   const updated = await repo.update('user_profiles', existing.id, data);
-  const weightKg = await latestWeightKg(userId);
+  const energy = await loadEnergyProfile(userId);
 
-  return withDerived(updated, weightKg);
+  return withDerived(updated, energy);
 };

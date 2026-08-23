@@ -58,8 +58,12 @@ export interface Profile {
   age: number;
   current_weight_kg: number | null;
   bmr: number | null;
-  /** TDEE hari biasa: tidur normal, gerak seadanya, tanpa olahraga. */
+  /**
+   * TDEE hari biasa: tidur normal, gerak seadanya, tanpa olahraga.
+   * Sudah dikoreksi pengukuran kalau datanya memadai.
+   */
   tdee: number | null;
+  observed_tdee: ObservedTdee | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -97,6 +101,37 @@ export interface WeightPlan {
   extra_steps_needed: number;
 }
 
+/** Kenapa TDEE terukur belum bisa dipakai. */
+export type ObservedReason =
+  | 'BELUM_CUKUP_HARI'
+  | 'BELUM_CUKUP_TIMBANGAN'
+  | 'RENTANG_TIMBANG_PENDEK'
+  | 'CATATAN_MAKAN_KURANG'
+  | 'HASIL_TIDAK_WAJAR';
+
+/**
+ * TDEE yang diukur dari catatan berat dan makanan user sendiri.
+ *
+ * Rumus cuma titik awal. Begitu datanya cukup, angkanya digeser ke arah yang
+ * benar-benar terjadi pada tubuh user ini — karena Mifflin-St Jeor tahu soal
+ * 498 orang di tahun 1990, dan tidak tahu apa-apa soal orang ini.
+ */
+export interface ObservedTdee {
+  /** Yang dipakai: campuran pengukuran dan estimasi rumus. */
+  tdee: number;
+  /** Hasil murni rumus, sebelum dikoreksi. */
+  estimated: number;
+  /** Hasil murni pengukuran. Null selama datanya belum layak. */
+  measured: number | null;
+  /** 0 sampai 1 — bobot pengukuran di dalam `tdee`. */
+  confidence: number;
+  reason: ObservedReason | null;
+  days: number;
+  logged_days: number;
+  weigh_ins: number;
+  weekly_rate_kg: number | null;
+}
+
 /** Goal aktif berikut turunannya. Semua dihitung ulang tiap kali dibaca. */
 export interface GoalWithProgress extends Goal {
   current_weight_kg: number | null;
@@ -105,6 +140,7 @@ export interface GoalWithProgress extends Goal {
   tdee: number | null;
   achievable: boolean | null;
   plan: WeightPlan | null;
+  observed_tdee: ObservedTdee | null;
 }
 
 export interface WeightLog {
