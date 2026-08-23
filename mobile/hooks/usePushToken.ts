@@ -1,10 +1,24 @@
-import Constants from 'expo-constants';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
 import { patch } from '@/lib/api';
+
+/**
+ * Expo Go tidak lagi membawa push notification Android sejak SDK 53.
+ *
+ * Yang penting: kegagalannya terjadi saat modulnya DIIMPOR, bukan saat dipakai.
+ * `expo-notifications` mendaftarkan listener di lingkup global berkasnya, dan
+ * di Expo Go pendaftaran itu melempar error. Karena impor di React Native
+ * dievaluasi begitu berkas dimuat, satu impor statis di sini cukup untuk
+ * menjatuhkan seluruh root layout — yang muncul sebagai "Route ./_layout.tsx
+ * is missing the required default export", bukan sebagai pesan tentang push.
+ *
+ * Karena itu modulnya dimuat lewat impor dinamis di bawah, setelah dipastikan
+ * aplikasi tidak sedang berjalan di Expo Go.
+ */
+const DI_EXPO_GO = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 /**
  * Mendaftarkan perangkat ini untuk menerima pengingat.
@@ -17,8 +31,12 @@ import { patch } from '@/lib/api';
  * tidak boleh ada satu pun jalur di sini yang bisa menahan aplikasi terbuka.
  */
 const ambilToken = async (): Promise<string | null> => {
+  if (DI_EXPO_GO) return null;
+
   // Emulator dan simulator tidak bisa menerima push sama sekali.
   if (!Device.isDevice) return null;
+
+  const Notifications = await import('expo-notifications');
 
   const { status } = await Notifications.getPermissionsAsync();
 
