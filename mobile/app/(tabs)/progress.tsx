@@ -4,6 +4,7 @@ import {
   FireIcon,
   FootprintsIcon,
   MoonStarsIcon,
+  ScalesIcon,
   TrendDownIcon,
   TrendUpIcon,
 } from 'phosphor-react-native';
@@ -153,11 +154,15 @@ export default function ProgressScreen() {
           <SectionHeader title={periode === 'pekan' ? 'Rekap pekan ini' : 'Rekap bulan ini'} />
 
           <View style={styles.grid}>
+            {/* Ditampilkan sebagai TOTAL, bukan rata-rata. Rata-rata dihitung
+                backend dengan membagi jumlah hari kalender, jadi 600 kkal yang
+                dicatat sehari terbaca 86 kkal di pekan yang baru berjalan satu
+                hari — angka yang benar secara aritmetika tapi menyesatkan. */}
             <MetricTile
               icon={<FireIcon size={16} color={metricColors.calories} weight="fill" />}
               label="Kalori masuk"
-              value={thousands(rekap.data?.avg_calories_in ?? 0)}
-              unit="rata-rata"
+              value={thousands(rekap.data?.total_calories_in ?? 0)}
+              unit="kkal total"
               color={metricColors.calories}
             />
             <MetricTile
@@ -179,8 +184,8 @@ export default function ProgressScreen() {
             <MetricTile
               icon={<MoonStarsIcon size={16} color={metricColors.sleep} weight="fill" />}
               label="Tidur"
-              value={duration(rekap.data?.avg_sleep_minutes ?? 0)}
-              unit="rata-rata"
+              value={duration(rekap.data?.total_sleep_minutes ?? 0)}
+              unit="total"
               color={metricColors.sleep}
             />
           </View>
@@ -192,9 +197,12 @@ export default function ProgressScreen() {
               value={volume(rekap.data?.total_water_ml ?? 0)}
               color={metricColors.water}
             />
+            {/* Backend menghitungnya dari jumlah baris weight_logs, jadi yang
+                terhitung khusus hari saat berat badan ditimbang — bukan hari
+                dengan pencatatan apa pun. Labelnya menyebutkan itu apa adanya. */}
             <MetricTile
-              icon={<FireIcon size={16} color={colors.textSecondary} weight="fill" />}
-              label="Hari tercatat"
+              icon={<ScalesIcon size={16} color={colors.textSecondary} weight="fill" />}
+              label="Hari ditimbang"
               value={String(rekap.data?.days_logged ?? 0)}
               unit={'dari ' + (rekap.data?.days ?? 0) + ' hari'}
               color={colors.textSecondary}

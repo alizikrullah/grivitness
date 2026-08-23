@@ -92,7 +92,16 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderStyle: 'dashed',
   },
-  image: { width: '100%', height: '100%' },
+  /**
+   * Dipasang absolut, bukan lebar-tinggi 100%.
+   *
+   * Tinggi kotak ini berasal dari aspectRatio, dan di Android tinggi turunan
+   * seperti itu tidak selalu bisa dipakai sebagai acuan persentase — height
+   * "100%" terhitung nol, dan fotonya tidak kelihatan sama sekali walaupun
+   * sudah termuat. Mengisi penuh induknya secara absolut menghindari
+   * ketergantungan itu.
+   */
+  image: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   clear: { position: 'absolute', top: spacing.sm, right: spacing.sm },
   actions: { flexDirection: 'row', gap: spacing.sm },
   action: {

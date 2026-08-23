@@ -30,8 +30,15 @@ export const Screen = ({
 }: ScreenProps) => {
   const insets = useSafeAreaInsets();
 
+  /**
+   * Jarak atas dihitung dari safe area DITAMBAH ruang nafas sendiri.
+   *
+   * Safe area hanya menjamin isi tidak tertutup notch atau status bar — ia
+   * berhenti persis di batas itu, sehingga judul halaman menempel ke tepi
+   * layar dan terasa sesak. Tambahan di bawah ini yang memberi jarak.
+   */
   const padding = {
-    paddingTop: insets.top + spacing.sm,
+    paddingTop: insets.top + spacing.xl,
     paddingBottom: (bottomInset ? TAB_BAR_SPACE : insets.bottom) + spacing.xl,
   };
 

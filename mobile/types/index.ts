@@ -106,6 +106,21 @@ export interface SleepLog {
   created_at: string | null;
 }
 
+/**
+ * Bentuk balasan GET /api/sleep/today dan /api/sleep?date=.
+ *
+ * Endpoint ini mengembalikan OBJEK berisi rekap dan daftarnya, bukan array
+ * telanjang. Sempat salah ditulis sebagai SleepLog[] di sini, dan akibatnya
+ * `.length` selalu undefined sehingga layar tidur tampak kosong terus padahal
+ * datanya tersimpan. `get<T>()` cuma memberi tipe, tidak memeriksa isi — jadi
+ * ketidakcocokan seperti ini lolos dari TypeScript dan baru terlihat di layar.
+ */
+export interface SleepDay {
+  date: string;
+  total_minutes: number;
+  logs: SleepLog[];
+}
+
 export interface MoodLog {
   id: string;
   mood_score: number;
@@ -246,6 +261,8 @@ export interface DailySummary {
   water_ml: number;
   sleep_minutes: number;
   workout_minutes: number;
+  /** Kalori dari olahraga saja. calories_out sudah termasuk TDEE dan langkah. */
+  workout_calories: number;
   mood_score: number | null;
   energy_score: number | null;
   has_body_photo: boolean;

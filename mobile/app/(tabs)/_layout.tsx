@@ -66,7 +66,7 @@ export default function TabsLayout() {
                   }}
                   style={({ pressed }) => [
                     styles.item,
-                    aktif && styles.itemActive,
+                    aktif ? styles.itemActive : styles.itemIdle,
                     pressed && styles.pressed,
                   ]}
                 >
@@ -113,7 +113,6 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
   },
   item: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -121,6 +120,20 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: radius.pill,
   },
-  itemActive: { backgroundColor: colors.primary },
+  /**
+   * Tab tidak aktif memakai lebar tetap secukupnya ikon, sementara tab aktif
+   * mengambil sisa ruang.
+   *
+   * Sebelumnya keempatnya sama-sama flex: 1, jadi pil merah dapat jatah yang
+   * sama dengan slot yang cuma berisi ikon — padahal ia harus memuat ikon DAN
+   * teks. Label sepanjang "Beranda" jadi mepet ke tepi pil dan terlihat sesak.
+   */
+  itemIdle: { width: 56 },
+  itemActive: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    minWidth: 120,
+  },
   pressed: { opacity: 0.75 },
 });

@@ -60,7 +60,15 @@ export default function LogHubScreen() {
       label: 'Olahraga',
       Icon: BarbellIcon,
       color: metricColors.workout,
-      status: (d?.workout_minutes ?? 0) > 0 ? duration(d?.workout_minutes ?? 0) : 'Belum dicatat',
+      // Durasi saja tidak menjawab yang dicari: berapa yang terbakar. Sama
+      // seperti di beranda, keduanya ditampilkan berdampingan.
+      status:
+        (d?.workout_minutes ?? 0) > 0
+          ? duration(d?.workout_minutes ?? 0) +
+            ' · ' +
+            thousands(d?.workout_calories ?? 0) +
+            ' kkal'
+          : 'Belum dicatat',
       done: (d?.workout_minutes ?? 0) > 0,
     },
     {

@@ -1,8 +1,9 @@
 import { Image } from 'expo-image';
-import { ForkKnifeIcon, SparkleIcon, TrashIcon } from 'phosphor-react-native';
+import { ForkKnifeIcon, PencilSimpleIcon, SparkleIcon, TrashIcon } from 'phosphor-react-native';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 
+import { FoodEditSheet } from '@/components/features/FoodEditSheet';
 import { MacroBar } from '@/components/features/Metrics';
 import { PhotoSlot } from '@/components/features/PhotoSlot';
 import {
@@ -24,7 +25,7 @@ import { MEAL_LABEL, MEAL_OPTIONS } from '@/constants/labels';
 import { radius, spacing } from '@/constants/theme';
 import { imageSource, toApiError } from '@/lib/api';
 import { useCreateFood, useDeleteFood, useFoodToday } from '@/services/food.service';
-import type { MealType } from '@/types';
+import type { FoodLog, MealType } from '@/types';
 import { usePhotoPicker } from '@/hooks/usePhotoPicker';
 import { timeWIB } from '@/utils/date';
 import { thousands, toNum } from '@/utils/format';
@@ -48,6 +49,7 @@ export default function FoodScreen() {
   const [jenis, setJenis] = useState<MealType>(tebakJenisMakan());
   const [catatan, setCatatan] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [diedit, setDiedit] = useState<FoodLog | null>(null);
 
   const ambil = async (dari: 'kamera' | 'galeri') => {
     const hasil = dari === 'kamera' ? await picker.dariKamera() : await picker.dariGaleri();
@@ -206,9 +208,14 @@ export default function FoodScreen() {
                       </Text>
                     </View>
 
-                    <IconCircle size={36} onPress={() => deleteFood.mutate(log.id)}>
-                      <TrashIcon size={16} color={colors.textSecondary} weight="regular" />
-                    </IconCircle>
+                    <View style={styles.logActions}>
+                      <IconCircle size={36} onPress={() => setDiedit(log)}>
+                        <PencilSimpleIcon size={16} color={colors.textSecondary} weight="regular" />
+                      </IconCircle>
+                      <IconCircle size={36} onPress={() => deleteFood.mutate(log.id)}>
+                        <TrashIcon size={16} color={colors.textSecondary} weight="regular" />
+                      </IconCircle>
+                    </View>
                   </View>
                 </Card>
               );
@@ -216,6 +223,12 @@ export default function FoodScreen() {
           </>
         )}
       </Screen>
+
+      {/* key memaksa isian sheet dibuat ulang tiap ganti log. Tanpa itu, nilai
+          dari log yang dibuka sebelumnya masih tertinggal di kolomnya. */}
+      {diedit ? (
+        <FoodEditSheet key={diedit.id} log={diedit} onClose={() => setDiedit(null)} />
+      ) : null}
     </KeyboardAvoidingView>
   );
 }
@@ -235,4 +248,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceHigh,
   },
   logText: { flex: 1, gap: 2 },
+  logActions: { gap: spacing.sm },
 });

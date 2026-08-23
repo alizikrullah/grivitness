@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { del, get, post } from '@/lib/api';
+import { del, get, patch, post } from '@/lib/api';
 import { invalidateAfterLog, qk } from '@/lib/query';
 import type {
   CustomWorkout,
@@ -98,5 +98,24 @@ export const useDeleteCustomWorkout = () => {
   return useMutation({
     mutationFn: (id: string) => del('/api/workouts/custom/' + id),
     onSuccess: () => void client.invalidateQueries({ queryKey: qk.customWorkouts }),
+  });
+};
+
+export interface WorkoutEditInput {
+  id: string;
+  workout_name?: string;
+  duration_minutes?: number;
+  calories_burned?: number;
+  intensity?: WorkoutIntensity;
+  notes?: string | null;
+}
+
+export const useUpdateWorkout = () => {
+  const client = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, ...body }: WorkoutEditInput) =>
+      patch<WorkoutLog>('/api/workouts/' + id, body),
+    onSuccess: () => segarkan(client),
   });
 };

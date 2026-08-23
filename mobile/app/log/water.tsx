@@ -1,5 +1,7 @@
 import * as Haptics from 'expo-haptics';
-import { DropIcon, PlusIcon, TrashIcon } from 'phosphor-react-native';
+import { LogActions } from '@/components/features/LogActions';
+import { WaterEditSheet } from '@/components/features/WaterEditSheet';
+import { DropIcon, PlusIcon } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -8,7 +10,6 @@ import {
   EmptyState,
   ErrorNote,
   Header,
-  IconCircle,
   Loading,
   Ring,
   Screen,
@@ -19,6 +20,7 @@ import { colors, metricColors } from '@/constants/colors';
 import { radius, spacing, typography } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
 import { useAddWater, useDeleteWater, useWaterToday } from '@/services/water.service';
+import type { WaterLog } from '@/types';
 import { timeWIB } from '@/utils/date';
 import { ratio, volume } from '@/utils/format';
 
@@ -33,6 +35,7 @@ export default function WaterScreen() {
   const deleteWater = useDeleteWater();
 
   const [error, setError] = useState<string | null>(null);
+  const [diedit, setDiedit] = useState<WaterLog | null>(null);
 
   const total = today.data?.total_ml ?? 0;
 
@@ -48,95 +51,104 @@ export default function WaterScreen() {
   };
 
   return (
-    <Screen refreshing={today.isRefetching} onRefresh={() => void today.refetch()}>
-      <Header title="Minum air" subtitle="Boleh dicatat berkali-kali sehari" />
+    <>
+      <Screen refreshing={today.isRefetching} onRefresh={() => void today.refetch()}>
+        <Header title="Minum air" subtitle="Boleh dicatat berkali-kali sehari" />
 
-      {today.isPending ? (
-        <Loading />
-      ) : (
-        <>
-          <Card>
-            <View style={styles.ringCard}>
-              <Ring
-                progress={ratio(total, TARGET_ML)}
-                size={190}
-                thickness={14}
-                color={metricColors.water}
-                sweep={0.78}
-              >
-                <View style={styles.ringCenter}>
-                  <DropIcon size={22} color={metricColors.water} weight="duotone" />
-                  <Text style={typography.metric}>{volume(total)}</Text>
-                  <Text variant="caption" tone="secondary">
-                    dari {volume(TARGET_ML)}
-                  </Text>
-                </View>
-              </Ring>
-            </View>
-          </Card>
-
-          <SectionHeader title="Tambah cepat" />
-
-          <View style={styles.quick}>
-            {TAKARAN.map((ml) => (
-              <Pressable
-                key={ml}
-                onPress={() => tambah(ml)}
-                disabled={addWater.isPending}
-                style={({ pressed }) => [styles.quickItem, pressed && styles.pressed]}
-              >
-                <PlusIcon size={16} color={metricColors.water} weight="bold" />
-                <Text variant="label">{ml}</Text>
-                <Text variant="caption" tone="tertiary">
-                  ml
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          {error ? <ErrorNote message={error} /> : null}
-
-          <SectionHeader title="Catatan hari ini" />
-
-          {(today.data?.logs.length ?? 0) === 0 ? (
-            <EmptyState
-              icon={<DropIcon size={30} color={colors.textTertiary} weight="duotone" />}
-              title="Belum minum apa-apa"
-              message="Ketuk salah satu takaran di atas untuk mencatat."
-            />
-          ) : (
-            <Card padding="md">
-              <View>
-                {today.data?.logs.map((log, index) => (
-                  <View
-                    key={log.id}
-                    style={[
-                      styles.row,
-                      index < (today.data?.logs.length ?? 0) - 1 && styles.rowBorder,
-                    ]}
-                  >
-                    <View style={styles.rowIcon}>
-                      <DropIcon size={16} color={metricColors.water} weight="fill" />
-                    </View>
-
-                    <View style={styles.rowText}>
-                      <Text variant="bodyMedium">{log.amount_ml} ml</Text>
-                      <Text variant="caption" tone="tertiary">
-                        {timeWIB(log.logged_at)} WIB
-                      </Text>
-                    </View>
-
-                    <IconCircle size={36} onPress={() => hapus(log.id)}>
-                      <TrashIcon size={16} color={colors.textSecondary} weight="regular" />
-                    </IconCircle>
+        {today.isPending ? (
+          <Loading />
+        ) : (
+          <>
+            <Card>
+              <View style={styles.ringCard}>
+                <Ring
+                  progress={ratio(total, TARGET_ML)}
+                  size={190}
+                  thickness={14}
+                  color={metricColors.water}
+                  sweep={0.78}
+                >
+                  <View style={styles.ringCenter}>
+                    <DropIcon size={22} color={metricColors.water} weight="duotone" />
+                    <Text style={typography.metric}>{volume(total)}</Text>
+                    <Text variant="caption" tone="secondary">
+                      dari {volume(TARGET_ML)}
+                    </Text>
                   </View>
-                ))}
+                </Ring>
               </View>
             </Card>
-          )}
-        </>
-      )}
-    </Screen>
+
+            <SectionHeader title="Tambah cepat" />
+
+            <View style={styles.quick}>
+              {TAKARAN.map((ml) => (
+                <Pressable
+                  key={ml}
+                  onPress={() => tambah(ml)}
+                  disabled={addWater.isPending}
+                  style={({ pressed }) => [styles.quickItem, pressed && styles.pressed]}
+                >
+                  <PlusIcon size={16} color={metricColors.water} weight="bold" />
+                  <Text variant="label">{ml}</Text>
+                  <Text variant="caption" tone="tertiary">
+                    ml
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {error ? <ErrorNote message={error} /> : null}
+
+            <SectionHeader title="Catatan hari ini" />
+
+            {(today.data?.logs.length ?? 0) === 0 ? (
+              <EmptyState
+                icon={<DropIcon size={30} color={colors.textTertiary} weight="duotone" />}
+                title="Belum minum apa-apa"
+                message="Ketuk salah satu takaran di atas untuk mencatat."
+              />
+            ) : (
+              <Card padding="md">
+                <View>
+                  {today.data?.logs.map((log, index) => (
+                    <View
+                      key={log.id}
+                      style={[
+                        styles.row,
+                        index < (today.data?.logs.length ?? 0) - 1 && styles.rowBorder,
+                      ]}
+                    >
+                      <View style={styles.rowIcon}>
+                        <DropIcon size={16} color={metricColors.water} weight="fill" />
+                      </View>
+
+                      <View style={styles.rowText}>
+                        <Text variant="bodyMedium">{log.amount_ml} ml</Text>
+                        <Text variant="caption" tone="tertiary">
+                          {timeWIB(log.logged_at)} WIB
+                        </Text>
+                      </View>
+
+                      <LogActions
+                        row
+                        onEdit={() => setDiedit(log)}
+                        onDelete={() => hapus(log.id)}
+                        deleteMessage={'Tegukan ' + log.amount_ml + ' ml akan dihapus.'}
+                      />
+                    </View>
+                  ))}
+                </View>
+              </Card>
+            )}
+          </>
+        )}
+      </Screen>
+
+      {diedit ? (
+        <WaterEditSheet key={diedit.id} log={diedit} onClose={() => setDiedit(null)} />
+      ) : null}
+    </>
   );
 }
 

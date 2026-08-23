@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { del, get, post } from '@/lib/api';
+import { del, get, patch, post } from '@/lib/api';
 import { invalidateAfterLog, qk } from '@/lib/query';
-import type { SleepLog } from '@/types';
+import type { SleepDay, SleepLog } from '@/types';
 
 export interface SleepInput {
   sleep_start: string;
@@ -11,8 +11,9 @@ export interface SleepInput {
   notes?: string;
 }
 
+/** Balasannya objek rekap harian, bukan array — lihat catatan di tipe SleepDay. */
 export const useSleepToday = () =>
-  useQuery({ queryKey: qk.sleepToday, queryFn: () => get<SleepLog[]>('/api/sleep/today') });
+  useQuery({ queryKey: qk.sleepToday, queryFn: () => get<SleepDay>('/api/sleep/today') });
 
 export const useSleepRange = (from: string, to: string) =>
   useQuery({
@@ -39,6 +40,24 @@ export const useDeleteSleep = () => {
 
   return useMutation({
     mutationFn: (id: string) => del('/api/sleep/' + id),
+    onSuccess: () => segarkan(client),
+  });
+};
+
+export interface SleepEditInput {
+  id: string;
+  sleep_start?: string;
+  sleep_end?: string;
+  quality_score?: number;
+  /** null berarti catatan dikosongkan, undefined berarti tidak disentuh. */
+  notes?: string | null;
+}
+
+export const useUpdateSleep = () => {
+  const client = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, ...body }: SleepEditInput) => patch<SleepLog>('/api/sleep/' + id, body),
     onSuccess: () => segarkan(client),
   });
 };

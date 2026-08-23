@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { get, patch, post } from '@/lib/api';
+import { del, get, patch, post } from '@/lib/api';
 import { invalidateAfterLog, qk } from '@/lib/query';
 import type { MoodLog } from '@/types';
 
@@ -36,6 +36,18 @@ export const useSaveMood = () => {
   return useMutation({
     mutationFn: ({ id, ...body }: { id?: string } & MoodInput) =>
       id ? patch<MoodLog>('/api/mood/' + id, body) : post<MoodLog>('/api/mood', body),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ['mood'] });
+      invalidateAfterLog(client);
+    },
+  });
+};
+
+export const useDeleteMood = () => {
+  const client = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => del('/api/mood/' + id),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['mood'] });
       invalidateAfterLog(client);

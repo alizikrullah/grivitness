@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { del, get, post } from '@/lib/api';
+import { del, get, patch, post } from '@/lib/api';
 import { invalidateAfterLog, qk } from '@/lib/query';
 import type { WaterDay, WaterLog } from '@/types';
 
@@ -33,6 +33,16 @@ export const useDeleteWater = () => {
 
   return useMutation({
     mutationFn: (id: string) => del('/api/water/' + id),
+    onSuccess: () => segarkan(client),
+  });
+};
+
+export const useUpdateWater = () => {
+  const client = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string; amount_ml?: number; logged_at?: string }) =>
+      patch<WaterLog>('/api/water/' + id, body),
     onSuccess: () => segarkan(client),
   });
 };

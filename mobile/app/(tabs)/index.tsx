@@ -165,6 +165,9 @@ export default function HomeScreen() {
               icon={<BarbellIcon size={16} color={metricColors.workout} weight="fill" />}
               label="Olahraga"
               value={duration(data?.workout_minutes ?? 0)}
+              // Durasi saja tidak menjawab pertanyaan yang sebenarnya dicari:
+              // berapa yang terbakar. Keduanya ditampilkan berdampingan.
+              unit={thousands(data?.workout_calories ?? 0) + ' kkal'}
               color={metricColors.workout}
               onPress={() => router.push('/log/workout')}
             />

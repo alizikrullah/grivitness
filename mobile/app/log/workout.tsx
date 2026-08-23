@@ -1,4 +1,6 @@
-import { BarbellIcon, CaretRightIcon, MagnifyingGlassIcon, TrashIcon } from 'phosphor-react-native';
+import { BarbellIcon, CaretRightIcon, MagnifyingGlassIcon } from 'phosphor-react-native';
+import { LogActions } from '@/components/features/LogActions';
+import { WorkoutEditSheet } from '@/components/features/WorkoutEditSheet';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
 
@@ -9,7 +11,6 @@ import {
   EmptyState,
   ErrorNote,
   Header,
-  IconCircle,
   Input,
   Loading,
   Row,
@@ -36,7 +37,7 @@ import {
   useWorkoutsToday,
   type WorkoutInput,
 } from '@/services/workouts.service';
-import type { WorkoutCategory, WorkoutIntensity } from '@/types';
+import type { WorkoutCategory, WorkoutIntensity, WorkoutLog } from '@/types';
 import { duration, thousands, toNum } from '@/utils/format';
 
 /** Olahraga yang dipilih user, apa pun sumbernya. */
@@ -60,6 +61,7 @@ export default function WorkoutScreen() {
   const [intensitas, setIntensitas] = useState<WorkoutIntensity>('MEDIUM');
   const [catatan, setCatatan] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [diedit, setDiedit] = useState<WorkoutLog | null>(null);
 
   const pakaiManual = pilihan === null;
 
@@ -241,9 +243,11 @@ export default function WorkoutScreen() {
                   </Text>
                 </View>
 
-                <IconCircle size={36} onPress={() => deleteWorkout.mutate(log.id)}>
-                  <TrashIcon size={16} color={colors.textSecondary} weight="regular" />
-                </IconCircle>
+                <LogActions
+                  onEdit={() => setDiedit(log)}
+                  onDelete={() => deleteWorkout.mutate(log.id)}
+                  deleteMessage={log.workout_name + ' akan dihapus dari catatan hari ini.'}
+                />
               </View>
             </Card>
           ))
@@ -258,6 +262,10 @@ export default function WorkoutScreen() {
           }}
         />
       </Screen>
+
+      {diedit ? (
+        <WorkoutEditSheet key={diedit.id} log={diedit} onClose={() => setDiedit(null)} />
+      ) : null}
     </KeyboardAvoidingView>
   );
 }
