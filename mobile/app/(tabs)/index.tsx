@@ -22,10 +22,17 @@ import { useAuthStore } from '@/stores/auth.store';
 import { greeting, longDate, todayWIB } from '@/utils/date';
 import { duration, initials, kg, thousands, volume } from '@/utils/format';
 
-/** Target harian bawaan untuk metrik yang tidak punya target di backend. */
-const TARGET_LANGKAH = 10_000;
-const TARGET_AIR_ML = 2500;
-const TARGET_TIDUR_MENIT = 8 * 60;
+/**
+ * Pembagian yang aman terhadap target yang belum ada.
+ *
+ * Target sekarang datang dari backend, diturunkan dari berat, tinggi, usia, dan
+ * target berat badan user. Sebelumnya ditulis di sini sebagai angka tetap —
+ * 10.000 langkah, 2500ml, 8 jam — yang sama untuk semua orang dan tidak satu pun
+ * punya sumber. Yang 10.000 langkah bahkan asalnya nama produk pedometer Jepang
+ * tahun 1965, bukan penelitian.
+ */
+const rasio = (nilai: number, target: number | undefined): number =>
+  target && target > 0 ? nilai / target : 0;
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -88,7 +95,7 @@ export default function HomeScreen() {
             <View style={styles.noticeText}>
               <Text variant="label">Lengkapi profil kamu</Text>
               <Text variant="caption" tone="secondary">
-                Tinggi, usia, dan level aktivitas dipakai menghitung kebutuhan kalori.
+                Tinggi, usia, dan jenis pekerjaan dipakai menghitung kebutuhan kalori.
               </Text>
             </View>
             <ArrowRightIcon size={18} color={colors.textSecondary} weight="bold" />
@@ -128,6 +135,19 @@ export default function HomeScreen() {
                   </Text>
                 </View>
               </View>
+
+              {/*
+                Susunan "keluar" dibuka, bukan cuma satu angka besar yang harus
+                dipercaya. Ketiganya TIDAK saling tumpang tindih: 24 jam dibagi
+                habis, jadi jam olahraga dan jam berjalan diambil dari jatah
+                metabolisme, bukan ditambahkan di atasnya.
+              */}
+              {data?.energy ? (
+                <Text variant="caption" tone="tertiary" style={styles.burnNote}>
+                  {thousands(data.energy.baseline)} metabolisme + {data.energy.step_calories}{' '}
+                  langkah + {data.energy.workout_calories} olahraga
+                </Text>
+              ) : null}
             </View>
           </Card>
 
@@ -138,7 +158,8 @@ export default function HomeScreen() {
               icon={<FootprintsIcon size={16} color={metricColors.steps} weight="fill" />}
               label="Langkah"
               value={thousands(data?.steps ?? 0)}
-              progress={(data?.steps ?? 0) / TARGET_LANGKAH}
+              unit={'dari ' + thousands(data?.targets.steps.steps ?? 0)}
+              progress={rasio(data?.steps ?? 0, data?.targets.steps.steps)}
               color={metricColors.steps}
               onPress={() => router.push('/log/steps')}
             />
@@ -146,7 +167,8 @@ export default function HomeScreen() {
               icon={<DropIcon size={16} color={metricColors.water} weight="fill" />}
               label="Air"
               value={volume(data?.water_ml ?? 0)}
-              progress={(data?.water_ml ?? 0) / TARGET_AIR_ML}
+              unit={'dari ' + volume(data?.targets.water_ml ?? 0)}
+              progress={rasio(data?.water_ml ?? 0, data?.targets.water_ml)}
               color={metricColors.water}
               onPress={() => router.push('/log/water')}
             />
@@ -157,7 +179,17 @@ export default function HomeScreen() {
               icon={<MoonStarsIcon size={16} color={metricColors.sleep} weight="fill" />}
               label="Tidur"
               value={duration(data?.sleep_minutes ?? 0)}
-              progress={(data?.sleep_minutes ?? 0) / TARGET_TIDUR_MENIT}
+              // Rentang, bukan satu angka — rekomendasinya memang 7-9 jam, dan
+              // menampilkannya sebagai "8 jam tepat" memalsukan ketelitian yang
+              // tidak dimiliki penelitiannya.
+              unit={
+                data
+                  ? duration(data.targets.sleep.min_minutes) +
+                    '–' +
+                    duration(data.targets.sleep.max_minutes)
+                  : undefined
+              }
+              progress={rasio(data?.sleep_minutes ?? 0, data?.targets.sleep.min_minutes)}
               color={metricColors.sleep}
               onPress={() => router.push('/log/sleep')}
             />
@@ -242,6 +274,7 @@ const styles = StyleSheet.create({
   burnRow: { flexDirection: 'row', alignItems: 'center' },
   burnItem: { flex: 1, alignItems: 'center', gap: spacing.xs },
   burnDivider: { width: StyleSheet.hairlineWidth, height: 32, backgroundColor: colors.border },
+  burnNote: { textAlign: 'center' },
   grid: { flexDirection: 'row', gap: spacing.md },
   macroCard: { gap: spacing.lg },
   weightCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },

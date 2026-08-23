@@ -163,7 +163,18 @@ export default function OnboardingScreen() {
 
         <View style={styles.group}>
           <Text variant="label" tone="secondary">
-            Level aktivitas
+            Pekerjaan sehari-hari
+          </Text>
+
+          {/*
+            Pertanyaannya sengaja soal pekerjaan, bukan seberapa sering olahraga.
+            Olahraga, langkah, dan tidur sudah dihitung terpisah dari data yang
+            kamu catat — kalau ditanyakan lagi di sini, jam yang sama dihitung
+            dua kali dan targetmu jadi terlalu longgar.
+          */}
+          <Text variant="caption" tone="tertiary" style={styles.levelHint}>
+            Olahraga tidak perlu dihitung di sini — itu sudah diambil dari catatan
+            olahraga, langkah, dan tidurmu.
           </Text>
 
           {ACTIVITY_OPTIONS.map((level) => {
@@ -228,6 +239,7 @@ const styles = StyleSheet.create({
   },
   levelActive: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
   levelText: { flex: 1, gap: 2 },
+  levelHint: { marginBottom: spacing.xs },
   radio: {
     width: 20,
     height: 20,

@@ -19,12 +19,11 @@ import {
 import { colors, metricColors } from '@/constants/colors';
 import { radius, spacing, typography } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
+import { useDailySummary } from '@/services/misc.service';
 import { useAddWater, useDeleteWater, useWaterToday } from '@/services/water.service';
 import type { WaterLog } from '@/types';
-import { timeWIB } from '@/utils/date';
+import { timeWIB, todayWIB } from '@/utils/date';
 import { ratio, volume } from '@/utils/format';
-
-const TARGET_ML = 2500;
 
 /** Takaran yang paling sering dipakai, supaya mencatat cukup satu ketukan. */
 const TAKARAN = [150, 250, 500, 750];
@@ -38,6 +37,16 @@ export default function WaterScreen() {
   const [diedit, setDiedit] = useState<WaterLog | null>(null);
 
   const total = today.data?.total_ml ?? 0;
+
+  /**
+   * Target minum diturunkan backend dari berat badan dan usia — 35 ml per kg
+   * untuk dewasa, lebih rendah untuk usia lanjut, plus tambahan sesuai lama
+   * olahraga hari itu.
+   *
+   * Angka tetap 2500ml yang dulu ada di sini memaksa orang bertubuh kecil minum
+   * berlebihan, sementara yang bertubuh besar merasa sudah cukup padahal belum.
+   */
+  const targetMl = useDailySummary(todayWIB()).data?.targets.water_ml ?? 0;
 
   const tambah = (ml: number) => {
     setError(null);
@@ -62,7 +71,7 @@ export default function WaterScreen() {
             <Card>
               <View style={styles.ringCard}>
                 <Ring
-                  progress={ratio(total, TARGET_ML)}
+                  progress={ratio(total, targetMl)}
                   size={190}
                   thickness={14}
                   color={metricColors.water}
@@ -72,7 +81,7 @@ export default function WaterScreen() {
                     <DropIcon size={22} color={metricColors.water} weight="duotone" />
                     <Text style={typography.metric}>{volume(total)}</Text>
                     <Text variant="caption" tone="secondary">
-                      dari {volume(TARGET_ML)}
+                      dari {volume(targetMl)}
                     </Text>
                   </View>
                 </Ring>

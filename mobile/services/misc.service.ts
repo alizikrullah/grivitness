@@ -2,7 +2,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { get, patch, post } from '@/lib/api';
 import { qk } from '@/lib/query';
-import type { DailySummary, Goal, NotificationSettings, PeriodSummary, Streak } from '@/types';
+import type {
+  DailySummary,
+  Goal,
+  GoalWithProgress,
+  NotificationSettings,
+  PeriodSummary,
+  Streak,
+} from '@/types';
 import { todayWIB } from '@/utils/date';
 
 export const useStreak = () =>
@@ -32,7 +39,7 @@ export const useActiveGoal = () =>
     queryKey: qk.activeGoal,
     queryFn: async () => {
       try {
-        return await get<Goal | null>('/api/goals/active');
+        return await get<GoalWithProgress | null>('/api/goals/active');
       } catch {
         return null;
       }

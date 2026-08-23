@@ -47,9 +47,18 @@ export interface Profile {
   birth_date: DateString;
   gender: Gender;
   activity_level: ActivityLevel;
+  /**
+   * Penjelasan activity_level dari backend, berupa contoh profesi.
+   *
+   * Sejak TDEE memakai metode faktorial, activity_level TIDAK lagi berarti
+   * "seberapa aktif kamu" — tidur, langkah, dan olahraga sudah punya potongan
+   * waktunya sendiri. Yang ditanyakan sekarang seperti apa sisa harimu.
+   */
+  activity_label: string;
   age: number;
   current_weight_kg: number | null;
   bmr: number | null;
+  /** TDEE hari biasa: tidur normal, gerak seadanya, tanpa olahraga. */
   tdee: number | null;
   created_at: string | null;
   updated_at: string | null;
@@ -63,6 +72,39 @@ export interface Goal {
   is_active: boolean;
   created_at: string | null;
   updated_at: string | null;
+}
+
+/**
+ * Rencana penurunan berat badan yang dihitung backend.
+ *
+ * Disimulasikan hari per hari dengan BMR yang dihitung ulang dari berat badan
+ * hari itu, bukan dibagi sekali di awal — karena makin ringan badan, makin
+ * sedikit yang terbakar, dan defisit yang sama makin lambat hasilnya.
+ */
+export interface WeightPlan {
+  daily_calorie_budget: number;
+  /** Negatif berarti surplus, untuk target menaikkan berat badan. */
+  daily_deficit: number;
+  required_deficit: number;
+  /** False kalau target cuma bisa dikejar dengan asupan di bawah batas aman. */
+  achievable: boolean;
+  tdee: number;
+  weekly_rate_kg: number;
+  safe_weekly_rate_kg: number;
+  /** Berapa hari target sebenarnya tercapai pada budget yang aman. */
+  projected_days: number | null;
+  /** Langkah tambahan yang menutup sisa defisit kalau diet saja tidak cukup. */
+  extra_steps_needed: number;
+}
+
+/** Goal aktif berikut turunannya. Semua dihitung ulang tiap kali dibaca. */
+export interface GoalWithProgress extends Goal {
+  current_weight_kg: number | null;
+  remaining_kg: number | null;
+  days_remaining: number;
+  tdee: number | null;
+  achievable: boolean | null;
+  plan: WeightPlan | null;
 }
 
 export interface WeightLog {
@@ -247,6 +289,49 @@ export interface NotificationSettings {
   photo_reminder_time: string;
 }
 
+/** Rincian dari mana pengeluaran energi hari itu datang. */
+export interface EnergyBreakdown {
+  /** Physical Activity Level hari itu — TDEE dibagi BMR. */
+  pal: number;
+  /** Metabolisme basal dikali PAL: hidup dan kegiatan sehari-hari. */
+  baseline: number;
+  step_calories: number;
+  workout_calories: number;
+}
+
+export interface SleepTarget {
+  min_minutes: number;
+  max_minutes: number;
+}
+
+export interface StepTarget {
+  steps: number;
+  /** Bagian yang murni untuk kesehatan, terlepas dari target berat badan. */
+  baseline: number;
+  /** Bagian tambahan yang khusus menutup defisit target berat badan. */
+  for_goal: number;
+}
+
+export interface MacroTarget {
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+}
+
+/**
+ * Target harian yang diturunkan backend dari tubuh dan tujuan user.
+ *
+ * Menggantikan konstanta yang dulu ditulis langsung di layar — 2500ml, 8 jam,
+ * 10.000 langkah — yang sama untuk semua orang dan tidak satu pun punya sumber.
+ */
+export interface DailyTargets {
+  water_ml: number;
+  sleep: SleepTarget;
+  steps: StepTarget;
+  /** Null selama belum ada goal aktif, karena makro butuh budget kalori. */
+  macros: MacroTarget | null;
+}
+
 export interface DailySummary {
   date: string;
   weight_kg: number | null;
@@ -254,6 +339,8 @@ export interface DailySummary {
   calories_out: number;
   calorie_budget: number | null;
   calories_remaining: number | null;
+  /** Null selama profil belum diisi atau user belum pernah menimbang. */
+  energy: EnergyBreakdown | null;
   protein_g: number;
   carbs_g: number;
   fat_g: number;
@@ -261,11 +348,12 @@ export interface DailySummary {
   water_ml: number;
   sleep_minutes: number;
   workout_minutes: number;
-  /** Kalori dari olahraga saja. calories_out sudah termasuk TDEE dan langkah. */
+  /** Kalori olahraga saja. calories_out juga memuat metabolisme dan langkah. */
   workout_calories: number;
   mood_score: number | null;
   energy_score: number | null;
   has_body_photo: boolean;
+  targets: DailyTargets;
 }
 
 export interface PeriodSummary {
