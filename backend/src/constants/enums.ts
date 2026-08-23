@@ -14,7 +14,14 @@
 export const GENDER = ['MALE', 'FEMALE', 'OTHER'] as const;
 export type Gender = (typeof GENDER)[number];
 
-/** Menentukan activity multiplier pada kalkulasi TDEE. Lihat CLAUDE.md section 8. */
+/**
+ * Menentukan PAR sisa hari pada kalkulasi TDEE faktorial. Lihat CLAUDE.md section 8.
+ *
+ * PERHATIAN — artinya berubah sejak metode faktorial dipakai. Ini BUKAN lagi
+ * "seberapa aktif kamu secara keseluruhan", melainkan "seberapa aktif kamu di
+ * luar tidur, berjalan, dan olahraga" — praktisnya: seperti apa pekerjaanmu.
+ * Tidur, langkah, dan olahraga sudah punya potongan waktunya sendiri.
+ */
 export const ACTIVITY_LEVEL = [
   'SEDENTARY',
   'LIGHTLY_ACTIVE',
@@ -33,11 +40,46 @@ export type WorkoutIntensity = (typeof WORKOUT_INTENSITY)[number];
 export const WORKOUT_CATEGORY = ['CARDIO', 'STRENGTH', 'FLEXIBILITY', 'SPORTS', 'OTHER'] as const;
 export type WorkoutCategory = (typeof WORKOUT_CATEGORY)[number];
 
-/** Angka pengali TDEE per level aktivitas. */
-export const ACTIVITY_MULTIPLIER: Record<ActivityLevel, number> = {
-  SEDENTARY: 1.2,
-  LIGHTLY_ACTIVE: 1.375,
-  MODERATELY_ACTIVE: 1.55,
-  VERY_ACTIVE: 1.725,
-  EXTRA_ACTIVE: 1.9,
+/**
+ * PAR (Physical Activity Ratio) untuk SISA hari — jam yang tidak terpakai untuk
+ * tidur, berjalan, atau olahraga.
+ *
+ * Kenapa bukan pengali 1.2/1.375/1.55/1.725/1.9 seperti dulu: angka-angka itu
+ * konvensi yang beredar turun-temurun tanpa sumber primer, dan lebih parah lagi,
+ * dia mendeskripsikan SELURUH hari. Begitu kalori olahraga dan langkah ikut
+ * ditambahkan di atasnya, jam yang sama dihitung dua kali dan defisit user
+ * terlihat lebih besar daripada yang sebenarnya.
+ *
+ * Sekarang 24 jam dibagi habis dan tiap potongan punya PAR sendiri, mengikuti
+ * metode faktorial FAO/WHO/UNU, Human Energy Requirements (Roma 2001, terbit
+ * 2004), bab 5 dan Annex 5. Karena jamnya dipartisi, dobel hitung bukan cuma
+ * dihindari — memang tidak mungkin terjadi.
+ *
+ * Nilai di bawah adalah rata-rata tertimbang dari kegiatan yang mengisi sisa
+ * hari: kerja, makan, memasak, mandi, beres-beres, bersantai. Dikalibrasi
+ * supaya hari tanpa olahraga dengan langkah seadanya mendarat di 1.42 — pas di
+ * pita "sedentary or light activity lifestyle" (1.40–1.69) versi FAO/WHO.
+ */
+export const ACTIVITY_PAR: Record<ActivityLevel, number> = {
+  SEDENTARY: 1.6,
+  LIGHTLY_ACTIVE: 1.8,
+  MODERATELY_ACTIVE: 2.05,
+  VERY_ACTIVE: 2.35,
+  EXTRA_ACTIVE: 2.7,
+};
+
+/**
+ * Penjelasan tiap level dalam bahasa yang bisa dijawab user.
+ *
+ * Pertanyaan "seberapa aktif kamu?" hampir mustahil dijawab jujur — hampir
+ * semua orang menaksir dirinya terlalu tinggi, dan satu tingkat saja meleset
+ * menggeser TDEE ratusan kalori. Menyebut contoh pekerjaan membuat pertanyaannya
+ * konkret, dan sekarang memang itu yang ditanyakan.
+ */
+export const ACTIVITY_LEVEL_LABEL: Record<ActivityLevel, string> = {
+  SEDENTARY: 'Duduk hampir sepanjang hari (kantor, kerja dari rumah, sopir)',
+  LIGHTLY_ACTIVE: 'Banyak berdiri, sesekali berpindah (guru, kasir, penjaga toko)',
+  MODERATELY_ACTIVE: 'Banyak bergerak dan mengangkat ringan (perawat, pramusaji, montir)',
+  VERY_ACTIVE: 'Kerja fisik hampir sepanjang hari (kurir, tukang, petani)',
+  EXTRA_ACTIVE: 'Kerja fisik berat tanpa henti (buruh bangunan, kuli angkut, atlet)',
 };

@@ -1,14 +1,9 @@
 import { forUser } from '../../data/scoped.js';
 import { unitOfWork } from '../../data/unit-of-work.js';
+import { loadUserMetrics, type UserMetrics } from '../../data/user-metrics.js';
 import type { GoalRecord } from '../../types/directus-schema.js';
 import { AppError } from '../../utils/api-error.js';
-import {
-  calculateAge,
-  calculateBMR,
-  calculateCalorieBudget,
-  calculateTDEE,
-  daysBetween,
-} from '../../utils/calories.js';
+import { daysBetween, planWeightChange, type WeightPlan } from '../../utils/calories.js';
 import { todayInJakarta } from '../../utils/daily-key.js';
 import { toNumber } from '../../utils/number.js';
 import type { CreateGoalDto, UpdateGoalDto } from './goals.validation.js';
@@ -25,85 +20,66 @@ export interface GoalWithProgress extends GoalRecord {
   /** Sisa kilogram menuju target. Negatif berarti target sudah terlewati. */
   remaining_kg: number | null;
   days_remaining: number;
-  /** TDEE saat ini. Null kalau profil belum diisi atau belum pernah menimbang. */
+  /** TDEE acuan saat ini. Null kalau profil belum diisi atau belum pernah menimbang. */
   tdee: number | null;
   /**
    * False kalau target hanya bisa dikejar dengan asupan di bawah batas aman.
    * Null kalau tidak cukup data untuk menilainya.
    */
   achievable: boolean | null;
+  /**
+   * Rencana lengkap: laju mingguan, tanggal realistis, dan langkah tambahan
+   * kalau diet saja tidak cukup. Null kalau profil belum lengkap.
+   *
+   * Inilah yang menjawab "mau turun sekian kg dalam waktu sekian, harus gimana"
+   * dengan angka yang bisa dijalankan, bukan cuma vonis bisa atau tidak.
+   */
+  plan: WeightPlan | null;
 }
 
-/** Data user yang dibutuhkan berulang kali di module ini. */
-interface UserContext {
-  weightKg: number | null;
-  tdee: number | null;
-}
+/** Menyusun rencana untuk goal ini, atau null kalau datanya belum cukup. */
+const susunRencana = (
+  goal: Pick<GoalRecord, 'target_weight_kg' | 'target_date'>,
+  m: UserMetrics,
+  daysRemaining: number,
+): WeightPlan | null => {
+  if (!m.complete) return null;
 
-/**
- * Mengambil berat terakhir dan profil sekaligus, lalu menurunkan TDEE.
- *
- * Dua query dijalankan bersamaan karena tidak saling bergantung — berurutan
- * berarti menumpuk dua kali latensi HTTP ke Directus tanpa alasan.
- */
-const loadUserContext = async (userId: string): Promise<UserContext> => {
-  const repo = forUser(userId);
-
-  const [weightLog, profile] = await Promise.all([
-    repo.findOne('weight_logs', { sort: ['-logged_at'], fields: ['weight_kg'] }),
-    repo.findOne('user_profiles'),
-  ]);
-
-  const weightKg = weightLog ? toNumber(weightLog.weight_kg) : null;
-
-  if (weightKg === null || !profile) {
-    return { weightKg, tdee: null };
-  }
-
-  const bmr = calculateBMR({
-    weightKg,
-    heightCm: toNumber(profile.height_cm),
-    age: calculateAge(profile.birth_date),
-    gender: profile.gender,
+  return planWeightChange({
+    currentWeightKg: m.weightKg,
+    targetWeightKg: toNumber(goal.target_weight_kg),
+    heightCm: m.heightCm,
+    age: m.age,
+    gender: m.gender,
+    activityLevel: m.activityLevel,
+    daysRemaining: Math.max(daysRemaining, 1),
   });
-
-  return { weightKg, tdee: calculateTDEE(bmr, profile.activity_level) };
 };
 
-const withProgress = (goal: GoalRecord, ctx: UserContext): GoalWithProgress => {
+const withProgress = (goal: GoalRecord, m: UserMetrics): GoalWithProgress => {
   const daysRemaining = Math.max(daysBetween(todayInJakarta(), goal.target_date), 0);
   const targetKg = toNumber(goal.target_weight_kg);
 
-  let achievable: boolean | null = null;
-
-  // Target dinilai realistis kalau budget yang dipilih user masih menghasilkan
-  // defisit yang cukup untuk mencapai target sebelum tanggalnya.
-  if (ctx.tdee !== null && ctx.weightKg !== null) {
-    achievable = calculateCalorieBudget({
-      tdee: ctx.tdee,
-      currentWeightKg: ctx.weightKg,
-      targetWeightKg: targetKg,
-      daysRemaining: Math.max(daysRemaining, 1),
-    }).achievable;
-  }
+  const rencana = susunRencana(goal, m, daysRemaining);
 
   return {
     ...goal,
-    current_weight_kg: ctx.weightKg,
-    remaining_kg: ctx.weightKg === null ? null : Number((ctx.weightKg - targetKg).toFixed(2)),
+    current_weight_kg: m.hasWeight ? m.weightKg : null,
+    remaining_kg: m.hasWeight ? Number((m.weightKg - targetKg).toFixed(2)) : null,
     days_remaining: daysRemaining,
-    tdee: ctx.tdee,
-    achievable,
+    tdee: rencana?.tdee ?? null,
+    achievable: rencana?.achievable ?? null,
+    plan: rencana,
   };
 };
 
 export const getActive = async (userId: string): Promise<GoalWithProgress | null> => {
-  const [goal, ctx] = await Promise.all([
+  const [goal, metrics] = await Promise.all([
     forUser(userId).findOne('goals', { filter: { is_active: { _eq: true } } }),
-    loadUserContext(userId),
+    loadUserMetrics(userId),
   ]);
 
-  return goal ? withProgress(goal, ctx) : null;
+  return goal ? withProgress(goal, metrics) : null;
 };
 
 export const list = async (userId: string): Promise<GoalRecord[]> =>
@@ -120,12 +96,12 @@ export const list = async (userId: string): Promise<GoalRecord[]> =>
 export const create = async (userId: string, data: CreateGoalDto): Promise<GoalWithProgress> => {
   const repo = forUser(userId);
 
-  const [aktifLama, ctx] = await Promise.all([
+  const [aktifLama, metrics] = await Promise.all([
     repo.findOne('goals', { filter: { is_active: { _eq: true } } }),
-    loadUserContext(userId),
+    loadUserMetrics(userId),
   ]);
 
-  const budget = data.daily_calorie_budget ?? autoBudget(ctx, data);
+  const budget = data.daily_calorie_budget ?? autoBudget(metrics, data);
 
   const goal = await unitOfWork(async (tx) => {
     const scoped = forUser(userId, tx);
@@ -142,24 +118,33 @@ export const create = async (userId: string, data: CreateGoalDto): Promise<GoalW
     });
   });
 
-  return withProgress(goal, ctx);
+  return withProgress(goal, metrics);
 };
 
-/** Menghitung budget kalori dari TDEE ketika user tidak menentukannya sendiri. */
-const autoBudget = (ctx: UserContext, data: CreateGoalDto): number => {
-  if (ctx.tdee === null || ctx.weightKg === null) {
+/**
+ * Menghitung budget kalori ketika user tidak menentukannya sendiri.
+ *
+ * Hasilnya sudah ditahan tiga pagar keamanan sekaligus — batas bawah kalori
+ * menurut jenis kelamin, defisit maksimal 25% TDEE, dan laju maksimal per
+ * minggu. Target yang terlalu agresif TIDAK menghasilkan anjuran berbahaya;
+ * budget-nya ditahan di batas aman dan ketidakcocokannya dilaporkan lewat
+ * `plan.achievable` beserta tanggal realistisnya.
+ */
+const autoBudget = (m: UserMetrics, data: CreateGoalDto): number => {
+  const rencana = susunRencana(
+    { target_weight_kg: String(data.target_weight_kg), target_date: data.target_date },
+    m,
+    daysBetween(todayInJakarta(), data.target_date),
+  );
+
+  if (!rencana) {
     throw AppError.badRequest(
       'Tidak bisa menghitung budget kalori otomatis. Isi profil dan catat berat badan dulu, ' +
         'atau kirim daily_calorie_budget secara eksplisit.',
     );
   }
 
-  return calculateCalorieBudget({
-    tdee: ctx.tdee,
-    currentWeightKg: ctx.weightKg,
-    targetWeightKg: toNumber(data.target_weight_kg),
-    daysRemaining: Math.max(daysBetween(todayInJakarta(), data.target_date), 1),
-  }).daily_calorie_budget;
+  return rencana.daily_calorie_budget;
 };
 
 /**
@@ -195,7 +180,7 @@ export const update = async (
     return scoped.update('goals', goalId, data);
   });
 
-  const ctx = await loadUserContext(userId);
+  const metrics = await loadUserMetrics(userId);
 
-  return withProgress(updated, ctx);
+  return withProgress(updated, metrics);
 };
