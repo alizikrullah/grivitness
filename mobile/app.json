@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "GriviTness",
+    "slug": "grivitness",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "grivitness",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "backgroundColor": "#0A0A0B",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "my.id.grivilabs.grivitness",
+      "infoPlist": {
+        "NSCameraUsageDescription": "GriviTness memakai kamera untuk memotret makanan dan progres badan kamu.",
+        "NSPhotoLibraryUsageDescription": "GriviTness membaca galeri agar kamu bisa memilih foto makanan atau progres badan.",
+        "NSMotionUsageDescription": "GriviTness membaca sensor gerak untuk menghitung langkah kaki harian kamu."
+      }
+    },
+    "android": {
+      "package": "my.id.grivilabs.grivitness",
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.ACTIVITY_RECOGNITION",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.SCHEDULE_EXACT_ALARM"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "GriviTness memakai kamera untuk memotret makanan dan progres badan kamu."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "GriviTness membaca galeri agar kamu bisa memilih foto makanan atau progres badan."
+        }
+      ],
+      ["expo-splash-screen", { "backgroundColor": "#0A0A0B", "resizeMode": "contain" }]
+    ],
+    "experiments": { "typedRoutes": true }
+  }
+}

@@ -1,0 +1,126 @@
+import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
+import { Tabs } from 'expo-router';
+import {
+  ChartLineUpIcon,
+  HouseIcon,
+  PlusCircleIcon,
+  UserCircleIcon,
+  type IconProps,
+} from 'phosphor-react-native';
+import type { ComponentType } from 'react';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { Text } from '@/components/ui';
+import { colors } from '@/constants/colors';
+import { radius, spacing } from '@/constants/theme';
+
+interface TabDef {
+  name: string;
+  label: string;
+  Icon: ComponentType<IconProps>;
+}
+
+const TABS: TabDef[] = [
+  { name: 'index', label: 'Beranda', Icon: HouseIcon },
+  { name: 'log', label: 'Catat', Icon: PlusCircleIcon },
+  { name: 'progress', label: 'Progres', Icon: ChartLineUpIcon },
+  { name: 'profile', label: 'Profil', Icon: UserCircleIcon },
+];
+
+/**
+ * Tab bar melayang dengan latar buram.
+ *
+ * Tab bar bawaan menempel ke tepi bawah dan memakai gaya sistem, yang di tema
+ * segelap ini terlihat seperti potongan dari aplikasi lain. Versi kustom di
+ * sini mengambang di atas isi halaman — karena itu setiap Screen menyediakan
+ * ruang bawah lewat prop bottomInset.
+ */
+export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <Tabs
+      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: colors.background } }}
+      tabBar={({ state, navigation }) => (
+        <View style={[styles.wrapper, { bottom: Math.max(insets.bottom, spacing.md) }]}>
+          <BlurView intensity={Platform.OS === 'ios' ? 40 : 0} tint="dark" style={styles.bar}>
+            {TABS.map((tab) => {
+              // Dicocokkan lewat nama route, bukan lewat urutan array. Urutan
+              // di state.routes ditentukan navigator dan tidak dijamin sama
+              // dengan urutan TABS — menyamakan indeksnya begitu saja membuat
+              // tab yang menyala meleset begitu urutannya berbeda.
+              const aktif = state.routes[state.index]?.name === tab.name;
+              const { Icon } = tab;
+
+              return (
+                <Pressable
+                  key={tab.name}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: aktif }}
+                  accessibilityLabel={tab.label}
+                  onPress={() => {
+                    void Haptics.selectionAsync();
+                    navigation.navigate(tab.name);
+                  }}
+                  style={({ pressed }) => [
+                    styles.item,
+                    aktif && styles.itemActive,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Icon
+                    size={22}
+                    color={aktif ? colors.white : colors.textSecondary}
+                    weight={aktif ? 'fill' : 'regular'}
+                  />
+                  {aktif ? (
+                    <Text variant="caption" tone="inverse" numberOfLines={1}>
+                      {tab.label}
+                    </Text>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </BlurView>
+        </View>
+      )}
+    >
+      {TABS.map((tab) => (
+        <Tabs.Screen key={tab.name} name={tab.name} />
+      ))}
+    </Tabs>
+  );
+}
+
+const styles = StyleSheet.create({
+  wrapper: {
+    position: 'absolute',
+    left: spacing.lg,
+    right: spacing.lg,
+  },
+  bar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.xs,
+    padding: spacing.sm,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+    backgroundColor: Platform.OS === 'ios' ? 'rgba(26, 26, 30, 0.6)' : 'rgba(26, 26, 30, 0.97)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.borderSoft,
+  },
+  item: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    height: 48,
+    borderRadius: radius.pill,
+  },
+  itemActive: { backgroundColor: colors.primary },
+  pressed: { opacity: 0.75 },
+});
