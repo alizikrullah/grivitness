@@ -14,6 +14,7 @@ import { Alert, StyleSheet, Switch, View } from 'react-native';
 import {
   Button,
   Card,
+  DateField,
   Divider,
   ErrorNote,
   IconCircle,
@@ -324,12 +325,12 @@ const GoalSheet = ({ visible, onClose }: { visible: boolean; onClose: () => void
         suffix="kg"
       />
 
-      <Input
+      <DateField
         label="Target tanggal"
         value={tanggal}
-        onChangeText={setTanggal}
-        placeholder="YYYY-MM-DD"
-        hint="Contoh: 2026-12-31"
+        onChange={setTanggal}
+        hint="Kapan kamu ingin mencapai berat itu"
+        minimumDate={new Date()}
       />
 
       <Input

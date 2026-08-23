@@ -44,8 +44,17 @@
           "photosPermission": "GriviTness membaca galeri agar kamu bisa memilih foto makanan atau progres badan."
         }
       ],
-      ["expo-splash-screen", { "backgroundColor": "#0A0A0B", "resizeMode": "contain" }]
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0A0A0B",
+          "resizeMode": "contain"
+        }
+      ],
+      "@react-native-community/datetimepicker"
     ],
-    "experiments": { "typedRoutes": true }
+    "experiments": {
+      "typedRoutes": true
+    }
   }
 }
