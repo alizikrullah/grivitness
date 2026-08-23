@@ -26,4 +26,6 @@ router.patch(
   measurementsController.update,
 );
 
+router.delete('/:id', validateParams(UuidParamSchema), measurementsController.remove);
+
 export default router;

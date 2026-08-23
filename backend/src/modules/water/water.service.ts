@@ -3,7 +3,7 @@ import type { WaterLogRecord } from '../../types/directus-schema.js';
 import { todayInJakarta } from '../../utils/daily-key.js';
 import { type DateRangeDto, timestampDayFilter, timestampRangeFilter } from '../../utils/query.js';
 import { recordActivitySafely } from '../streaks/streaks.service.js';
-import type { CreateWaterDto } from './water.validation.js';
+import type { CreateWaterDto, UpdateWaterDto } from './water.validation.js';
 
 export interface WaterDay {
   date: string;
@@ -53,4 +53,18 @@ export const getRange = async (userId: string, range: DateRangeDto): Promise<Wat
 
 export const remove = async (userId: string, logId: string): Promise<void> => {
   await forUser(userId).remove('water_logs', logId);
+};
+
+/** Mengoreksi jumlah air yang sudah tercatat, tanpa perlu hapus lalu catat ulang. */
+export const update = async (
+  userId: string,
+  logId: string,
+  data: UpdateWaterDto,
+): Promise<WaterLogRecord> => {
+  const repo = forUser(userId);
+
+  // findById supaya log milik user lain dibalas 404, bukan ikut terubah.
+  await repo.findById('water_logs', logId);
+
+  return repo.update('water_logs', logId, data);
 };

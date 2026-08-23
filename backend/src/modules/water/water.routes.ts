@@ -8,7 +8,7 @@ import {
 } from '../../middlewares/validate.middleware.js';
 import { SingleDateSchema, UuidParamSchema } from '../../utils/query.js';
 import * as waterController from './water.controller.js';
-import { CreateWaterSchema } from './water.validation.js';
+import { CreateWaterSchema, UpdateWaterSchema } from './water.validation.js';
 
 const router: Router = Router();
 
@@ -18,6 +18,13 @@ router.get('/today', waterController.getToday);
 
 router.get('/', validateQuery(SingleDateSchema), waterController.getByDate);
 router.post('/', validateBody(CreateWaterSchema), waterController.create);
+
+router.patch(
+  '/:id',
+  validateParams(UuidParamSchema),
+  validateBody(UpdateWaterSchema),
+  waterController.update,
+);
 
 router.delete('/:id', validateParams(UuidParamSchema), waterController.remove);
 

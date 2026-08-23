@@ -28,3 +28,11 @@ export const update = async (req: Request, res: Response): Promise<void> => {
 
   sendSuccess(res, await stepsService.update(user.id, id, req.body as UpdateStepsDto));
 };
+
+export const remove = async (req: Request, res: Response): Promise<void> => {
+  const user = getAuthUser(req);
+  const { id } = getValidatedParams<UuidParamDto>(res);
+
+  await stepsService.remove(user.id, id);
+  sendSuccess(res, { message: 'Log langkah dihapus' });
+};

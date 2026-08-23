@@ -35,3 +35,11 @@ export const update = async (req: Request, res: Response): Promise<void> => {
 
   sendSuccess(res, await measurementsService.update(user.id, id, req.body as UpdateMeasurementDto));
 };
+
+export const remove = async (req: Request, res: Response): Promise<void> => {
+  const user = getAuthUser(req);
+  const { id } = getValidatedParams<UuidParamDto>(res);
+
+  await measurementsService.remove(user.id, id);
+  sendSuccess(res, { message: 'Ukuran badan dihapus' });
+};

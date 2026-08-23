@@ -30,5 +30,39 @@ export const FoodDateSchema = z.object({
   date: dateString.optional(),
 });
 
+/**
+ * Koreksi manual atas hasil analisa AI.
+ *
+ * Berbeda dari CreateFoodSchema, request ini JSON biasa — fotonya tidak ikut
+ * dikirim ulang — jadi angkanya memakai z.number(), bukan z.coerce.
+ *
+ * `foods_detected` ikut bisa diubah karena di situlah kekeliruan AI paling
+ * terasa: salah menyebut nama hidangan. Membiarkan user cuma menghapus lalu
+ * memotret ulang berarti memaksa satu panggilan AI lagi hanya untuk membetulkan
+ * satu kata.
+ */
+export const UpdateFoodSchema = z
+  .object({
+    meal_type: z
+      .enum(MEAL_TYPE, { message: 'meal_type harus BREAKFAST, LUNCH, DINNER, atau SNACK' })
+      .optional(),
+
+    notes: z.string().trim().max(1000).nullable().optional(),
+
+    foods_detected: z
+      .array(z.string().trim().min(1, 'Nama makanan tidak boleh kosong').max(120))
+      .max(30, 'Maksimal 30 item makanan')
+      .optional(),
+
+    total_calories: z.number().int().min(0).max(20_000).optional(),
+    protein_g: z.number().min(0).max(2000).optional(),
+    carbs_g: z.number().min(0).max(2000).optional(),
+    fat_g: z.number().min(0).max(2000).optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'Tidak ada field yang diubah',
+  });
+
 export type CreateFoodDto = z.infer<typeof CreateFoodSchema>;
 export type FoodDateDto = z.infer<typeof FoodDateSchema>;
+export type UpdateFoodDto = z.infer<typeof UpdateFoodSchema>;

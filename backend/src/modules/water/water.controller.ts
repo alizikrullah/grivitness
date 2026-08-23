@@ -5,7 +5,7 @@ import { getAuthUser } from '../../types/index.js';
 import type { SingleDateDto, UuidParamDto } from '../../utils/query.js';
 import { sendSuccess } from '../../utils/response.js';
 import * as waterService from './water.service.js';
-import type { CreateWaterDto } from './water.validation.js';
+import type { CreateWaterDto, UpdateWaterDto } from './water.validation.js';
 
 export const create = async (req: Request, res: Response): Promise<void> => {
   const user = getAuthUser(req);
@@ -30,4 +30,11 @@ export const remove = async (req: Request, res: Response): Promise<void> => {
 
   await waterService.remove(user.id, id);
   sendSuccess(res, { message: 'Log air dihapus' });
+};
+
+export const update = async (req: Request, res: Response): Promise<void> => {
+  const user = getAuthUser(req);
+  const { id } = getValidatedParams<UuidParamDto>(res);
+
+  sendSuccess(res, await waterService.update(user.id, id, req.body as UpdateWaterDto));
 };

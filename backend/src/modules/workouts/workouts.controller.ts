@@ -9,6 +9,7 @@ import type {
   CreateCustomWorkoutDto,
   CreateWorkoutDto,
   LibraryQueryDto,
+  UpdateWorkoutDto,
 } from './workouts.validation.js';
 
 export const create = async (req: Request, res: Response): Promise<void> => {
@@ -58,4 +59,11 @@ export const removeCustom = async (req: Request, res: Response): Promise<void> =
 
   await workoutsService.removeCustom(user.id, id);
   sendSuccess(res, { message: 'Custom workout dihapus' });
+};
+
+export const update = async (req: Request, res: Response): Promise<void> => {
+  const user = getAuthUser(req);
+  const { id } = getValidatedParams<UuidParamDto>(res);
+
+  sendSuccess(res, await workoutsService.update(user.id, id, req.body as UpdateWorkoutDto));
 };

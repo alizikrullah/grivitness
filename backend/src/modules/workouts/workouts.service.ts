@@ -18,6 +18,7 @@ import type {
   CreateCustomWorkoutDto,
   CreateWorkoutDto,
   LibraryQueryDto,
+  UpdateWorkoutDto,
 } from './workouts.validation.js';
 
 /** Berat acuan yang dipakai nilai kalori di library. */
@@ -198,6 +199,49 @@ export const getRange = async (userId: string, range: DateRangeDto): Promise<Wor
     sort: ['logged_at'],
     limit: -1,
   });
+
+/**
+ * Mengoreksi log olahraga.
+ *
+ * Ketika durasinya berubah dan user tidak menyebut kalorinya sendiri, kalori
+ * diskalakan proporsional dari nilai lama. Cara ini dipilih daripada menghitung
+ * ulang dari library karena berlaku untuk ketiga sumber sekaligus — termasuk
+ * olahraga yang diinput manual, yang tidak punya nilai per menit untuk dirujuk.
+ *
+ * Membiarkan durasi berubah tanpa menyentuh kalori akan meninggalkan angka yang
+ * saling bertentangan: lari 20 menit dengan kalori milik sesi 60 menit.
+ */
+export const update = async (
+  userId: string,
+  logId: string,
+  data: UpdateWorkoutDto,
+): Promise<WorkoutLogRecord> => {
+  const repo = forUser(userId);
+
+  // findById supaya log milik user lain dibalas 404, bukan ikut terubah.
+  const log = await repo.findById('workout_logs', logId);
+
+  const perubahan: Record<string, unknown> = {};
+
+  if (data.workout_name !== undefined) perubahan.workout_name = data.workout_name;
+  if (data.intensity !== undefined) perubahan.intensity = data.intensity;
+  if (data.notes !== undefined) perubahan.notes = data.notes;
+
+  if (data.duration_minutes !== undefined) {
+    perubahan.duration_minutes = data.duration_minutes;
+
+    if (data.calories_burned === undefined && log.duration_minutes > 0) {
+      perubahan.calories_burned = Math.round(
+        (log.calories_burned / log.duration_minutes) * data.duration_minutes,
+      );
+    }
+  }
+
+  // Nilai dari user selalu menang atas hasil penskalaan di atas.
+  if (data.calories_burned !== undefined) perubahan.calories_burned = data.calories_burned;
+
+  return repo.update('workout_logs', logId, perubahan);
+};
 
 export const remove = async (userId: string, logId: string): Promise<void> => {
   await forUser(userId).remove('workout_logs', logId);

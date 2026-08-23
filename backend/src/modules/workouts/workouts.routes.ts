@@ -12,6 +12,7 @@ import {
   CreateCustomWorkoutSchema,
   CreateWorkoutSchema,
   LibraryQuerySchema,
+  UpdateWorkoutSchema,
 } from './workouts.validation.js';
 
 const router: Router = Router();
@@ -30,6 +31,13 @@ router.get('/today', workoutsController.getToday);
 
 router.get('/', validateQuery(DateRangeSchema), workoutsController.getRange);
 router.post('/', validateBody(CreateWorkoutSchema), workoutsController.create);
+
+router.patch(
+  '/:id',
+  validateParams(UuidParamSchema),
+  validateBody(UpdateWorkoutSchema),
+  workoutsController.update,
+);
 
 router.delete('/:id', validateParams(UuidParamSchema), workoutsController.remove);
 

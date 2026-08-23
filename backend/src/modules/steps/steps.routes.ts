@@ -26,4 +26,6 @@ router.patch(
   stepsController.update,
 );
 
+router.delete('/:id', validateParams(UuidParamSchema), stepsController.remove);
+
 export default router;

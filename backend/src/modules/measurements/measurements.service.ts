@@ -48,3 +48,7 @@ export const update = async (
 
   return repo.update('body_measurements', logId, data);
 };
+
+export const remove = async (userId: string, logId: string): Promise<void> => {
+  await forUser(userId).remove('body_measurements', logId);
+};

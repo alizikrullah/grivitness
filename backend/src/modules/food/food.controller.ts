@@ -7,7 +7,7 @@ import { todayInJakarta } from '../../utils/daily-key.js';
 import type { UuidParamDto } from '../../utils/query.js';
 import { sendSuccess } from '../../utils/response.js';
 import * as foodService from './food.service.js';
-import type { CreateFoodDto, FoodDateDto } from './food.validation.js';
+import type { CreateFoodDto, FoodDateDto, UpdateFoodDto } from './food.validation.js';
 
 export const create = async (req: Request, res: Response): Promise<void> => {
   const user = getAuthUser(req);
@@ -31,6 +31,13 @@ export const getByDate = async (req: Request, res: Response): Promise<void> => {
   const { date } = getValidatedQuery<FoodDateDto>(res);
 
   sendSuccess(res, await foodService.getByDate(user.id, date ?? todayInJakarta()));
+};
+
+export const update = async (req: Request, res: Response): Promise<void> => {
+  const user = getAuthUser(req);
+  const { id } = getValidatedParams<UuidParamDto>(res);
+
+  sendSuccess(res, await foodService.update(user.id, id, req.body as UpdateFoodDto));
 };
 
 export const remove = async (req: Request, res: Response): Promise<void> => {
