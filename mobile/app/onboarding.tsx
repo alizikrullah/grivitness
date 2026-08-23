@@ -6,6 +6,7 @@ import {
   Button,
   Card,
   ChipGroup,
+  DateField,
   ErrorNote,
   Header,
   Input,
@@ -25,6 +26,21 @@ import { radius, spacing } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
 import { useProfile, useSaveProfile } from '@/services/users.service';
 import type { ActivityLevel, Gender } from '@/types';
+
+/**
+ * Batas usia yang diterima backend: 10 sampai 120 tahun. Ditegakkan juga di
+ * kalender supaya tanggal yang mustahil tidak bisa dipilih sejak awal — lebih
+ * baik daripada menolaknya setelah user menekan simpan.
+ */
+const geserTahun = (tahun: number): Date => {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - tahun);
+  return d;
+};
+
+const LAHIR_PALING_BARU = geserTahun(10);
+const LAHIR_PALING_LAMA = geserTahun(120);
+const LAHIR_BAWAAN = geserTahun(25);
 
 /**
  * Pengisian dan penyuntingan profil.
@@ -122,12 +138,14 @@ export default function OnboardingScreen() {
           suffix="cm"
         />
 
-        <Input
+        <DateField
           label="Tanggal lahir"
           value={lahir}
-          onChangeText={setLahir}
-          placeholder="YYYY-MM-DD"
-          hint="Contoh: 1998-04-23"
+          onChange={setLahir}
+          hint="Dipakai menghitung usia untuk rumus BMR"
+          minimumDate={LAHIR_PALING_LAMA}
+          maximumDate={LAHIR_PALING_BARU}
+          defaultDate={LAHIR_BAWAAN}
         />
 
         <View style={styles.group}>

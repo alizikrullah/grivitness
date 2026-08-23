@@ -2,6 +2,7 @@ export { BarChart, type BarDatum } from './BarChart';
 export { Button } from './Button';
 export { Card } from './Card';
 export { Chip, ChipGroup } from './Chip';
+export { DateField, TimeField } from './DateField';
 export { Header } from './Header';
 export { IconCircle } from './IconCircle';
 export { Input } from './Input';

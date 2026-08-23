@@ -13,6 +13,7 @@ import {
   Loading,
   Screen,
   ScoreSelector,
+  TimeField,
   SectionHeader,
   Text,
 } from '@/components/ui';
@@ -107,23 +108,21 @@ export default function SleepScreen() {
           <View style={styles.card}>
             <View style={styles.times}>
               <View style={styles.timeField}>
-                <View style={styles.timeLabel}>
-                  <MoonStarsIcon size={16} color={metricColors.sleep} weight="duotone" />
-                  <Text variant="caption" tone="secondary">
-                    Mulai tidur
-                  </Text>
-                </View>
-                <Input value={mulai} onChangeText={setMulai} placeholder="23:00" />
+                <TimeField
+                  label="Mulai tidur"
+                  value={mulai}
+                  onChange={setMulai}
+                  icon={<MoonStarsIcon size={16} color={metricColors.sleep} weight="duotone" />}
+                />
               </View>
 
               <View style={styles.timeField}>
-                <View style={styles.timeLabel}>
-                  <SunHorizonIcon size={16} color={colors.warning} weight="duotone" />
-                  <Text variant="caption" tone="secondary">
-                    Bangun
-                  </Text>
-                </View>
-                <Input value={bangun} onChangeText={setBangun} placeholder="06:30" />
+                <TimeField
+                  label="Bangun"
+                  value={bangun}
+                  onChange={setBangun}
+                  icon={<SunHorizonIcon size={16} color={colors.warning} weight="duotone" />}
+                />
               </View>
             </View>
 
@@ -211,7 +210,6 @@ const styles = StyleSheet.create({
   card: { gap: spacing.xl },
   times: { flexDirection: 'row', gap: spacing.md },
   timeField: { flex: 1, gap: spacing.sm },
-  timeLabel: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   durationBox: { alignItems: 'center', gap: spacing.xs },
   quality: { gap: spacing.md },
   logRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
