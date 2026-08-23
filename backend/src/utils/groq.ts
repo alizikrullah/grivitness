@@ -202,8 +202,8 @@ const translateAxiosError = (error: unknown): AppError => {
   return AppError.upstream('Layanan analisa AI sedang bermasalah');
 };
 
-/** Prompt analisa makanan, sesuai CLAUDE.md section 7. */
-export const FOOD_PROMPT = `Analyze the food in this image. Return ONLY a JSON object with this exact structure:
+/** Bagian tetap dari prompt analisa makanan, sesuai CLAUDE.md section 7. */
+const FOOD_BASE = `Analyze the food in this image. Return ONLY a JSON object with this exact structure:
 {
   "foods_detected": ["string"],
   "total_calories": number,
@@ -213,6 +213,30 @@ export const FOOD_PROMPT = `Analyze the food in this image. Return ONLY a JSON o
   "confidence": "low" | "medium" | "high"
 }
 Estimate for the portion visible in the photo. Use Indonesian food names when the dish is Indonesian.`;
+
+/**
+ * Prompt analisa makanan, ditambah catatan user sebagai konteks.
+ *
+ * Catatan user WAJIB ikut dikirim kalau ada. Model yang cuma melihat foto sering
+ * keliru membedakan makanan yang mirip secara visual — lontong terbaca singkong,
+ * tempe terbaca tahu. User yang memotret tahu persis isi piringnya, jadi
+ * keterangannya diperlakukan sebagai kebenaran untuk MENENTUKAN makanannya,
+ * sementara foto tetap dipakai untuk menaksir porsi.
+ *
+ * Sebelumnya prompt ini konstanta dan catatan user cuma disimpan ke database
+ * tanpa pernah sampai ke AI. Hasilnya analisa yang mengabaikan keterangan yang
+ * sudah susah payah diketik user.
+ */
+export const foodPrompt = (catatan?: string | null): string => {
+  const bersih = catatan?.trim();
+  if (!bersih) return FOOD_BASE;
+
+  return `${FOOD_BASE}
+
+The user describes this meal as: "${bersih}"
+
+Treat that description as authoritative for WHAT the food is. Do not replace a dish the user named with a different one that merely looks similar in the photo. If the description names a component you cannot clearly see, still include it. Use the photo to judge portion size and to fill in anything the description leaves out.`;
+};
 
 /** Prompt analisa foto badan, sesuai CLAUDE.md section 7. */
 export const BODY_PROMPT = `Analyze the body in these two images (front and side view). Return ONLY a JSON object with this exact structure:

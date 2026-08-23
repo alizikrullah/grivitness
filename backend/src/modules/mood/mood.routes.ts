@@ -26,4 +26,6 @@ router.patch(
   moodController.update,
 );
 
+router.delete('/:id', validateParams(UuidParamSchema), moodController.remove);
+
 export default router;

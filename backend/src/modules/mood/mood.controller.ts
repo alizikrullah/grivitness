@@ -28,3 +28,11 @@ export const update = async (req: Request, res: Response): Promise<void> => {
 
   sendSuccess(res, await moodService.update(user.id, id, req.body as UpdateMoodDto));
 };
+
+export const remove = async (req: Request, res: Response): Promise<void> => {
+  const user = getAuthUser(req);
+  const { id } = getValidatedParams<UuidParamDto>(res);
+
+  await moodService.remove(user.id, id);
+  sendSuccess(res, { message: 'Log mood dihapus' });
+};

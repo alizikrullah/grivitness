@@ -20,6 +20,15 @@ export interface DailySummary {
   water_ml: number;
   sleep_minutes: number;
   workout_minutes: number;
+  /**
+   * Kalori dari olahraga saja, terpisah dari calories_out.
+   *
+   * calories_out sudah memuat TDEE dan langkah, jadi angkanya tidak bisa
+   * dipakai untuk menjawab "olahraga tadi membakar berapa". Dipisah di sini
+   * supaya layar bisa menampilkan durasi dan kalorinya berdampingan tanpa
+   * harus memanggil endpoint olahraga lagi.
+   */
+  workout_calories: number;
   mood_score: number | null;
   energy_score: number | null;
   has_body_photo: boolean;
@@ -110,6 +119,7 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
     water_ml: air,
     sleep_minutes: tidur,
     workout_minutes: workoutMenit,
+    workout_calories: workoutKalori,
     mood_score: mood?.mood_score ?? null,
     energy_score: mood?.energy_score ?? null,
     has_body_photo: fotoBadan > 0,

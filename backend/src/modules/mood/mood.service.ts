@@ -44,3 +44,7 @@ export const update = async (
 
   return repo.update('mood_logs', logId, data);
 };
+
+export const remove = async (userId: string, logId: string): Promise<void> => {
+  await forUser(userId).remove('mood_logs', logId);
+};

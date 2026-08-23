@@ -32,4 +32,29 @@ export const CreateSleepSchema = z
     },
   );
 
+/**
+ * Koreksi sesi tidur.
+ *
+ * Pemeriksaan urutan dan panjang durasi tidak bisa dilakukan di sini seperti
+ * pada CreateSleepSchema — kalau hanya salah satu jam yang dikirim, pasangannya
+ * baru diketahui setelah baris lamanya dibaca. Karena itu pemeriksaan itu
+ * dipindah ke service, yang punya kedua nilainya.
+ */
+export const UpdateSleepSchema = z
+  .object({
+    sleep_start: timestamp.optional(),
+    sleep_end: timestamp.optional(),
+    quality_score: z
+      .number({ message: 'Skor kualitas harus berupa angka' })
+      .int('Skor kualitas harus bilangan bulat')
+      .min(1, 'Skor kualitas antara 1 sampai 5')
+      .max(5, 'Skor kualitas antara 1 sampai 5')
+      .optional(),
+    notes: z.string().trim().max(1000).nullable().optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'Tidak ada field yang diubah',
+  });
+
 export type CreateSleepDto = z.infer<typeof CreateSleepSchema>;
+export type UpdateSleepDto = z.infer<typeof UpdateSleepSchema>;

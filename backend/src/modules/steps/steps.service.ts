@@ -82,3 +82,7 @@ export const update = async (
     ...turunan(data.steps, weightKg),
   });
 };
+
+export const remove = async (userId: string, logId: string): Promise<void> => {
+  await forUser(userId).remove('step_logs', logId);
+};

@@ -4,11 +4,11 @@ import type { FoodLogRecord } from '../../types/directus-schema.js';
 import { AppError } from '../../utils/api-error.js';
 import { todayInJakarta } from '../../utils/daily-key.js';
 import { removeFile, removeFileSafely, uploadWebP } from '../../utils/directus-files.js';
-import { analyzeImages, FOOD_PROMPT } from '../../utils/groq.js';
+import { analyzeImages, foodPrompt } from '../../utils/groq.js';
 import { convertToWebP, toAnalysisBuffer } from '../../utils/sharp.js';
 import { timestampDayFilter } from '../../utils/query.js';
 import { recordActivitySafely } from '../streaks/streaks.service.js';
-import type { CreateFoodDto } from './food.validation.js';
+import type { CreateFoodDto, UpdateFoodDto } from './food.validation.js';
 
 /**
  * Bentuk hasil analisa Groq yang dipakai sebagai kolom tersendiri.
@@ -73,9 +73,11 @@ export const create = async (
     tx.onRollback(() => removeFileSafely(file.id), `file makanan ${file.id}`);
 
     // Yang dikirim ke AI salinan kecilnya, bukan yang tersimpan di storage.
+    // Catatan user ikut dikirim sebagai konteks — tanpa itu AI cuma menebak
+    // dari rupa makanannya dan sering keliru pada hidangan yang mirip.
     const analisaMentah = await analyzeImages(
       [await toAnalysisBuffer(converted.buffer)],
-      FOOD_PROMPT,
+      foodPrompt(data.notes),
     );
     const analisa = extractAnalisa(analisaMentah);
 
@@ -138,6 +140,47 @@ export const getByDate = async (userId: string, date: string): Promise<FoodDay> 
 
 export const getToday = async (userId: string): Promise<FoodDay> =>
   getByDate(userId, todayInJakarta());
+
+/**
+ * Mengoreksi log makanan yang sudah tercatat.
+ *
+ * Hanya field yang benar-benar dikirim yang disentuh. Menyalin seluruh objek
+ * akan menimpa kolom yang tidak disebut dengan undefined, dan koreksi kecil
+ * seperti membetulkan nama hidangan justru menghapus angka gizinya.
+ *
+ * Perubahan pada daftar makanan ditulis ke dalam ai_analysis, bukan menimpanya.
+ * Hasil asli dari AI tetap dipertahankan supaya masih bisa dibandingkan, dan
+ * ditandai user_edited agar jelas angkanya sudah tidak murni dari model.
+ */
+export const update = async (
+  userId: string,
+  logId: string,
+  data: UpdateFoodDto,
+): Promise<FoodLogRecord> => {
+  const repo = forUser(userId);
+
+  // Lewat findById supaya log milik user lain dibalas 404, bukan ikut terubah.
+  const log = await repo.findById('food_logs', logId);
+
+  const perubahan: Record<string, unknown> = {};
+
+  if (data.meal_type !== undefined) perubahan.meal_type = data.meal_type;
+  if (data.notes !== undefined) perubahan.notes = data.notes;
+  if (data.total_calories !== undefined) perubahan.total_calories = data.total_calories;
+  if (data.protein_g !== undefined) perubahan.protein_g = data.protein_g.toFixed(2);
+  if (data.carbs_g !== undefined) perubahan.carbs_g = data.carbs_g.toFixed(2);
+  if (data.fat_g !== undefined) perubahan.fat_g = data.fat_g.toFixed(2);
+
+  if (data.foods_detected !== undefined) {
+    perubahan.ai_analysis = {
+      ...log.ai_analysis,
+      foods_detected: data.foods_detected,
+      user_edited: true,
+    };
+  }
+
+  return repo.update('food_logs', logId, perubahan);
+};
 
 /**
  * Menghapus log makanan beserta fotonya.

@@ -9,7 +9,7 @@ import {
 } from '../../middlewares/validate.middleware.js';
 import { UuidParamSchema } from '../../utils/query.js';
 import * as foodController from './food.controller.js';
-import { CreateFoodSchema, FoodDateSchema } from './food.validation.js';
+import { CreateFoodSchema, FoodDateSchema, UpdateFoodSchema } from './food.validation.js';
 
 const router: Router = Router();
 
@@ -21,6 +21,15 @@ router.get('/', validateQuery(FoodDateSchema), foodController.getByDate);
 // upload.single dijalankan SEBELUM validateBody. Field non-file di request
 // multipart baru tersedia di req.body setelah Multer selesai mem-parse-nya.
 router.post('/', upload.single('photo'), validateBody(CreateFoodSchema), foodController.create);
+
+// Koreksi manual atas hasil AI. Sengaja tidak menerima foto — mengganti foto
+// berarti analisa ulang, dan itu pencatatan baru, bukan penyuntingan.
+router.patch(
+  '/:id',
+  validateParams(UuidParamSchema),
+  validateBody(UpdateFoodSchema),
+  foodController.update,
+);
 
 router.delete('/:id', validateParams(UuidParamSchema), foodController.remove);
 

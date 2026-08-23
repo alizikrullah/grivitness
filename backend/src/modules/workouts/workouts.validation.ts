@@ -73,6 +73,37 @@ export const CreateWorkoutSchema = z
     }
   });
 
+/**
+ * Koreksi log olahraga yang sudah tercatat.
+ *
+ * Sumbernya (library / custom / manual) tidak bisa diubah — mengganti sumber
+ * berarti olahraga yang berbeda, dan itu catatan baru, bukan penyuntingan.
+ */
+export const UpdateWorkoutSchema = z
+  .object({
+    workout_name: z.string().trim().min(2, 'Nama olahraga minimal 2 karakter').max(255).optional(),
+
+    duration_minutes: z
+      .number({ message: 'Durasi harus berupa angka' })
+      .int('Durasi harus bilangan bulat')
+      .min(1, 'Durasi minimal 1 menit')
+      .max(1440, 'Durasi maksimal 1440 menit')
+      .optional(),
+
+    calories_burned: z
+      .number({ message: 'Kalori harus berupa angka' })
+      .int('Kalori harus bilangan bulat')
+      .min(0, 'Kalori tidak boleh negatif')
+      .max(20_000, 'Kalori tidak masuk akal')
+      .optional(),
+
+    intensity: z.enum(WORKOUT_INTENSITY).optional(),
+    notes: z.string().trim().max(1000).nullable().optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'Tidak ada field yang diubah',
+  });
+
 export const CreateCustomWorkoutSchema = z.object({
   name: z.string().trim().min(2, 'Nama olahraga minimal 2 karakter').max(255),
   category: z.enum(WORKOUT_CATEGORY),
@@ -92,5 +123,6 @@ export const LibraryQuerySchema = z.object({
 });
 
 export type CreateWorkoutDto = z.infer<typeof CreateWorkoutSchema>;
+export type UpdateWorkoutDto = z.infer<typeof UpdateWorkoutSchema>;
 export type CreateCustomWorkoutDto = z.infer<typeof CreateCustomWorkoutSchema>;
 export type LibraryQueryDto = z.infer<typeof LibraryQuerySchema>;

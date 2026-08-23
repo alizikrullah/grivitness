@@ -5,7 +5,7 @@ import { getAuthUser } from '../../types/index.js';
 import type { DateRangeDto, UuidParamDto } from '../../utils/query.js';
 import { sendSuccess } from '../../utils/response.js';
 import * as sleepService from './sleep.service.js';
-import type { CreateSleepDto } from './sleep.validation.js';
+import type { CreateSleepDto, UpdateSleepDto } from './sleep.validation.js';
 
 export const create = async (req: Request, res: Response): Promise<void> => {
   const user = getAuthUser(req);
@@ -28,4 +28,11 @@ export const remove = async (req: Request, res: Response): Promise<void> => {
 
   await sleepService.remove(user.id, id);
   sendSuccess(res, { message: 'Log tidur dihapus' });
+};
+
+export const update = async (req: Request, res: Response): Promise<void> => {
+  const user = getAuthUser(req);
+  const { id } = getValidatedParams<UuidParamDto>(res);
+
+  sendSuccess(res, await sleepService.update(user.id, id, req.body as UpdateSleepDto));
 };
