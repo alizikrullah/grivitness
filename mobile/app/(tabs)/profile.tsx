@@ -34,9 +34,11 @@ import { toApiError } from '@/lib/api';
 import {
   useActiveGoal,
   useCreateGoal,
+  useDailySummary,
   useNotificationSettings,
   useUpdateNotificationSettings,
 } from '@/services/misc.service';
+import { PlanCard } from '@/components/features/PlanCard';
 import { ReminderRow } from '@/components/features/ReminderRow';
 import { ReminderSheet, type ReminderKind } from '@/components/features/ReminderSheet';
 import { useReminderScheduler } from '@/hooks/useReminderScheduler';
@@ -54,6 +56,10 @@ export default function ProfileScreen() {
   const profile = useProfile();
   const goal = useActiveGoal();
   const settings = useNotificationSettings();
+
+  // Dipakai cuma untuk target makro di kartu rencana. Query-nya sudah terisi
+  // dari beranda, jadi tidak menambah permintaan jaringan.
+  const summary = useDailySummary(todayWIB());
   const updateSettings = useUpdateNotificationSettings();
 
   const [sheetGoal, setSheetGoal] = useState(false);
@@ -121,16 +127,28 @@ export default function ProfileScreen() {
             <Divider />
 
             <Row label="Jenis kelamin" value={GENDER_LABEL[p.gender]} />
-            <Row label="Level aktivitas" value={ACTIVITY_LABEL[p.activity_level]} />
+            <Row label="Pekerjaan" value={ACTIVITY_LABEL[p.activity_level]} />
             <Row
               label="BMR"
               value={p.bmr === null ? 'Butuh data berat' : thousands(p.bmr) + ' kkal'}
             />
             <Row
-              label="TDEE"
+              label="Pengeluaran hari biasa"
               value={p.tdee === null ? 'Butuh data berat' : thousands(p.tdee) + ' kkal'}
               tone="accent"
             />
+
+            {/*
+              "TDEE" tanpa penjelasan terbaca seperti angka mutlak. Padahal ini
+              acuan hari biasa — tanpa olahraga, dengan gerak seadanya — dan
+              sengaja begitu supaya jatah kalorimu tidak naik-turun mengikuti
+              aktivitas hari itu. Hari yang benar-benar aktif dihitung terpisah
+              di rekap harian.
+            */}
+            <Text variant="caption" tone="tertiary">
+              Hitungan hari biasa: tidur normal, tanpa olahraga. Hari yang lebih aktif dihitung
+              sendiri di beranda.
+            </Text>
           </View>
         </Card>
       )}
@@ -172,6 +190,8 @@ export default function ProfileScreen() {
           </View>
         )}
       </Card>
+
+      {goal.data ? <PlanCard goal={goal.data} targets={summary.data?.targets} /> : null}
 
       <SectionHeader title="Pengingat" />
 

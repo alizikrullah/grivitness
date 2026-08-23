@@ -12,20 +12,34 @@ export const GENDER_LABEL: Record<Gender, string> = {
   OTHER: 'Lainnya',
 };
 
+/**
+ * Level aktivitas TIDAK lagi menanyakan seberapa sering kamu olahraga.
+ *
+ * Backend sekarang menghitung TDEE dengan membagi habis 24 jam: tidur, jam
+ * berjalan, dan jam olahraga masing-masing punya potongan sendiri yang diambil
+ * dari data yang kamu catat. Yang tersisa untuk ditanyakan cuma sisa harimu.
+ *
+ * Label lama ("Olahraga sedang 3-5 hari seminggu") jadi jebakan setelah
+ * perubahan itu: user memilihnya karena rajin olahraga, lalu olahraganya
+ * dihitung LAGI dari log — jam yang sama dibayar dua kali, tepat di pintu masuk
+ * datanya. Karena itu pertanyaannya diganti jadi contoh pekerjaan, yang juga
+ * jauh lebih bisa dijawab jujur; hampir semua orang menaksir keaktifannya
+ * terlalu tinggi, dan satu tingkat meleset menggeser TDEE ratusan kalori.
+ */
 export const ACTIVITY_LABEL: Record<ActivityLevel, string> = {
-  SEDENTARY: 'Jarang bergerak',
-  LIGHTLY_ACTIVE: 'Sedikit aktif',
-  MODERATELY_ACTIVE: 'Cukup aktif',
-  VERY_ACTIVE: 'Sangat aktif',
-  EXTRA_ACTIVE: 'Ekstra aktif',
+  SEDENTARY: 'Kerja duduk',
+  LIGHTLY_ACTIVE: 'Banyak berdiri',
+  MODERATELY_ACTIVE: 'Banyak bergerak',
+  VERY_ACTIVE: 'Kerja fisik',
+  EXTRA_ACTIVE: 'Kerja fisik berat',
 };
 
 export const ACTIVITY_HINT: Record<ActivityLevel, string> = {
-  SEDENTARY: 'Kerja duduk, hampir tidak olahraga',
-  LIGHTLY_ACTIVE: 'Olahraga ringan 1-3 hari seminggu',
-  MODERATELY_ACTIVE: 'Olahraga sedang 3-5 hari seminggu',
-  VERY_ACTIVE: 'Olahraga berat 6-7 hari seminggu',
-  EXTRA_ACTIVE: 'Olahraga berat tiap hari atau pekerjaan fisik',
+  SEDENTARY: 'Kantor, kerja dari rumah, sopir',
+  LIGHTLY_ACTIVE: 'Guru, kasir, penjaga toko',
+  MODERATELY_ACTIVE: 'Perawat, pramusaji, montir',
+  VERY_ACTIVE: 'Kurir, tukang, petani',
+  EXTRA_ACTIVE: 'Buruh bangunan, kuli angkut, atlet',
 };
 
 export const MEAL_LABEL: Record<MealType, string> = {

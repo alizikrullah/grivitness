@@ -27,10 +27,9 @@ import {
   useStepsRange,
   useStepsToday,
 } from '@/services/steps.service';
+import { useDailySummary } from '@/services/misc.service';
 import { dateRange, dayLabel, shiftDays, todayWIB } from '@/utils/date';
 import { thousands } from '@/utils/format';
-
-const TARGET_HARIAN = 10_000;
 
 /**
  * Membaca langkah hari ini dari sensor perangkat.
@@ -85,6 +84,13 @@ export default function StepsScreen() {
   const riwayat = useStepsRange(awal, hariIni);
   const saveSteps = useSaveSteps();
   const deleteSteps = useDeleteSteps();
+
+  /**
+   * Target langkah datang dari backend, diturunkan dari usia dan target berat
+   * badan. Query-nya sudah terisi dari beranda, jadi ini tidak menambah
+   * permintaan jaringan dalam pemakaian normal.
+   */
+  const target = useDailySummary(hariIni).data?.targets.steps;
 
   const logHariIni = today.data ?? null;
 
@@ -155,10 +161,24 @@ export default function StepsScreen() {
               <GoalProgress
                 label="Target harian"
                 value={nilai}
-                target={TARGET_HARIAN}
+                target={target?.steps ?? 0}
                 unit="langkah"
                 color={metricColors.steps}
               />
+
+              {/*
+                Dua lapis, dan pemisahannya disengaja. Lapis pertama murni
+                kesehatan — Paluch dkk. 2022 menunjukkan manfaatnya mendatar
+                sekitar 8.000, bukan 10.000. Lapis kedua muncul cuma kalau
+                target beratmu tidak bisa dikejar dari makanan saja tanpa
+                menembus batas aman, jadi angkanya bisa dijelaskan.
+              */}
+              {target && target.for_goal > 0 ? (
+                <Text variant="caption" tone="tertiary">
+                  {thousands(target.baseline)} untuk kesehatan, {thousands(target.for_goal)} sisanya
+                  untuk mengejar target beratmu.
+                </Text>
+              ) : null}
             </View>
           </Card>
 
