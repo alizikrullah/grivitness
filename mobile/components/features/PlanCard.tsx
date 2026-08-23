@@ -1,6 +1,7 @@
 import { FireIcon, FootprintsIcon, TrendDownIcon, WarningCircleIcon } from 'phosphor-react-native';
 import { StyleSheet, View } from 'react-native';
 
+import { ObservedTdeeNote } from '@/components/features/ObservedTdeeNote';
 import { Card, Divider, Row, Text } from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/theme';
@@ -76,7 +77,12 @@ export const PlanCard = ({ goal, targets }: PlanCardProps) => {
           label={turun ? 'Defisit harian' : 'Surplus harian'}
           value={thousands(Math.abs(plan.daily_deficit)) + ' kkal'}
         />
-        <Row label="Perkiraan pengeluaran" value={thousands(plan.tdee) + ' kkal'} />
+        <Row
+          label={goal.observed_tdee?.measured === null ? 'Perkiraan pengeluaran' : 'Pengeluaran'}
+          value={thousands(plan.tdee) + ' kkal'}
+        />
+
+        {goal.observed_tdee ? <ObservedTdeeNote observed={goal.observed_tdee} /> : null}
 
         {targets?.macros ? (
           <>

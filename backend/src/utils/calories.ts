@@ -335,7 +335,29 @@ export interface PlanInput {
   activityLevel: ActivityLevel;
   /** Jumlah hari tersisa menuju target. */
   daysRemaining: number;
+  /**
+   * Koreksi TDEE dari pengukuran nyata, sebagai rasio terhadap hasil rumus.
+   * 1 berarti belum ada koreksi dan rumus dipakai apa adanya.
+   *
+   * Dipakai sebagai RASIO, bukan angka mutlak, supaya koreksinya ikut menyusut
+   * bersama berat badan selama simulasi. Menyuntikkan satu angka tetap akan
+   * membuat TDEE berhenti turun saat badan mengurus — persis kesalahan yang
+   * simulasi hari-per-hari ini dibuat untuk menghindarinya.
+   */
+  tdeeFactor?: number;
 }
+
+/** TDEE acuan setelah dikoreksi pengukuran, pada berat badan tertentu. */
+const tdeeTerkoreksi = (weightKg: number, input: PlanInput): number => {
+  const bmr = calculateBMR({
+    weightKg,
+    heightCm: input.heightCm,
+    age: input.age,
+    gender: input.gender,
+  });
+
+  return round(baselineTDEE(bmr, weightKg, input.activityLevel) * (input.tdeeFactor ?? 1), 0);
+};
 
 /**
  * Menjalankan program maju sehari demi sehari.
@@ -350,13 +372,11 @@ const simulasi = (
   days: number,
   input: PlanInput,
 ): { finalWeightKg: number; tdeeAkhir: number } => {
-  const { heightCm, age, gender, activityLevel } = input;
   let berat = input.currentWeightKg;
   let tdee = 0;
 
   for (let i = 0; i < days; i++) {
-    const bmr = calculateBMR({ weightKg: berat, heightCm, age, gender });
-    tdee = baselineTDEE(bmr, berat, activityLevel);
+    tdee = tdeeTerkoreksi(berat, input);
 
     berat -= (tdee - intake) / KALORI_PER_KG;
 
@@ -422,14 +442,12 @@ export interface WeightPlan {
 /** Berapa hari sampai target tercapai pada asupan tetap. Null kalau tidak pernah. */
 const proyeksiHari = (intake: number, input: PlanInput): number | null => {
   const MAKS_HARI = 365 * 5;
-  const { heightCm, age, gender, activityLevel } = input;
 
   let berat = input.currentWeightKg;
   const turun = input.targetWeightKg < input.currentWeightKg;
 
   for (let hari = 1; hari <= MAKS_HARI; hari++) {
-    const bmr = calculateBMR({ weightKg: berat, heightCm, age, gender });
-    berat -= (baselineTDEE(bmr, berat, activityLevel) - intake) / KALORI_PER_KG;
+    berat -= (tdeeTerkoreksi(berat, input) - intake) / KALORI_PER_KG;
 
     if (turun ? berat <= input.targetWeightKg : berat >= input.targetWeightKg) return hari;
     if (berat < 20) return null;
@@ -456,13 +474,7 @@ export const planWeightChange = (input: PlanInput): WeightPlan => {
   const hari = Math.max(input.daysRemaining, 1);
   const turun = targetWeightKg < currentWeightKg;
 
-  const bmrSekarang = calculateBMR({
-    weightKg: currentWeightKg,
-    heightCm: input.heightCm,
-    age: input.age,
-    gender,
-  });
-  const tdee = baselineTDEE(bmrSekarang, currentWeightKg, input.activityLevel);
+  const tdee = tdeeTerkoreksi(currentWeightKg, input);
 
   const asupanIdeal = cariAsupan(hari, input);
 

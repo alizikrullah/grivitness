@@ -1,5 +1,5 @@
 import { forUser } from '../../data/scoped.js';
-import { loadUserMetrics } from '../../data/user-metrics.js';
+import { loadEnergyProfile } from '../../data/energy-profile.js';
 import { AppError } from '../../utils/api-error.js';
 import { calculateTDEE, daysBetween, planWeightChange } from '../../utils/calories.js';
 import { todayInJakarta } from '../../utils/daily-key.js';
@@ -87,7 +87,7 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
     mood,
     fotoBadan,
   ] = await Promise.all([
-    loadUserMetrics(userId),
+    loadEnergyProfile(userId),
     repo.findOne('weight_logs', { filter: hari }),
     repo.findOne('goals', { filter: { is_active: { _eq: true } } }),
     repo.sum('food_logs', 'total_calories', hariTimestamp),
@@ -151,6 +151,12 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
           gender: metrics.gender,
           activityLevel: metrics.activityLevel,
           daysRemaining: Math.max(daysBetween(date, goal.target_date), 1),
+          // Koreksi dari pengukuran nyata ikut dipakai, supaya anjuran langkah
+          // tambahan di bawah dihitung terhadap metabolisme user yang sebenarnya.
+          tdeeFactor:
+            metrics.observed && metrics.observed.estimated > 0
+              ? metrics.observed.tdee / metrics.observed.estimated
+              : 1,
         })
       : null;
 
