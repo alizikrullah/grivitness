@@ -296,6 +296,12 @@ export interface WorkoutLibraryItem {
   id: string;
   name: string;
   category: WorkoutCategory;
+  /**
+   * Nilai MET dari Compendium of Physical Activities — DATA SUMBERNYA.
+   * Null untuk baris lama yang belum di-seed ulang.
+   */
+  met: DecimalString | null;
+  /** Kalori BERSIH per menit untuk berat 70kg, turunan dari met. */
   calories_burned_per_minute: DecimalString;
   description: string | null;
 }

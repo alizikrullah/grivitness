@@ -1,0 +1,41 @@
+/* Kedalaman dibentuk dari garis tepi tipis peniru pantulan cahaya, bukan
+   bayangan. Di tema segelap ini bayangan nyaris tidak terlihat dan cuma
+   membuat tepiannya kotor. */
+.card {
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border-soft);
+  text-align: left;
+  width: 100%;
+}
+
+.card-solid {
+  background: var(--surface);
+}
+
+.card-outline {
+  background: transparent;
+  border-color: var(--border);
+}
+
+.card-pad-md {
+  padding: var(--space-md) var(--space-lg);
+}
+
+.card-pad-lg {
+  padding: var(--space-xl);
+}
+
+.card-clickable {
+  cursor: pointer;
+  display: block;
+  color: inherit;
+  font: inherit;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.card-clickable:hover {
+  background: var(--surface-alt);
+  border-color: var(--border);
+}

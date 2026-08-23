@@ -1,0 +1,32 @@
+.plan-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.plan-head-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--primary-soft);
+  flex-shrink: 0;
+}
+
+.plan-warn {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--surface-alt);
+  border: 1px solid var(--border-soft);
+}
+
+.plan-steps {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}

@@ -1,0 +1,148 @@
+.log {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--space-xl);
+  align-items: start;
+}
+
+.log-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  position: sticky;
+  top: 96px;
+}
+
+.log-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.log-nav-item:hover {
+  background: var(--surface-alt);
+  color: var(--text-primary);
+}
+
+.log-nav-active,
+.log-nav-active:hover {
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.log-nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.log-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  min-width: 0;
+}
+
+/* Daftar riwayat yang dipakai hampir semua panel. */
+.log-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.log-row:last-child {
+  border-bottom: none;
+}
+
+.log-row-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--surface-high);
+  flex-shrink: 0;
+}
+
+.log-actions {
+  display: flex;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.log-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface-high);
+  color: var(--text-secondary);
+}
+
+.log-action:hover {
+  color: var(--text-primary);
+}
+
+.log-action-danger:hover {
+  background: var(--primary-soft);
+  color: var(--danger);
+}
+
+.log-quick {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+.log-quick-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--space-lg) var(--space-sm);
+  border-radius: var(--radius-lg);
+  background: var(--surface-alt);
+  border: 1px solid var(--border-soft);
+  color: var(--text-primary);
+}
+
+.log-quick-item:hover:not(:disabled) {
+  background: var(--surface-high);
+}
+
+@media (max-width: 900px) {
+  .log {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .log-nav {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: var(--space-sm);
+  }
+
+  .log-nav-item {
+    flex-direction: column;
+    gap: var(--space-xs);
+    flex-shrink: 0;
+    min-width: 76px;
+    text-align: center;
+  }
+}
