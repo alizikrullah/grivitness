@@ -16,6 +16,9 @@
   --surface-alt: #1c1c1f;
   --surface-high: #26262a;
 
+  /* Nyala api pada cincin kalori. Lihat constants/colors.ts. */
+  --flame-body: #ff5a2c;
+
   --primary: #f2333f;
   --primary-dim: #c9202b;
   --primary-soft: rgba(242, 51, 63, 0.14);

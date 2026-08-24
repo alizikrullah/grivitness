@@ -2,7 +2,7 @@ import { FireIcon } from 'phosphor-react-native';
 import { StyleSheet, View } from 'react-native';
 
 import { Ring, Text } from '@/components/ui';
-import { colors } from '@/constants/colors';
+import { colors, flame } from '@/constants/colors';
 import { spacing, typography } from '@/constants/theme';
 import { ratio, thousands } from '@/utils/format';
 
@@ -42,7 +42,13 @@ export const CalorieRingChart = ({ caloriesIn, budget, size = 190 }: CalorieRing
         sweep={0.78}
       >
         <View style={styles.center}>
-          <FireIcon size={22} color={warna} weight="duotone" />
+          <FireIcon
+            size={22}
+            weight="duotone"
+            color={flame.outline}
+            duotoneColor={flame.body}
+            duotoneOpacity={1}
+          />
 
           <Text style={typography.metric}>{thousands(caloriesIn)}</Text>
 
