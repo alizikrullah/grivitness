@@ -56,3 +56,15 @@ export const metricColors = {
 } as const;
 
 export type MetricKey = keyof typeof metricColors;
+
+/**
+ * Nyala api pada cincin kalori.
+ *
+ * Dipisah dari `metricColors.calories` karena perannya berbeda: yang ini
+ * gambar nyala, bukan penanda metrik. Badannya oranye kemerahan dengan garis
+ * luar kuning, meniru nyala sungguhan yang selalu lebih terang di tepinya.
+ */
+export const flame = {
+  body: '#FF5A2C',
+  outline: '#FFD84D',
+} as const;

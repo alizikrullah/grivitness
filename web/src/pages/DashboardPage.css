@@ -94,3 +94,17 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/*
+ * Nyala api: badan oranye kemerahan, garis luar kuning.
+ *
+ * Phosphor versi web tidak menerima warna terpisah untuk kedua lapisan duotone
+ * seperti versi React Native-nya, jadi lapisan badannya disasar lewat CSS.
+ * Lapisan itu satu-satunya path yang diberi atribut opacity ("0.2") oleh
+ * Phosphor, sehingga `path[opacity]` menunjuk tepat ke sana tanpa bergantung
+ * pada urutan elemen.
+ */
+.dash-flame path[opacity] {
+  fill: var(--flame-body);
+  opacity: 1;
+}

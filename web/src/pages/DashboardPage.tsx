@@ -12,7 +12,7 @@ import { Link } from 'react-router-dom';
 
 import { MetricTile } from '@/components/features/MetricTile';
 import { Card, Loading, Ring, SectionHeader, StatPill } from '@/components/ui';
-import { colors, metricColors } from '@/constants/colors';
+import { colors, flame, metricColors } from '@/constants/colors';
 import { useDailySummary, useStreak } from '@/services/misc.service';
 import { useProfile } from '@/services/users.service';
 import { todayWIB } from '@/utils/date';
@@ -66,7 +66,7 @@ export const DashboardPage = () => {
               thickness={16}
               color={metricColors.calories}
             >
-              <FireIcon size={22} color={metricColors.calories} weight="duotone" />
+              <FireIcon size={22} weight="duotone" color={flame.outline} className="dash-flame" />
               <span className="t-metric">{thousands(data?.calories_in ?? 0)}</span>
               <span className="t-caption c-secondary">
                 {budget ? 'dari ' + thousands(budget) + ' kkal' : 'kalori masuk'}
