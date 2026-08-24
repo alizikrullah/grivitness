@@ -117,8 +117,13 @@ export const PlanCard = ({ goal, targets }: PlanCardProps) => {
 
               {plan.extra_steps_needed > 0 ? (
                 <View style={styles.steps}>
-                  <FootprintsIcon size={14} color={metricColors.steps} weight="fill" />
-                  <Text variant="caption" tone="secondary">
+                  <FootprintsIcon
+                    size={14}
+                    color={metricColors.steps}
+                    weight="fill"
+                    style={styles.stepsIcon}
+                  />
+                  <Text variant="caption" tone="secondary" style={styles.stepsText}>
                     Tambah {thousands(plan.extra_steps_needed)} langkah per hari untuk mengejar
                     tanggal aslinya.
                   </Text>
@@ -155,5 +160,9 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
   },
   warnText: { flex: 1, gap: spacing.xs },
-  steps: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  // Teks di dalam baris WAJIB diberi flex. Tanpa itu React Native membiarkannya
+  // memanjang melewati tepi kartu alih-alih membungkus ke baris berikutnya.
+  steps: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.xs },
+  stepsIcon: { marginTop: 1 },
+  stepsText: { flex: 1 },
 });

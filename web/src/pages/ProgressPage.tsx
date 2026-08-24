@@ -35,8 +35,15 @@ export const ProgressPage = () => {
   const awalLangkah = shiftDays(hariIni, -Math.min(hari, 14) + 1);
   const batangLangkah = dateRange(awalLangkah, hariIni).map((tanggal) => ({
     label: dayLabel(tanggal),
-    value: langkah.data?.find((l) => l.logged_at === tanggal)?.steps ?? 0,
+    value: langkah.data?.find((l) => l.logged_at === tanggal)?.steps ?? null,
   }));
+
+  /**
+   * Nilai hari ini dipisah supaya bisa ditampilkan tanpa interaksi apa pun.
+   * Tooltip Recharts hanya muncul saat kursor masuk, dan di layar sentuh hover
+   * tidak pernah terjadi -- tanpa ini, angka pastinya tidak pernah terbaca.
+   */
+  const langkahHariIni = batangLangkah.at(-1)?.value ?? null;
 
   const w = mingguan.data;
   const perubahan =
@@ -71,7 +78,14 @@ export const ProgressPage = () => {
         {langkah.isPending ? (
           <Loading />
         ) : (
-          <HighlightBarChart data={batangLangkah} color={metricColors.steps} height={220} />
+          <div className="stack-sm">
+            <span className="t-caption c-secondary">
+              Hari ini{' '}
+              {langkahHariIni === null ? 'belum tercatat' : thousands(langkahHariIni) + ' langkah'}
+            </span>
+
+            <HighlightBarChart data={batangLangkah} color={metricColors.steps} height={220} />
+          </div>
         )}
       </Card>
 

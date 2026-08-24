@@ -39,7 +39,7 @@ export const ObservedTdeeNote = ({ observed }: { observed: ObservedTdee }) => {
           <HourglassIcon size={16} color={colors.textTertiary} weight="duotone" />
         )}
 
-        <Text variant="label" tone={terukur ? 'success' : 'secondary'}>
+        <Text variant="label" tone={terukur ? 'success' : 'secondary'} style={styles.headText}>
           {terukur ? 'Diukur dari datamu' : 'Masih pakai perkiraan rumus'}
         </Text>
       </View>
@@ -87,5 +87,6 @@ const styles = StyleSheet.create({
   },
   boxOn: { borderColor: colors.success },
   head: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  headText: { flex: 1 },
   bar: { gap: spacing.xs, marginTop: spacing.xs },
 });

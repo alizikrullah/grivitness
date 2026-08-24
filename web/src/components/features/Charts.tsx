@@ -102,7 +102,8 @@ export const TrendChart = ({
 
 export interface BarDatum {
   label: string;
-  value: number;
+  /** null berarti hari itu tidak tercatat, berbeda dari nol. Recharts melewatinya. */
+  value: number | null;
 }
 
 /**
