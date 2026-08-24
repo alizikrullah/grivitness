@@ -173,7 +173,7 @@ export default function OnboardingScreen() {
             dua kali dan targetmu jadi terlalu longgar.
           */}
           <Text variant="caption" tone="tertiary" style={styles.levelHint}>
-            Olahraga tidak perlu dihitung di sini — itu sudah diambil dari catatan
+            Olahraga tidak perlu dihitung di sini, karena sudah diambil dari catatan
             olahraga, langkah, dan tidurmu.
           </Text>
 

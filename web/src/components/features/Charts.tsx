@@ -83,7 +83,7 @@ export const TrendChart = ({
         // untuk chart bertumpuk. Hari tanpa penimbangan memang tidak punya
         // angka, jadi ditangani di sini alih-alih dipaksa dengan cast yang akan
         // menampilkan "undefined kg" di layar.
-        formatter={(v) => [typeof v === 'number' ? v + unit : '—', '']}
+        formatter={(v) => [typeof v === 'number' ? v + unit : '-', '']}
       />
 
       <Area

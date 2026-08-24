@@ -34,7 +34,7 @@ export const thousands = (value: number): string => {
 /** Berat dalam kg, atau tanda pisah kalau datanya belum ada. */
 export const kg = (value: number | string | null | undefined, digits = 1): string => {
   const angka = toNum(value);
-  return angka === null ? '—' : angka.toFixed(digits);
+  return angka === null ? '-' : angka.toFixed(digits);
 };
 
 /** 485 menit menjadi "8j 5m". Dipakai untuk tidur dan olahraga. */

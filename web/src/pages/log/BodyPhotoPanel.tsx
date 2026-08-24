@@ -106,8 +106,7 @@ export const BodyPhotoPanel = () => {
 
               {today.data.ai_analysis?.estimated_body_fat_percent != null ? (
                 <span className="t-caption c-tertiary">
-                  Perkiraan lemak tubuh {today.data.ai_analysis.estimated_body_fat_percent}% —
-                  taksiran kasar dari foto, bukan pengukuran.
+                  Perkiraan lemak tubuh {today.data.ai_analysis.estimated_body_fat_percent}%. Taksiran kasar dari foto, bukan pengukuran.
                 </span>
               ) : null}
             </div>

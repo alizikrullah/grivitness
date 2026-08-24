@@ -74,7 +74,7 @@ export const AppLayout = () => {
           <div className="sidebar-user">
             <span className="sidebar-avatar">{initials(user?.name ?? 'G')}</span>
             <span className="flex-1 truncate">
-              <span className="t-label truncate">{user?.name ?? '—'}</span>
+              <span className="t-label truncate">{user?.name ?? '-'}</span>
               <span className="t-caption c-tertiary truncate">{user?.email ?? ''}</span>
             </span>
           </div>

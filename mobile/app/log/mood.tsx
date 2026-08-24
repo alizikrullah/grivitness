@@ -57,7 +57,7 @@ export default function MoodScreen() {
     return {
       label: dayLabel(tanggal),
       value: log?.mood_score ?? 0,
-      caption: log ? log.mood_score + '/5' : '—',
+      caption: log ? log.mood_score + '/5' : '-',
     };
   });
 

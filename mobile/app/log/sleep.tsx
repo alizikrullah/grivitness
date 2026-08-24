@@ -137,7 +137,7 @@ export default function SleepScreen() {
                 style={typography.metric}
                 color={menit > 0 ? colors.textPrimary : colors.textTertiary}
               >
-                {menit > 0 ? duration(menit) : '—'}
+                {menit > 0 ? duration(menit) : '-'}
               </Text>
             </View>
 
