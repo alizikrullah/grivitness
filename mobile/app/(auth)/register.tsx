@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { Link } from 'expo-router';
 import { EnvelopeSimpleIcon, LockKeyIcon, UserIcon } from 'phosphor-react-native';
 import { useState } from 'react';
@@ -9,6 +10,8 @@ import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth.store';
+
+import logoMark from '../../assets/logo-mark.png';
 
 /** Sama dengan batas di backend: bcrypt hanya membaca 72 byte pertama. */
 const PANJANG_MIN = 8;
@@ -48,6 +51,7 @@ export default function RegisterScreen() {
     >
       <Screen contentStyle={styles.content}>
         <View style={styles.hero}>
+          <Image source={logoMark} style={styles.mark} contentFit="contain" />
           <Text variant="overline" tone="accent">
             GriviTness
           </Text>
@@ -122,6 +126,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xxl,
   },
   hero: { gap: spacing.md },
+  mark: { width: 64, height: 57 },
   form: { gap: spacing.lg },
   footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: spacing.sm },
 });
