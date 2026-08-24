@@ -129,7 +129,7 @@ export default function LogHubScreen() {
         <Text variant="overline" tone="accent">
           Catat hari ini
         </Text>
-        <HeroTitle text="Isi yang belum lengkap" highlight="lengkap" size="h1" />
+        <HeroTitle text="Belum lengkap" highlight="lengkap" size="h1" />
         <Text variant="body" tone="secondary">
           {selesai} dari {entries.length} sudah tercatat hari ini.
         </Text>
@@ -189,8 +189,8 @@ const styles = StyleSheet.create({
   tileDone: { borderColor: colors.border, backgroundColor: colors.surfaceAlt },
   pressed: { opacity: 0.75, transform: [{ scale: 0.98 }] },
   icon: {
-    width: 44,
-    height: 44,
+    width: 38,
+    height: 38,
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',

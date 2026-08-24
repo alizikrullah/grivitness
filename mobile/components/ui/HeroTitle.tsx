@@ -61,7 +61,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.lg,
-    paddingVertical: 2,
+    paddingTop: 2,
+    paddingBottom: 6,
   },
   pillText: { color: colors.white },
 });
