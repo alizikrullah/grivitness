@@ -40,3 +40,8 @@ Thumbs.db
 
 # Vite (web)
 .vite/
+
+# Berkas logo mentah (1536x1024, berisi ruang kosong transparan).
+# Yang di-commit adalah aset turunannya di mobile/assets dan web/,
+# bukan sumbernya — sumbernya cuma dipakai sekali saat memotong dan menskalakan.
+GRIVITNESS Logo/

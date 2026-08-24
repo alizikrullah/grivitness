@@ -9,6 +9,7 @@ import {
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 
+import logoMark from '@/assets/logo-mark.png';
 import { useAuthStore } from '@/stores/auth.store';
 import { greeting, longDate, todayWIB } from '@/utils/date';
 import { initials } from '@/utils/format';
@@ -46,7 +47,7 @@ export const AppLayout = () => {
     <div className="app">
       <aside className={'sidebar' + (menuTerbuka ? ' sidebar-open' : '')}>
         <div className="sidebar-brand">
-          <span className="sidebar-mark">G</span>
+          <img src={logoMark} alt="" className="sidebar-mark" />
           <span className="t-h3">GriviTness</span>
         </div>
 

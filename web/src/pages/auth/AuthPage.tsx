@@ -2,6 +2,7 @@ import { EnvelopeIcon, LockIcon, UserIcon } from '@phosphor-icons/react';
 import { type FormEvent, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 
+import logoMark from '@/assets/logo-mark.png';
 import { Button, ErrorNote, Input } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { toApiError } from '@/lib/api';
@@ -72,7 +73,7 @@ export const AuthPage = ({ mode }: AuthPageProps) => {
     <div className="auth">
       <div className="auth-panel">
         <div className="auth-brand">
-          <span className="auth-mark">G</span>
+          <img src={logoMark} alt="" className="auth-mark" />
           <span className="t-h2">GriviTness</span>
         </div>
 
