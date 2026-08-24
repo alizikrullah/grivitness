@@ -1,0 +1,177 @@
+.chat-bubble {
+  position: fixed;
+  right: var(--space-xl);
+  bottom: var(--space-xl);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background: var(--primary);
+  border: none;
+  cursor: pointer;
+  /* Satu-satunya tempat bayangan dipakai di tema segelap ini: elemen yang
+     benar-benar melayang di atas isi halaman. */
+  box-shadow: 0 8px 24px rgb(242 51 63 / 45%);
+  transition: transform 0.15s ease;
+}
+
+.chat-bubble:hover {
+  transform: scale(1.06);
+}
+
+.chat-panel {
+  position: fixed;
+  right: var(--space-xl);
+  bottom: calc(var(--space-xl) + 56px + var(--space-md));
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  width: min(380px, calc(100vw - var(--space-xl) * 2));
+  max-height: min(560px, calc(100vh - 160px));
+  padding: var(--space-lg);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 55%);
+}
+
+.chat-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.chat-head-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  flex-shrink: 0;
+}
+
+.chat-close {
+  display: flex;
+  padding: var(--space-xs);
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  overflow-y: auto;
+  /* Menahan panel supaya tidak tumbuh sampai menutupi halaman saat
+     percakapannya panjang. */
+  flex: 1;
+  min-height: 120px;
+}
+
+.chat-kosong {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md) 0;
+}
+
+.chat-contoh {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--surface-alt);
+  border: 1px solid var(--border-soft);
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-contoh:hover {
+  border-color: var(--primary);
+}
+
+.chat-user,
+.chat-ai {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-lg);
+  font-size: 14px;
+  line-height: 1.5;
+  /* Balasan model memuat baris baru sungguhan. Tanpa ini semuanya menyatu jadi
+     satu paragraf dan daftar poinnya hilang. */
+  white-space: pre-wrap;
+}
+
+.chat-user {
+  align-self: flex-end;
+  max-width: 85%;
+  background: var(--primary);
+  color: #fff;
+}
+
+.chat-ai {
+  align-self: flex-start;
+  max-width: 92%;
+  background: var(--surface-alt);
+  color: var(--text-primary);
+}
+
+.chat-komposer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.chat-input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-lg);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 14px;
+}
+
+.chat-input:focus {
+  outline: none;
+  border-color: var(--border-focus);
+}
+
+.chat-kirim {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--primary);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+}
+
+.chat-kirim:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .chat-panel {
+    right: var(--space-md);
+    left: var(--space-md);
+    width: auto;
+  }
+
+  .chat-bubble {
+    right: var(--space-md);
+    bottom: var(--space-md);
+  }
+}

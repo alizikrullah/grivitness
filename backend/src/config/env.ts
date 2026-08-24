@@ -53,6 +53,9 @@ const EnvSchema = z.object({
   // Sengaja tidak wajib: baru dibutuhkan saat module food & body-photos dikerjakan.
   GROQ_API_KEY: z.string().default(''),
   GROQ_VISION_MODEL: z.string().default('qwen/qwen3.6-27b'),
+  // Dipisah dari model vision karena Groq menghitung batas laju PER MODEL,
+  // bukan per akun. Model berbeda berarti jatah token yang berbeda pula.
+  GROQ_CHAT_MODEL: z.string().default('openai/gpt-oss-120b'),
 });
 
 const parsed = EnvSchema.safeParse(process.env);

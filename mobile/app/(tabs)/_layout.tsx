@@ -12,6 +12,7 @@ import type { ComponentType } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ChatBubble } from '@/components/features/ChatBubble';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/theme';
@@ -41,60 +42,70 @@ export default function TabsLayout() {
   const insets = useSafeAreaInsets();
 
   return (
-    <Tabs
-      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: colors.background } }}
-      tabBar={({ state, navigation }) => (
-        <View style={[styles.wrapper, { bottom: Math.max(insets.bottom, spacing.md) }]}>
-          <BlurView intensity={Platform.OS === 'ios' ? 40 : 0} tint="dark" style={styles.bar}>
-            {TABS.map((tab) => {
-              // Dicocokkan lewat nama route, bukan lewat urutan array. Urutan
-              // di state.routes ditentukan navigator dan tidak dijamin sama
-              // dengan urutan TABS — menyamakan indeksnya begitu saja membuat
-              // tab yang menyala meleset begitu urutannya berbeda.
-              const aktif = state.routes[state.index]?.name === tab.name;
-              const { Icon } = tab;
+    /*
+      Tabs dibungkus View karena ChatBubble diposisikan absolut terhadap
+      induknya. Tanpa pembungkus ini, "bawah" yang dirujuknya adalah kotak
+      navigator, bukan layar, dan gelembungnya melayang di tempat yang salah.
+    */
+    <View style={styles.layar}>
+      <Tabs
+        screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: colors.background } }}
+        tabBar={({ state, navigation }) => (
+          <View style={[styles.wrapper, { bottom: Math.max(insets.bottom, spacing.md) }]}>
+            <BlurView intensity={Platform.OS === 'ios' ? 40 : 0} tint="dark" style={styles.bar}>
+              {TABS.map((tab) => {
+                // Dicocokkan lewat nama route, bukan lewat urutan array. Urutan
+                // di state.routes ditentukan navigator dan tidak dijamin sama
+                // dengan urutan TABS — menyamakan indeksnya begitu saja membuat
+                // tab yang menyala meleset begitu urutannya berbeda.
+                const aktif = state.routes[state.index]?.name === tab.name;
+                const { Icon } = tab;
 
-              return (
-                <Pressable
-                  key={tab.name}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: aktif }}
-                  accessibilityLabel={tab.label}
-                  onPress={() => {
-                    void Haptics.selectionAsync();
-                    navigation.navigate(tab.name);
-                  }}
-                  style={({ pressed }) => [
-                    styles.item,
-                    aktif ? styles.itemActive : styles.itemIdle,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Icon
-                    size={22}
-                    color={aktif ? colors.white : colors.textSecondary}
-                    weight={aktif ? 'fill' : 'regular'}
-                  />
-                  {aktif ? (
-                    <Text variant="caption" tone="inverse" numberOfLines={1}>
-                      {tab.label}
-                    </Text>
-                  ) : null}
-                </Pressable>
-              );
-            })}
-          </BlurView>
-        </View>
-      )}
-    >
-      {TABS.map((tab) => (
-        <Tabs.Screen key={tab.name} name={tab.name} />
-      ))}
-    </Tabs>
+                return (
+                  <Pressable
+                    key={tab.name}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: aktif }}
+                    accessibilityLabel={tab.label}
+                    onPress={() => {
+                      void Haptics.selectionAsync();
+                      navigation.navigate(tab.name);
+                    }}
+                    style={({ pressed }) => [
+                      styles.item,
+                      aktif ? styles.itemActive : styles.itemIdle,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Icon
+                      size={22}
+                      color={aktif ? colors.white : colors.textSecondary}
+                      weight={aktif ? 'fill' : 'regular'}
+                    />
+                    {aktif ? (
+                      <Text variant="caption" tone="inverse" numberOfLines={1}>
+                        {tab.label}
+                      </Text>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </BlurView>
+          </View>
+        )}
+      >
+        {TABS.map((tab) => (
+          <Tabs.Screen key={tab.name} name={tab.name} />
+        ))}
+      </Tabs>
+
+      <ChatBubble />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  layar: { flex: 1 },
   wrapper: {
     position: 'absolute',
     left: spacing.lg,
