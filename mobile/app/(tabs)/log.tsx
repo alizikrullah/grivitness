@@ -149,8 +149,8 @@ export default function LogHubScreen() {
                 pressed && styles.pressed,
               ]}
             >
-              <View style={[styles.icon, { backgroundColor: entry.color + '1F' }]}>
-                <Icon size={22} color={entry.color} weight="duotone" />
+              <View style={[styles.icon, { backgroundColor: entry.color }]}>
+                <Icon size={22} color={colors.background} weight="fill" />
               </View>
 
               <View style={styles.tileText}>

@@ -34,7 +34,7 @@ export const MetricTile = ({
     style={({ pressed }) => [styles.tile, pressed && onPress && styles.pressed]}
   >
     <View style={styles.tileHead}>
-      <View style={[styles.tileIcon, { backgroundColor: color + '1F' }]}>{icon}</View>
+      <View style={styles.tileIcon}>{icon}</View>
       <Text variant="caption" tone="secondary" numberOfLines={1} style={styles.tileLabel}>
         {label}
       </Text>
@@ -178,6 +178,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.75 },
   tileHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   tileIcon: {
+    backgroundColor: colors.surfaceHigh,
     width: 30,
     height: 30,
     borderRadius: 15,

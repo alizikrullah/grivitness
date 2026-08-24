@@ -21,7 +21,7 @@ export const MetricTile = ({ icon, label, value, unit, progress, color, to }: Me
   const isi = (
     <>
       <div className="tile-head">
-        <span className="tile-icon" style={{ background: color + '22' }}>
+        <span className="tile-icon">
           {icon}
         </span>
         <span className="t-caption c-secondary truncate">{label}</span>

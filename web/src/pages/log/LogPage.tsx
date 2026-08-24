@@ -12,7 +12,7 @@ import {
 import type { ComponentType } from 'react';
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
 
-import { metricColors } from '@/constants/colors';
+import { colors, metricColors } from '@/constants/colors';
 import { BodyPhotoPanel } from './BodyPhotoPanel';
 import { FoodPanel } from './FoodPanel';
 import { MeasurementsPanel } from './MeasurementsPanel';
@@ -60,8 +60,8 @@ export const LogPage = () => (
           to={'/log/' + slug}
           className={({ isActive }) => 'log-nav-item' + (isActive ? ' log-nav-active' : '')}
         >
-          <span className="log-nav-icon" style={{ background: color + '22' }}>
-            <Icon size={18} color={color} weight="duotone" />
+          <span className="log-nav-icon" style={{ background: color }}>
+            <Icon size={18} color={colors.background} weight="fill" />
           </span>
           <span className="t-label">{label}</span>
         </NavLink>
