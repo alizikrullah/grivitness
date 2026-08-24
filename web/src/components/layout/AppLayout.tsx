@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 
 import logoMark from '@/assets/logo-mark.png';
+import { ChatWidget } from '@/components/features/ChatWidget';
 import { useAuthStore } from '@/stores/auth.store';
 import { greeting, longDate, todayWIB } from '@/utils/date';
 import { initials } from '@/utils/format';
@@ -58,7 +59,9 @@ export const AppLayout = () => {
               to={to}
               end={end}
               onClick={() => setMenuTerbuka(false)}
-              className={({ isActive }) => 'sidebar-link' + (isActive ? ' sidebar-link-active' : '')}
+              className={({ isActive }) =>
+                'sidebar-link' + (isActive ? ' sidebar-link-active' : '')
+              }
             >
               {({ isActive }) => (
                 <>
@@ -114,6 +117,12 @@ export const AppLayout = () => {
           <Outlet />
         </main>
       </div>
+
+      {/*
+        Di luar app-main supaya posisinya tetap terhadap layar, bukan terhadap
+        kolom isi yang bisa menggulung.
+      */}
+      <ChatWidget />
     </div>
   );
 };

@@ -247,3 +247,77 @@ export const BODY_PROMPT = `Analyze the body in these two images (front and side
   "recommendations": ["string"]
 }
 Write posture_notes, visible_changes, and recommendations in Indonesian. Set estimated_body_fat_percent to null if you cannot estimate it with reasonable confidence.`;
+
+export interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+/**
+ * Balasan dibatasi supaya jawabannya tetap ringkas dan biayanya bisa ditebak.
+ * Aturan "maksimal sekitar 120 kata" di prompt adalah bujukan; batas ini
+ * pagarnya.
+ */
+const MAKS_TOKEN_BALASAN = 700;
+
+/**
+ * Percakapan teks ke Groq, dipakai fitur chat.
+ *
+ * Model chat dan model vision sengaja terpisah di env: Groq menghitung batas
+ * laju PER MODEL, jadi memakai model berbeda berarti keduanya punya jatah
+ * sendiri dan analisa foto tidak lagi bersaing dengan percakapan.
+ *
+ * Tidak memakai response_format JSON seperti analyzeImages, karena yang
+ * diinginkan di sini justru prosa untuk dibaca manusia.
+ */
+export const chatCompletion = async (messages: ChatMessage[]): Promise<string> => {
+  if (env.GROQ_API_KEY === '') {
+    throw AppError.upstream('GROQ_API_KEY belum diisi di environment');
+  }
+
+  const kirim = async (): Promise<string> => {
+    const { data } = await axios.post<GroqResponse>(
+      ENDPOINT,
+      {
+        model: env.GROQ_CHAT_MODEL,
+        messages,
+        // Cukup luwes untuk terdengar seperti orang, cukup rendah untuk tidak
+        // mengarang. Analisa gambar memakai 0.2 karena di sana yang diminta
+        // ekstraksi, bukan tulisan.
+        temperature: 0.4,
+        max_tokens: MAKS_TOKEN_BALASAN,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${env.GROQ_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: TIMEOUT_MS,
+      },
+    );
+
+    const raw = data.choices?.[0]?.message?.content;
+    if (!raw) throw AppError.upstream('Groq membalas tanpa isi');
+
+    return raw.trim();
+  };
+
+  try {
+    return await kirim();
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+
+    const tunggu = jedaRateLimit(error);
+    if (tunggu === null) throw translateAxiosError(error);
+
+    logger.warn({ tunggu_ms: tunggu }, 'Groq membatasi laju chat, menunggu lalu mencoba sekali lagi');
+    await new Promise((resolve) => setTimeout(resolve, tunggu));
+
+    try {
+      return await kirim();
+    } catch (ulang) {
+      if (ulang instanceof AppError) throw ulang;
+      throw translateAxiosError(ulang);
+    }
+  }
+};
