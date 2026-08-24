@@ -55,7 +55,7 @@ export const ProfilePage = () => {
             <div className="grid-3">
               <Stat label="Usia" value={p.age + ' th'} />
               <Stat label="Tinggi" value={kg(p.height_cm, 0) + ' cm'} />
-              <Stat label="Berat" value={p.current_weight_kg ? kg(p.current_weight_kg) + ' kg' : '—'} />
+              <Stat label="Berat" value={p.current_weight_kg ? kg(p.current_weight_kg) + ' kg' : '-'} />
             </div>
 
             <Divider />
@@ -246,7 +246,7 @@ const ProfileModal = ({ profile, onClose }: { profile: Profile | null; onClose: 
           kali dan targetnya jadi terlalu longgar.
         */}
         <span className="t-caption c-tertiary">
-          Olahraga tidak perlu dihitung di sini — itu sudah diambil dari catatan olahraga, langkah,
+          Olahraga tidak perlu dihitung di sini, karena sudah diambil dari catatan olahraga, langkah,
           dan tidurmu.
         </span>
 

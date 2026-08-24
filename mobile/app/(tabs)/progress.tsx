@@ -126,7 +126,7 @@ export default function ProgressScreen() {
 
               <View style={styles.bigNumber}>
                 <Text style={typography.display}>
-                  {rekap.data?.weight_end != null ? kg(rekap.data.weight_end, 1) : '—'}
+                  {rekap.data?.weight_end != null ? kg(rekap.data.weight_end, 1) : '-'}
                 </Text>
                 <Text variant="label" tone="secondary">
                   kg

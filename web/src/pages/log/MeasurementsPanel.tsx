@@ -72,7 +72,7 @@ export const MeasurementsPanel = () => {
                 inputMode="decimal"
                 value={tampil(key)}
                 onChange={(e) => ubah(key, e.target.value)}
-                placeholder="—"
+                placeholder="-"
                 suffix="cm"
               />
             ))}

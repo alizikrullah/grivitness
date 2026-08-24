@@ -23,7 +23,7 @@ const ALASAN: Record<NonNullable<ObservedTdee['reason']>, string> = {
     'Penimbanganmu masih terlalu berdekatan. Timbang berkala selama beberapa minggu.',
   CATATAN_MAKAN_KURANG: 'Catatan makanmu belum menutupi cukup banyak hari.',
   HASIL_TIDAK_WAJAR:
-    'Hasilnya jauh di luar dugaan — biasanya berarti ada catatan makan atau berat yang keliru.',
+    'Hasilnya jauh di luar dugaan. Biasanya itu berarti ada catatan makan atau berat yang keliru.',
 };
 
 export const ObservedTdeeNote = ({ observed }: { observed: ObservedTdee }) => {

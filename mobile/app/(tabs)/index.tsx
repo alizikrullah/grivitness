@@ -130,7 +130,7 @@ export default function HomeScreen() {
                   </Text>
                   <Text variant="h3">
                     {data?.weight_kg === null || data?.weight_kg === undefined
-                      ? '—'
+                      ? '-'
                       : kg(data.weight_kg) + ' kg'}
                   </Text>
                 </View>

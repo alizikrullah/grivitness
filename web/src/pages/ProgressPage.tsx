@@ -85,7 +85,7 @@ export const ProgressPage = () => {
             <div className="stack-xs">
               <span className="t-overline c-tertiary">Perubahan berat</span>
               <span className="t-h2" style={{ color: metricColors.weight }}>
-                {perubahan === null ? '—' : signed(perubahan) + ' kg'}
+                {perubahan === null ? '-' : signed(perubahan) + ' kg'}
               </span>
               <span className="t-caption c-tertiary">
                 {w?.weight_start != null && w.weight_end != null

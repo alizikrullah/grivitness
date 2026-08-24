@@ -107,7 +107,7 @@ export default function MeasurementsScreen() {
           <View style={styles.hint}>
             <RulerIcon size={20} color={metricColors.measurement} weight="duotone" />
             <Text variant="caption" tone="secondary" style={styles.hintText}>
-              Ukur di posisi yang sama setiap kali — pagi hari, sebelum makan, dengan pita yang pas
+              Ukur di posisi yang sama setiap kali: pagi hari, sebelum makan, dengan pita yang pas
               tapi tidak menekan.
             </Text>
           </View>

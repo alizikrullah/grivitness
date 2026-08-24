@@ -66,7 +66,7 @@ export const FoodPanel = () => {
             value={catatan}
             onChange={(e) => setCatatan(e.target.value)}
             placeholder="Contoh: sate lontong dengan bumbu kacang"
-            hint="Catatan ini dikirim ke AI dan dianggap benar soal APA makanannya — foto cuma dipakai menakar porsinya."
+            hint="Catatan ini dikirim ke AI dan dianggap benar soal APA makanannya. Foto cuma dipakai menakar porsinya."
           />
 
           {error ? <ErrorNote message={error} /> : null}

@@ -85,7 +85,7 @@ export const DashboardPage = () => {
                 <span className="t-overline c-tertiary">Sisa</span>
                 <span className="t-h3">
                   {data?.calories_remaining === null || data?.calories_remaining === undefined
-                    ? '—'
+                    ? '-'
                     : thousands(data.calories_remaining)}
                 </span>
               </div>
@@ -96,7 +96,7 @@ export const DashboardPage = () => {
                 <span className="t-overline c-tertiary">Berat</span>
                 <span className="t-h3">
                   {data?.weight_kg === null || data?.weight_kg === undefined
-                    ? '—'
+                    ? '-'
                     : kg(data.weight_kg) + ' kg'}
                 </span>
               </div>
