@@ -27,6 +27,12 @@
 
 .plan-steps {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-xs);
+}
+
+/* Tanpa ini ikon ikut menyusut saat teksnya panjang dan bentuknya jadi gepeng. */
+.plan-steps svg {
+  flex-shrink: 0;
+  margin-top: 1px;
 }

@@ -8,7 +8,12 @@ import { Text } from './Text';
 
 export interface BarDatum {
   label: string;
-  value: number;
+  /**
+   * null berarti hari itu TIDAK tercatat, dan itu berbeda dari nol langkah.
+   * Menggambar nol untuk hari yang tidak dicatat sama saja mengklaim user tidak
+   * melangkah sama sekali, padahal yang terjadi cuma tidak membuka aplikasi.
+   */
+  value: number | null;
   /** Keterangan pada gelembung saat batang dipilih. Kalau kosong, nilainya yang tampil. */
   caption?: string;
 }
@@ -40,10 +45,10 @@ export const BarChart = ({
   onSelect,
   formatValue,
 }: BarChartProps) => {
-  const tertinggi = data.reduce((maks, d) => (d.value > maks ? d.value : maks), 0);
+  const tertinggi = data.reduce((maks, d) => ((d.value ?? 0) > maks ? (d.value ?? 0) : maks), 0);
 
   const bawaan = data.reduce(
-    (terpilih, d, i) => (d.value > (data[terpilih]?.value ?? 0) ? i : terpilih),
+    (terpilih, d, i) => ((d.value ?? 0) > (data[terpilih]?.value ?? 0) ? i : terpilih),
     0,
   );
 
@@ -73,10 +78,10 @@ export const BarChart = ({
               onPress={() => pilih(i)}
               style={styles.column}
               accessibilityRole="button"
-              accessibilityLabel={d.label + ': ' + d.value}
+              accessibilityLabel={d.label + ': ' + (d.value === null ? 'tidak tercatat' : d.value)}
             >
               <View style={styles.bubbleSlot}>
-                {terpilih && d.value > 0 ? (
+                {terpilih && d.value !== null && d.value > 0 ? (
                   <View style={[styles.bubble, { backgroundColor: color }]}>
                     <Text variant="caption" tone="inverse" numberOfLines={1}>
                       {d.caption ?? formatValue?.(d.value) ?? String(d.value)}
@@ -86,15 +91,24 @@ export const BarChart = ({
               </View>
 
               <View style={styles.barSlot}>
-                <View
-                  style={[
-                    styles.bar,
-                    {
-                      height: skala(d.value),
-                      backgroundColor: terpilih ? color : colors.surfaceHigh,
-                    },
-                  ]}
-                />
+                {/*
+                  Hari tanpa catatan digambar sebagai garis tipis di garis dasar,
+                  bukan batang pendek. Batang sependek apa pun tetap terbaca
+                  sebagai "ada, sedikit" -- padahal yang benar "tidak diketahui".
+                */}
+                {d.value === null ? (
+                  <View style={styles.barKosong} />
+                ) : (
+                  <View
+                    style={[
+                      styles.bar,
+                      {
+                        height: skala(d.value),
+                        backgroundColor: terpilih ? color : colors.surfaceHigh,
+                      },
+                    ]}
+                  />
+                )}
               </View>
             </Pressable>
           );
@@ -126,6 +140,7 @@ const styles = StyleSheet.create({
   },
   barSlot: { flex: 1, justifyContent: 'flex-end' },
   bar: { width: 26, borderRadius: radius.pill },
+  barKosong: { width: 26, height: 3, borderRadius: radius.pill, backgroundColor: colors.border },
   labels: { flexDirection: 'row' },
   labelSlot: { flex: 1, alignItems: 'center' },
 });

@@ -66,7 +66,7 @@ export default function ProgressScreen() {
 
   const langkahPerHari: BarDatum[] = hari.slice(-7).map((tanggal) => ({
     label: dayLabel(tanggal),
-    value: langkah.data?.find((l) => l.logged_at === tanggal)?.steps ?? 0,
+    value: langkah.data?.find((l) => l.logged_at === tanggal)?.steps ?? null,
     caption: thousands(langkah.data?.find((l) => l.logged_at === tanggal)?.steps ?? 0),
   }));
 
