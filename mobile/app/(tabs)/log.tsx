@@ -150,7 +150,7 @@ export default function LogHubScreen() {
               ]}
             >
               <View style={[styles.icon, { backgroundColor: entry.color }]}>
-                <Icon size={26} color={colors.background} weight="fill" />
+                <Icon size={22} color={colors.background} weight="fill" />
               </View>
 
               <View style={styles.tileText}>
@@ -189,8 +189,8 @@ const styles = StyleSheet.create({
   tileDone: { borderColor: colors.border, backgroundColor: colors.surfaceAlt },
   pressed: { opacity: 0.75, transform: [{ scale: 0.98 }] },
   icon: {
-    width: 52,
-    height: 52,
+    width: 44,
+    height: 44,
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',

@@ -61,7 +61,7 @@ export const LogPage = () => (
           className={({ isActive }) => 'log-nav-item' + (isActive ? ' log-nav-active' : '')}
         >
           <span className="log-nav-icon" style={{ background: color }}>
-            <Icon size={21} color={colors.background} weight="fill" />
+            <Icon size={18} color={colors.background} weight="fill" />
           </span>
           <span className="t-label">{label}</span>
         </NavLink>
