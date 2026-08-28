@@ -16,7 +16,7 @@ interface CalorieRingChartProps {
  * Cincin jatah kalori harian.
  *
  * Warnanya berubah begitu jatah terlampaui. Ini satu-satunya tempat di beranda
- * yang boleh berubah jadi merah dengan sendirinya — justru itu gunanya, supaya
+ * yang boleh berubah jadi merah dengan sendirinya, justru itu gunanya, supaya
  * lewat budget terbaca sekilas tanpa perlu membaca angkanya.
  */
 export const CalorieRingChart = ({ caloriesIn, budget, size = 190 }: CalorieRingChartProps) => {

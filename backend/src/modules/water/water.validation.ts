@@ -8,7 +8,7 @@ export const CreateWaterSchema = z.object({
     .max(5000, 'Jumlah air maksimal 5000 ml sekali catat'),
 
   /**
-   * Timestamp lengkap, bukan tanggal saja — user bisa mencatat berkali-kali
+   * Timestamp lengkap, bukan tanggal saja, user bisa mencatat berkali-kali
    * sehari dan urutan jamnya berarti. Default waktu sekarang.
    */
   logged_at: z.iso.datetime({ message: 'logged_at harus timestamp ISO 8601' }).optional(),

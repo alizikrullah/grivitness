@@ -45,6 +45,12 @@ export const metricColors = {
   workout: '#26A69A',
   mood: '#FFCA28',
   measurements: '#EC407A',
+  /**
+   * Kalori keluar menurut perangkat. Emas tembaga, sengaja dijauhkan dari
+   * oranye `calories` supaya kalori MASUK dan kalori KELUAR tidak pernah
+   * tertukar hanya karena warnanya bersebelahan.
+   */
+  device: '#D9A441',
 } as const;
 
 export type MetricKey = keyof typeof metricColors;

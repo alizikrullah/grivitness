@@ -23,6 +23,15 @@ export const create = async (
   return log;
 };
 
+/** Pengukuran pada satu tanggal, atau null kalau hari itu tidak diukur. */
+export const getByDate = async (
+  userId: string,
+  date: string,
+): Promise<BodyMeasurementRecord | null> =>
+  forUser(userId).findOne('body_measurements', {
+    filter: { logged_at: { _eq: date } },
+  });
+
 /** Pencatatan terakhir, atau null kalau user belum pernah mengukur. */
 export const getLatest = async (userId: string): Promise<BodyMeasurementRecord | null> =>
   forUser(userId).findOne('body_measurements', { sort: ['-logged_at'] });

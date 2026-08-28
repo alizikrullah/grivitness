@@ -2,12 +2,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api, del, get, patch, unwrap } from '@/lib/api';
 import { invalidateAfterLog, qk } from '@/lib/query';
+import { todayWIB } from '@/utils/date';
 import type { FoodDay, FoodLog, MealType } from '@/types';
 
 export interface FoodInput {
   uri: string;
   meal_type: MealType;
   notes?: string;
+  /** Timestamp ISO. Dikosongkan berarti sekarang. Diisi saat mencatat ke hari lampau. */
+  logged_at?: string;
   /** Koreksi manual atas hasil AI. Dikosongkan berarti angka AI yang dipakai. */
   total_calories?: number;
   protein_g?: number;
@@ -18,17 +21,26 @@ export interface FoodInput {
 export const useFoodToday = () =>
   useQuery({ queryKey: qk.foodToday, queryFn: () => get<FoodDay>('/api/food/today') });
 
-export const useFoodDate = (date: string) =>
-  useQuery({
-    queryKey: qk.foodDate(date),
-    queryFn: () => get<FoodDay>('/api/food', { params: { date } }),
+/**
+ * Makanan pada satu tanggal. Hari ini dialihkan ke endpoint dan kunci cache
+ * "today" supaya layar catat dan beranda berbagi satu salinan data.
+ */
+export const useFoodDate = (date: string) => {
+  const iniHariIni = date === todayWIB();
+
+  return useQuery({
+    queryKey: iniHariIni ? qk.foodToday : qk.foodDate(date),
+    queryFn: () =>
+      iniHariIni
+        ? get<FoodDay>('/api/food/today')
+        : get<FoodDay>('/api/food', { params: { date } }),
   });
+};
 
 /**
  * Nama berkas dari uri kamera atau galeri.
  *
- * Multer memakai nama ini apa adanya, dan Sharp di backend membaca isinya —
- * bukan ekstensinya — jadi salah tebak ekstensi tidak merusak apa pun. Yang
+ * Multer memakai nama ini apa adanya, dan Sharp di backend membaca isinya, * bukan ekstensinya, jadi salah tebak ekstensi tidak merusak apa pun. Yang
  * penting namanya ada, karena beberapa server menolak bagian tanpa filename.
  */
 const namaBerkas = (uri: string): string => {
@@ -90,7 +102,7 @@ export interface FoodEditInput {
  * Mengoreksi log makanan tanpa memotret ulang.
  *
  * Analisa AI sering meleset pada hidangan yang mirip, dan sebelum ini satu
- * satunya jalan keluar adalah menghapus lalu mencatat dari awal — yang berarti
+ * satunya jalan keluar adalah menghapus lalu mencatat dari awal, yang berarti
  * satu panggilan AI lagi hanya untuk membetulkan satu kata.
  */
 export const useUpdateFood = () => {

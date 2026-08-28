@@ -5,7 +5,7 @@ import { AppError } from './api-error.js';
 /**
  * Konversi gambar ke WebP sesuai CLAUDE.md section 5.
  *
- * Kualitas 100 dipakai supaya tidak ada detail yang hilang — foto badan dan
+ * Kualitas 100 dipakai supaya tidak ada detail yang hilang, foto badan dan
  * makanan dianalisa AI, dan artefak kompresi bisa mengubah hasil analisanya.
  */
 
@@ -15,7 +15,7 @@ export const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 /**
  * Sisi terpanjang dibatasi supaya foto 12 megapiksel dari kamera HP tidak
  * dikirim utuh ke Groq. Batas request Groq 20MB, dan gambar sebesar itu juga
- * tidak menambah akurasi analisa — cuma memperlambat dan memperbesar biaya.
+ * tidak menambah akurasi analisa, cuma memperlambat dan memperbesar biaya.
  */
 const MAX_DIMENSI_PX = 2048;
 
@@ -67,16 +67,14 @@ export const convertToWebP = async (input: Buffer): Promise<ConvertedImage> => {
  * badan yang mengirim dua gambar sekaligus hampir pasti menembus batas itu.
  *
  * 1024px menurunkannya sekitar empat kali lipat. Model vision men-downsample
- * gambar masukan sendiri, jadi resolusi di atas ini tidak menambah akurasi —
- * hanya menambah token, biaya, dan waktu tunggu.
+ * gambar masukan sendiri, jadi resolusi di atas ini tidak menambah akurasi, * hanya menambah token, biaya, dan waktu tunggu.
  */
 const MAX_DIMENSI_ANALISA_PX = 1024;
 
 /**
  * Salinan kecil khusus untuk dikirim ke AI.
  *
- * Yang disimpan ke storage tetap hasil convertToWebP dengan resolusi penuh —
- * user melihat fotonya sendiri, jadi kualitasnya tidak boleh dikorbankan.
+ * Yang disimpan ke storage tetap hasil convertToWebP dengan resolusi penuh, * user melihat fotonya sendiri, jadi kualitasnya tidak boleh dikorbankan.
  * Kompresi lossy di sini tidak apa-apa karena hasilnya tidak pernah dilihat
  * siapa pun, cuma dibaca model.
  */

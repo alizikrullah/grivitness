@@ -1,19 +1,20 @@
-import { Image } from 'expo-image';
-import { ForkKnifeIcon, PencilSimpleIcon, SparkleIcon, TrashIcon } from 'phosphor-react-native';
+import { ForkKnifeIcon, SparkleIcon } from 'phosphor-react-native';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 
 import { FoodEditSheet } from '@/components/features/FoodEditSheet';
+import { LogActions } from '@/components/features/LogActions';
+import { RemoteImage } from '@/components/features/RemoteImage';
 import { MacroBar } from '@/components/features/Metrics';
 import { PhotoSlot } from '@/components/features/PhotoSlot';
 import {
   Button,
   Card,
   ChipGroup,
+  DateStrip,
   EmptyState,
   ErrorNote,
   Header,
-  IconCircle,
   Input,
   Loading,
   Screen,
@@ -23,11 +24,11 @@ import {
 import { colors } from '@/constants/colors';
 import { MEAL_LABEL, MEAL_OPTIONS } from '@/constants/labels';
 import { radius, spacing } from '@/constants/theme';
-import { imageSource, toApiError } from '@/lib/api';
-import { useCreateFood, useDeleteFood, useFoodToday } from '@/services/food.service';
+import { toApiError } from '@/lib/api';
+import { useCreateFood, useDeleteFood, useFoodDate } from '@/services/food.service';
 import type { FoodLog, MealType } from '@/types';
 import { usePhotoPicker } from '@/hooks/usePhotoPicker';
-import { timeWIB } from '@/utils/date';
+import { dayPhrase, timeWIB, todayWIB, wibToISO } from '@/utils/date';
 import { thousands, toNum } from '@/utils/format';
 
 /** Jenis makan yang ditawarkan lebih dulu, ditebak dari jam WIB saat ini. */
@@ -40,7 +41,14 @@ const tebakJenisMakan = (): MealType => {
 };
 
 export default function FoodScreen() {
-  const today = useFoodToday();
+  /**
+   * Tanggal yang sedang dilihat. Bawaannya hari ini, tapi user bisa mundur
+   * untuk membaca dan melengkapi catatan hari-hari sebelumnya.
+   */
+  const [tanggal, setTanggal] = useState(todayWIB());
+  const hariIni = tanggal === todayWIB();
+
+  const today = useFoodDate(tanggal);
   const createFood = useCreateFood();
   const deleteFood = useDeleteFood();
   const picker = usePhotoPicker();
@@ -72,6 +80,10 @@ export default function FoodScreen() {
         uri,
         meal_type: jenis,
         notes: catatan.trim() === '' ? undefined : catatan.trim(),
+        // Saat menelusuri hari lampau, makanan dicatat ke tanggal ITU, bukan ke
+        // hari ini. Tengah hari dipakai sebagai jam netral karena jam
+        // sesungguhnya sudah tidak bisa diingat lagi.
+        logged_at: hariIni ? undefined : wibToISO(tanggal, '12:00'),
       },
       {
         onSuccess: () => {
@@ -90,6 +102,8 @@ export default function FoodScreen() {
     >
       <Screen>
         <Header title="Makanan" subtitle="Foto piringnya, AI yang memperkirakan gizinya" />
+
+        <DateStrip value={tanggal} onChange={setTanggal} />
 
         <View style={styles.photoRow}>
           <PhotoSlot
@@ -148,7 +162,7 @@ export default function FoodScreen() {
         />
 
         <SectionHeader
-          title="Makan hari ini"
+          title={'Makan ' + dayPhrase(tanggal)}
           action={
             <Text variant="caption" tone="tertiary">
               {thousands(today.data?.total_calories ?? 0)} kkal
@@ -168,7 +182,7 @@ export default function FoodScreen() {
           <>
             <Card>
               <View style={styles.macroCard}>
-                <Text variant="label">Total gizi hari ini</Text>
+                <Text variant="label">{'Total gizi ' + dayPhrase(tanggal)}</Text>
                 <MacroBar
                   protein={today.data?.total_protein_g ?? 0}
                   carbs={today.data?.total_carbs_g ?? 0}
@@ -179,43 +193,89 @@ export default function FoodScreen() {
 
             {today.data?.logs.map((log) => {
               const terdeteksi = log.ai_analysis?.foods_detected ?? [];
+              const rincian = log.ai_analysis?.items ?? [];
 
               return (
                 <Card key={log.id} padding="md">
-                  <View style={styles.logRow}>
-                    <Image
-                      source={imageSource(log.photo_url)}
-                      style={styles.thumb}
-                      contentFit="cover"
-                      transition={200}
-                    />
+                  <View style={styles.logCard}>
+                    <View style={styles.logRow}>
+                      <RemoteImage
+                        path={log.photo_url}
+                        style={styles.thumb}
+                        accessibilityLabel={'Foto ' + MEAL_LABEL[log.meal_type]}
+                      />
 
-                    <View style={styles.logText}>
-                      <Text variant="label" numberOfLines={1}>
-                        {MEAL_LABEL[log.meal_type]} · {thousands(log.total_calories)} kkal
-                      </Text>
+                      <View style={styles.logText}>
+                        <Text variant="label" numberOfLines={1}>
+                          {MEAL_LABEL[log.meal_type]} · {thousands(log.total_calories)} kkal
+                        </Text>
 
-                      <Text variant="caption" tone="secondary" numberOfLines={2}>
-                        {terdeteksi.length > 0
-                          ? terdeteksi.join(', ')
-                          : (log.notes ?? 'Tanpa keterangan')}
-                      </Text>
+                        <Text variant="caption" tone="secondary" numberOfLines={2}>
+                          {terdeteksi.length > 0
+                            ? terdeteksi.join(', ')
+                            : (log.notes ?? 'Tanpa keterangan')}
+                        </Text>
 
-                      <Text variant="caption" tone="tertiary">
-                        {timeWIB(log.logged_at)} WIB · P {toNum(log.protein_g)?.toFixed(0) ?? 0}g ·
-                        K {toNum(log.carbs_g)?.toFixed(0) ?? 0}g · L{' '}
-                        {toNum(log.fat_g)?.toFixed(0) ?? 0}g
-                      </Text>
+                        <Text variant="caption" tone="tertiary">
+                          {timeWIB(log.logged_at)} WIB · P {toNum(log.protein_g)?.toFixed(0) ?? 0}g
+                          · K {toNum(log.carbs_g)?.toFixed(0) ?? 0}g · L{' '}
+                          {toNum(log.fat_g)?.toFixed(0) ?? 0}g
+                        </Text>
+                      </View>
+
+                      {/*
+                      Lewat LogActions, bukan tombol telanjang.
+
+                      Sebelumnya tombol hapus di sini langsung menghapus begitu
+                      disentuh, padahal ukurannya kecil dan duduk persis di
+                      sebelah tombol ubah. Satu salah sentuh menghilangkan foto
+                      beserta analisanya, dan backend tidak punya undo.
+                    */}
+                      <LogActions
+                        onEdit={() => setDiedit(log)}
+                        onDelete={() => deleteFood.mutate(log.id)}
+                        deleteMessage={
+                          MEAL_LABEL[log.meal_type] +
+                          ' ' +
+                          thousands(log.total_calories) +
+                          ' kkal akan dihapus beserta fotonya, dan tidak bisa dikembalikan.'
+                        }
+                      />
                     </View>
 
-                    <View style={styles.logActions}>
-                      <IconCircle size={36} onPress={() => setDiedit(log)}>
-                        <PencilSimpleIcon size={16} color={colors.textSecondary} weight="regular" />
-                      </IconCircle>
-                      <IconCircle size={36} onPress={() => deleteFood.mutate(log.id)}>
-                        <TrashIcon size={16} color={colors.textSecondary} weight="regular" />
-                      </IconCircle>
-                    </View>
+                    {/*
+                    Rincian per bahan beserta beratnya. Ini yang membuat angka
+                    kalorinya bisa diperiksa: kalau totalnya terasa meleset,
+                    kelihatan bagian mana yang salah ditaksir, bukan cuma satu
+                    angka besar yang harus dipercaya begitu saja.
+
+                    Kosong pada catatan lama yang dibuat sebelum analisa
+                    diuraikan per bahan.
+                  */}
+                    {rincian.length > 0 ? (
+                      <View style={styles.rincian}>
+                        {rincian.map((item, i) => (
+                          <View key={item.name + i} style={styles.rincianRow}>
+                            <Text
+                              variant="caption"
+                              tone="secondary"
+                              style={styles.rincianNama}
+                              numberOfLines={1}
+                            >
+                              {item.name}
+                            </Text>
+
+                            <Text variant="caption" tone="tertiary">
+                              {thousands(item.grams)} g
+                            </Text>
+
+                            <Text variant="caption" style={styles.rincianKkal}>
+                              {thousands(item.calories)} kkal
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
                   </View>
                 </Card>
               );
@@ -240,7 +300,19 @@ const styles = StyleSheet.create({
   analyzing: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   analyzingText: { flex: 1 },
   macroCard: { gap: spacing.lg },
+  logCard: { gap: spacing.md },
   logRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  rincian: {
+    gap: spacing.sm,
+    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  rincianRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  /* flex: 1 supaya nama panjang terpotong di ujungnya, bukan mendorong angka
+     kalorinya keluar dari kartu. */
+  rincianNama: { flex: 1 },
+  rincianKkal: { minWidth: 64, textAlign: 'right' },
   thumb: {
     width: 60,
     height: 60,

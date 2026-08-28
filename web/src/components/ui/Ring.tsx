@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { colors } from '@/constants/colors';
 
 interface RingProps {
-  /** 0 sampai 1. Boleh lewat 1 — kelebihannya ditahan supaya tidak menggambar dua putaran. */
+  /** 0 sampai 1. Boleh lewat 1, kelebihannya ditahan supaya tidak menggambar dua putaran. */
   progress: number;
   size?: number;
   thickness?: number;
@@ -17,7 +17,7 @@ interface RingProps {
  * Cincin progres bercelah.
  *
  * Digambar langsung dengan SVG, bukan lewat pustaka chart. Bentuk ini cuma
- * butuh dua busur dengan panjang garis yang dihitung — memakai pustaka untuk
+ * butuh dua busur dengan panjang garis yang dihitung, memakai pustaka untuk
  * itu berarti menarik dependency besar demi satu lingkaran.
  *
  * Celah di bawah bukan hiasan: ia memberi titik awal dan akhir yang jelas,

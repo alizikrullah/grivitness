@@ -28,7 +28,7 @@ describe('dailyKey', () => {
 
   /**
    * Kolomnya dibatasi 64 karakter di Directus. UUID 36 + ':' + tanggal 10 = 47,
-   * jadi masih lapang — tapi diuji supaya batasnya tidak terlanggar diam-diam
+   * jadi masih lapang, tapi diuji supaya batasnya tidak terlanggar diam-diam
    * kalau formatnya berubah suatu saat.
    */
   it('menghasilkan kunci yang muat di kolom 64 karakter', () => {

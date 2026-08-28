@@ -2,9 +2,25 @@ import { PencilSimpleIcon, TargetIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
 
 import { PlanCard } from '@/components/features/PlanCard';
-import { Button, Card, Divider, ErrorNote, Input, Loading, Modal, Row, SectionHeader } from '@/components/ui';
+import {
+  Button,
+  Card,
+  Divider,
+  ErrorNote,
+  Input,
+  Loading,
+  Modal,
+  Row,
+  SectionHeader,
+} from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { ACTIVITY_HINT, ACTIVITY_LABEL, ACTIVITY_OPTIONS, GENDER_LABEL, GENDER_OPTIONS } from '@/constants/labels';
+import {
+  ACTIVITY_HINT,
+  ACTIVITY_LABEL,
+  ACTIVITY_OPTIONS,
+  GENDER_LABEL,
+  GENDER_OPTIONS,
+} from '@/constants/labels';
 import { toApiError } from '@/lib/api';
 import { useActiveGoal, useCreateGoal, useDailySummary } from '@/services/misc.service';
 import { useProfile, useSaveProfile } from '@/services/users.service';
@@ -55,14 +71,20 @@ export const ProfilePage = () => {
             <div className="grid-3">
               <Stat label="Usia" value={p.age + ' th'} />
               <Stat label="Tinggi" value={kg(p.height_cm, 0) + ' cm'} />
-              <Stat label="Berat" value={p.current_weight_kg ? kg(p.current_weight_kg) + ' kg' : '-'} />
+              <Stat
+                label="Berat"
+                value={p.current_weight_kg ? kg(p.current_weight_kg) + ' kg' : '-'}
+              />
             </div>
 
             <Divider />
 
             <Row label="Jenis kelamin" value={GENDER_LABEL[p.gender]} />
             <Row label="Pekerjaan" value={ACTIVITY_LABEL[p.activity_level]} />
-            <Row label="BMR" value={p.bmr === null ? 'Butuh data berat' : thousands(p.bmr) + ' kkal'} />
+            <Row
+              label="BMR"
+              value={p.bmr === null ? 'Butuh data berat' : thousands(p.bmr) + ' kkal'}
+            />
             <Row
               label="Pengeluaran hari biasa"
               value={p.tdee === null ? 'Butuh data berat' : thousands(p.tdee) + ' kkal'}
@@ -71,7 +93,7 @@ export const ProfilePage = () => {
 
             {/*
               "TDEE" tanpa penjelasan terbaca seperti angka mutlak. Padahal ini
-              acuan hari biasa — tanpa olahraga, dengan gerak seadanya — dan
+              acuan hari biasa, tanpa olahraga, dengan gerak seadanya, dan
               sengaja begitu supaya jatah kalori tidak naik-turun mengikuti
               aktivitas hari itu.
             */}
@@ -130,7 +152,7 @@ export const ProfilePage = () => {
       )}
 
       {/* Pengingat sengaja TIDAK ada di web. Notifikasi terjadwal di browser
-          butuh service worker yang hanya hidup selama tab terbuka — janji yang
+          butuh service worker yang hanya hidup selama tab terbuka, janji yang
           tidak bisa ditepati. Pengingat tetap diatur dari aplikasi mobile. */}
       <Card variant="outline" padding="md">
         <span className="t-caption c-tertiary">
@@ -158,7 +180,7 @@ const Stat = ({ label, value }: { label: string; value: string }) => (
  * Profil diterima sebagai PROP, bukan diambil ulang di dalam.
  *
  * Dengan begitu nilai awal formulir bisa diisi langsung lewat useState, dan
- * tidak perlu useEffect yang memanggil setState — pola yang memaksa render
+ * tidak perlu useEffect yang memanggil setState, pola yang memaksa render
  * kedua dan, kalau datanya datang belakangan, sempat menampilkan angka bawaan
  * yang salah sebelum tertimpa.
  *
@@ -242,12 +264,12 @@ const ProfileModal = ({ profile, onClose }: { profile: Profile | null; onClose: 
         {/*
           Pertanyaannya sengaja soal pekerjaan, bukan seberapa sering olahraga.
           Olahraga, langkah, dan tidur sudah dihitung terpisah dari data yang
-          dicatat — kalau ditanyakan lagi di sini, jam yang sama dihitung dua
+          dicatat, kalau ditanyakan lagi di sini, jam yang sama dihitung dua
           kali dan targetnya jadi terlalu longgar.
         */}
         <span className="t-caption c-tertiary">
-          Olahraga tidak perlu dihitung di sini, karena sudah diambil dari catatan olahraga, langkah,
-          dan tidurmu.
+          Olahraga tidak perlu dihitung di sini, karena sudah diambil dari catatan olahraga,
+          langkah, dan tidurmu.
         </span>
 
         <div className="stack-xs">
@@ -265,7 +287,9 @@ const ProfileModal = ({ profile, onClose }: { profile: Profile | null; onClose: 
                 </span>
                 <span className="t-caption c-secondary">{ACTIVITY_HINT[level]}</span>
               </span>
-              <span className={'profile-radio' + (aktivitas === level ? ' profile-radio-on' : '')} />
+              <span
+                className={'profile-radio' + (aktivitas === level ? ' profile-radio-on' : '')}
+              />
             </button>
           ))}
         </div>

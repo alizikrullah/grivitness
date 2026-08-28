@@ -114,7 +114,7 @@ export const ProgressPage = () => {
               {/*
                 TOTAL, bukan rata-rata. Rata-rata membagi dengan tujuh hari
                 kalender termasuk hari yang tidak dicatat, jadi satu kali makan
-                600 kkal muncul sebagai "86 kkal" — angka yang benar secara
+                600 kkal muncul sebagai "86 kkal", angka yang benar secara
                 aritmetika tapi menyesatkan sebagai informasi.
               */}
               <span className="t-overline c-tertiary">Total kalori masuk</span>
@@ -160,7 +160,7 @@ export const ProgressPage = () => {
             <StatPill label="Total minum" value={thousands(w.total_water_ml) + ' ml'} />
             {/*
               Dinamai "Hari ditimbang", bukan "Hari tercatat". Angkanya memang
-              cuma menghitung baris weight_logs — menyebutnya pencatatan secara
+              cuma menghitung baris weight_logs, menyebutnya pencatatan secara
               umum akan membuat user mengira hari yang dia isi makan dan
               olahraganya ikut terhitung.
             */}

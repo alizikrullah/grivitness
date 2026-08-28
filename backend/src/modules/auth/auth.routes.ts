@@ -9,7 +9,7 @@ import { LoginSchema, LogoutSchema, RefreshSchema, RegisterSchema } from './auth
 
 /**
  * Route auth. Sesuai CLAUDE.md section 4, file ini hanya berisi definisi route
- * dan middleware — tidak ada logic apa pun.
+ * dan middleware, tidak ada logic apa pun.
  */
 
 const router: Router = Router();

@@ -5,7 +5,7 @@
 # File yang wajib LF walau di Windows
 *.sh text eol=lf
 
-# Binary — jangan disentuh
+# Binary, jangan disentuh
 *.png binary
 *.jpg binary
 *.jpeg binary

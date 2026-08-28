@@ -18,6 +18,7 @@ import sleepRoutes from './modules/sleep/sleep.routes.js';
 import stepsRoutes from './modules/steps/steps.routes.js';
 import streaksRoutes from './modules/streaks/streaks.routes.js';
 import chatRoutes from './modules/chat/chat.routes.js';
+import deviceEnergyRoutes from './modules/device-energy/device-energy.routes.js';
 import summaryRoutes from './modules/summary/summary.routes.js';
 import usersRoutes from './modules/users/users.routes.js';
 import waterRoutes from './modules/water/water.routes.js';
@@ -41,8 +42,7 @@ export const createApp = (): Express => {
   app.use(
     cors({
       origin: (origin, callback) => {
-        // Request tanpa origin datang dari aplikasi mobile, curl, atau health check —
-        // bukan browser, jadi tidak terikat aturan CORS.
+        // Request tanpa origin datang dari aplikasi mobile, curl, atau health check, // bukan browser, jadi tidak terikat aturan CORS.
         if (!origin) return callback(null, true);
 
         if (env.CORS_ORIGINS.length === 0 || env.CORS_ORIGINS.includes(origin)) {
@@ -68,7 +68,7 @@ export const createApp = (): Express => {
 
   /**
    * Membalas 503 kalau Directus tidak terjangkau, bukan 200. Load balancer dan
-   * Coolify memutuskan berdasarkan status code — membalas 200 padahal data layer
+   * Coolify memutuskan berdasarkan status code, membalas 200 padahal data layer
    * mati membuat trafik tetap diarahkan ke instance yang tidak bisa melayani.
    */
   app.get('/health', async (_req: Request, res: Response) => {
@@ -86,6 +86,7 @@ export const createApp = (): Express => {
   app.use('/api/goals', goalsRoutes);
   app.use('/api/weight', weightRoutes);
   app.use('/api/steps', stepsRoutes);
+  app.use('/api/device-energy', deviceEnergyRoutes);
   app.use('/api/water', waterRoutes);
   app.use('/api/sleep', sleepRoutes);
   app.use('/api/measurements', measurementsRoutes);

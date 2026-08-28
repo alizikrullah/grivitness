@@ -3,7 +3,7 @@
  *
  * Kolom decimal dikembalikan Directus sebagai STRING, bukan number, dan backend
  * meneruskannya apa adanya. Karena itu field seperti weight_kg bertipe string
- * di sini juga — konversi lewat toNum() di utils/format sebelum dihitung.
+ * di sini juga, konversi lewat toNum() di utils/format sebelum dihitung.
  */
 export type DecimalString = string;
 export type DateString = string;
@@ -51,7 +51,7 @@ export interface Profile {
    * Penjelasan activity_level dari backend, berupa contoh profesi.
    *
    * Sejak TDEE memakai metode faktorial, activity_level TIDAK lagi berarti
-   * "seberapa aktif kamu" — tidur, langkah, dan olahraga sudah punya potongan
+   * "seberapa aktif kamu", tidur, langkah, dan olahraga sudah punya potongan
    * waktunya sendiri. Yang ditanyakan sekarang seperti apa sisa harimu.
    */
   activity_label: string;
@@ -82,7 +82,7 @@ export interface Goal {
  * Rencana penurunan berat badan yang dihitung backend.
  *
  * Disimulasikan hari per hari dengan BMR yang dihitung ulang dari berat badan
- * hari itu, bukan dibagi sekali di awal — karena makin ringan badan, makin
+ * hari itu, bukan dibagi sekali di awal, karena makin ringan badan, makin
  * sedikit yang terbakar, dan defisit yang sama makin lambat hasilnya.
  */
 export interface WeightPlan {
@@ -113,7 +113,7 @@ export type ObservedReason =
  * TDEE yang diukur dari catatan berat dan makanan user sendiri.
  *
  * Rumus cuma titik awal. Begitu datanya cukup, angkanya digeser ke arah yang
- * benar-benar terjadi pada tubuh user ini — karena Mifflin-St Jeor tahu soal
+ * benar-benar terjadi pada tubuh user ini, karena Mifflin-St Jeor tahu soal
  * 498 orang di tahun 1990, dan tidak tahu apa-apa soal orang ini.
  */
 export interface ObservedTdee {
@@ -123,7 +123,7 @@ export interface ObservedTdee {
   estimated: number;
   /** Hasil murni pengukuran. Null selama datanya belum layak. */
   measured: number | null;
-  /** 0 sampai 1 — bobot pengukuran di dalam `tdee`. */
+  /** 0 sampai 1, bobot pengukuran di dalam `tdee`. */
   confidence: number;
   reason: ObservedReason | null;
   days: number;
@@ -190,7 +190,7 @@ export interface SleepLog {
  * Endpoint ini mengembalikan OBJEK berisi rekap dan daftarnya, bukan array
  * telanjang. Sempat salah ditulis sebagai SleepLog[] di sini, dan akibatnya
  * `.length` selalu undefined sehingga layar tidur tampak kosong terus padahal
- * datanya tersimpan. `get<T>()` cuma memberi tipe, tidak memeriksa isi — jadi
+ * datanya tersimpan. `get<T>()` cuma memberi tipe, tidak memeriksa isi, jadi
  * ketidakcocokan seperti ini lolos dari TypeScript dan baru terlihat di layar.
  */
 export interface SleepDay {
@@ -221,7 +221,28 @@ export interface BodyMeasurement {
   created_at: string | null;
 }
 
+/**
+ * Satu bahan di dalam piring, hasil penguraian AI.
+ *
+ * Model hanya menaksir berat dan nilai gizi per 100 gram. Empat field terakhir
+ * adalah hasil perkalian, dan itu dikerjakan backend, bukan model.
+ */
+export interface FoodItem {
+  name: string;
+  grams: number;
+  kcal_per_100g: number;
+  protein_per_100g: number;
+  carbs_per_100g: number;
+  fat_per_100g: number;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+}
+
 export interface FoodAnalysis {
+  /** Kosong pada catatan lama yang dibuat sebelum analisa diuraikan per bahan. */
+  items?: FoodItem[];
   foods_detected?: string[];
   total_calories?: number;
   protein_g?: number;
@@ -280,6 +301,26 @@ export interface WorkoutLog {
   duration_minutes: number;
   calories_burned: number;
   intensity: WorkoutIntensity;
+  /** true kalau sesi ini sudah ikut terhitung di angka smartwatch hari itu. */
+  tracked_by_device: boolean;
+  notes: string | null;
+  logged_at: DateString;
+  created_at: string | null;
+}
+
+export interface DeviceEnergyLog {
+  id: string;
+  /**
+   * Kalori TOTAL sehari, sudah termasuk metabolisme istirahat. Inilah yang
+   * dipakai ringkasan. Kalau user memasukkan kalori aktif, angka ini hasil
+   * turunan dari active_kcal + bmr_kcal.
+   */
+  total_kcal: number;
+  /** Kalori aktif apa adanya dari perangkat. Null kalau user memasukkan total. */
+  active_kcal: number | null;
+  /** BMR yang ditambahkan untuk memperoleh total. Null kalau user memasukkan total. */
+  bmr_kcal: number | null;
+  source: string | null;
   notes: string | null;
   logged_at: DateString;
   created_at: string | null;
@@ -297,7 +338,7 @@ export interface WorkoutLibraryItem {
   name: string;
   category: WorkoutCategory;
   /**
-   * Nilai MET dari Compendium of Physical Activities — DATA SUMBERNYA.
+   * Nilai MET dari Compendium of Physical Activities, DATA SUMBERNYA.
    * Null untuk baris lama yang belum di-seed ulang.
    */
   met: DecimalString | null;
@@ -333,7 +374,7 @@ export interface NotificationSettings {
 
 /** Rincian dari mana pengeluaran energi hari itu datang. */
 export interface EnergyBreakdown {
-  /** Physical Activity Level hari itu — TDEE dibagi BMR. */
+  /** Physical Activity Level hari itu, TDEE dibagi BMR. */
   pal: number;
   /** Metabolisme basal dikali PAL: hidup dan kegiatan sehari-hari. */
   baseline: number;
@@ -363,8 +404,8 @@ export interface MacroTarget {
 /**
  * Target harian yang diturunkan backend dari tubuh dan tujuan user.
  *
- * Menggantikan konstanta yang dulu ditulis langsung di layar — 2500ml, 8 jam,
- * 10.000 langkah — yang sama untuk semua orang dan tidak satu pun punya sumber.
+ * Menggantikan konstanta yang dulu ditulis langsung di layar, 2500ml, 8 jam,
+ * 10.000 langkah, yang sama untuk semua orang dan tidak satu pun punya sumber.
  */
 export interface DailyTargets {
   water_ml: number;
@@ -379,6 +420,10 @@ export interface DailySummary {
   weight_kg: number | null;
   calories_in: number;
   calories_out: number;
+  /** Kalori keluar menurut smartwatch, kalau dicatat hari itu. */
+  device_kcal: number | null;
+  /** Dari mana calories_out diambil hari itu. */
+  calories_out_source: 'formula' | 'device';
   calorie_budget: number | null;
   calories_remaining: number | null;
   /** Null selama profil belum diisi atau user belum pernah menimbang. */
@@ -415,4 +460,6 @@ export interface PeriodSummary {
   total_workout_minutes: number;
   total_workout_calories: number;
   days_logged: number;
+  /** Rata-rata kalori smartwatch dari hari yang dicatat saja. Bahan pembanding. */
+  avg_device_kcal: number | null;
 }

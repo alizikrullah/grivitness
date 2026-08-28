@@ -1,5 +1,5 @@
 /**
- * BERKAS INI DI-GENERATE OTOMATIS — JANGAN DIEDIT MANUAL.
+ * BERKAS INI DI-GENERATE OTOMATIS, JANGAN DIEDIT MANUAL.
  *
  * Sumbernya: directus/schema.ts
  * Perintah  : npm run schema:types
@@ -32,7 +32,7 @@ export type DateString = string;
 /** Timestamp ISO 8601 dengan timezone. */
 export type TimestampString = string;
 
-/** Akun aplikasi GriviTness. Terpisah dari directus_users — ini yang dipakai auth backend. */
+/** Akun aplikasi GriviTness. Terpisah dari directus_users, ini yang dipakai auth backend. */
 export interface UserRecord {
   id: string;
   /** Dipakai sebagai identitas login */
@@ -184,6 +184,11 @@ export interface WorkoutLogRecord {
   /** calories_per_minute * durasi * (berat_user / 70) */
   calories_burned: number;
   intensity: WorkoutIntensity;
+  /**
+   * true kalau sesi ini SUDAH ikut terhitung di angka device_energy_logs hari itu. Dipakai
+   * supaya kalorinya tidak dihitung dua kali.
+   */
+  tracked_by_device: boolean;
   /** Catatan bebas dari user */
   notes: string | null;
   /** Tanggal log dalam format YYYY-MM-DD */
@@ -202,6 +207,44 @@ export interface StepLogRecord {
   distance_km: DecimalString;
   /** Estimasi: steps * berat_kg * 0.0005 */
   calories_burned: number;
+  /** Tanggal log dalam format YYYY-MM-DD */
+  logged_at: DateString;
+  /**
+   * Kunci unik "{user_id}:{YYYY-MM-DD}". Pengganti composite unique yang tidak didukung
+   * Directus. Diisi backend, jangan diedit manual.
+   */
+  user_date_key: string;
+  /** Diisi otomatis oleh Directus saat item dibuat */
+  created_at: TimestampString | null;
+}
+
+/**
+ * Kalori keluar seharian menurut smartwatch user. Satu baris per user per hari. Angka ini
+ * MENGGANTIKAN hitungan TDEE hari itu, bukan ditambahkan ke atasnya.
+ */
+export interface DeviceEnergyLogRecord {
+  id: string;
+  /** Pemilik data ini */
+  user_id: string;
+  /**
+   * Kalori TOTAL sehari, sudah termasuk metabolisme istirahat. Inilah yang dipakai summary.
+   * Kalau user memasukkan kalori aktif, kolom ini HASIL TURUNAN dari active_kcal + bmr_kcal.
+   */
+  total_kcal: number;
+  /**
+   * Kalori AKTIF apa adanya dari perangkat, tanpa metabolisme istirahat. Terisi hanya kalau
+   * itu yang dimasukkan user. Null berarti user memasukkan angka total langsung.
+   */
+  active_kcal: number | null;
+  /**
+   * BMR yang ditambahkan ke active_kcal untuk memperoleh total_kcal. Disimpan supaya angka
+   * turunannya bisa ditelusuri kembali, bukan dipercaya begitu saja.
+   */
+  bmr_kcal: number | null;
+  /** Nama perangkatnya, misalnya "Galaxy Watch". Sekadar keterangan. */
+  source: string | null;
+  /** Catatan bebas dari user */
+  notes: string | null;
   /** Tanggal log dalam format YYYY-MM-DD */
   logged_at: DateString;
   /**
@@ -289,6 +332,22 @@ export interface MoodLogRecord {
   created_at: TimestampString | null;
 }
 
+/**
+ * Riwayat percakapan dengan asisten AI. Satu percakapan berjalan per user, diurutkan
+ * menurut created_at.
+ */
+export interface ChatMessageRecord {
+  id: string;
+  /** Pemilik data ini */
+  user_id: string;
+  /** USER kalau ditulis user, ASSISTANT kalau balasan model */
+  role: 'USER' | 'ASSISTANT';
+  /** Isi pesan apa adanya. Balasan model sudah dibersihkan tanda pisahnya sebelum disimpan. */
+  content: string;
+  /** Diisi otomatis oleh Directus saat item dibuat */
+  created_at: TimestampString | null;
+}
+
 /** Rekap streak per user. Satu baris per user, dibuat otomatis saat register. */
 export interface StreakRecord {
   id: string;
@@ -334,7 +393,7 @@ export interface WorkoutLibraryRecord {
   category: WorkoutCategory;
   /**
    * Nilai MET dari Compendium of Physical Activities (Ainsworth dkk. 2011). Ini DATA
-   * SUMBERNYA — calories_burned_per_minute cuma turunannya.
+   * SUMBERNYA, calories_burned_per_minute cuma turunannya.
    */
   met: DecimalString | null;
   /**
@@ -378,10 +437,12 @@ export type UserOwnedCollection =
   | 'food_logs'
   | 'workout_logs'
   | 'step_logs'
+  | 'device_energy_logs'
   | 'sleep_logs'
   | 'water_logs'
   | 'body_measurements'
   | 'mood_logs'
+  | 'chat_messages'
   | 'streaks'
   | 'notification_settings'
   | 'custom_workouts';
@@ -397,10 +458,12 @@ export interface DirectusSchema {
   food_logs: FoodLogRecord[];
   workout_logs: WorkoutLogRecord[];
   step_logs: StepLogRecord[];
+  device_energy_logs: DeviceEnergyLogRecord[];
   sleep_logs: SleepLogRecord[];
   water_logs: WaterLogRecord[];
   body_measurements: BodyMeasurementRecord[];
   mood_logs: MoodLogRecord[];
+  chat_messages: ChatMessageRecord[];
   streaks: StreakRecord[];
   notification_settings: NotificationSettingsRecord[];
   workout_library: WorkoutLibraryRecord[];

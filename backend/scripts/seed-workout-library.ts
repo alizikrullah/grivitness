@@ -5,7 +5,7 @@
  *
  * Idempotent, dan sejak versi ini juga MEMPERBARUI entri yang nilainya berubah.
  * Sebelumnya olahraga yang namanya sudah ada langsung dilewati, jadi koreksi
- * nilai tidak pernah sampai ke database yang sudah terisi — nilai yang salah
+ * nilai tidak pernah sampai ke database yang sudah terisi, nilai yang salah
  * akan hidup selamanya di sana.
  *
  * ---
@@ -20,13 +20,20 @@
  * tersimpan hanya hasil akhirnya, tidak ada satu tempat pun yang bisa
  * memperlihatkan bahwa konversinya tidak pernah dijalankan.
  *
- * Nilainya BERSIH — sudah dikurangi satu MET metabolisme istirahat, karena
+ * Nilainya BERSIH, sudah dikurangi satu MET metabolisme istirahat, karena
  * energi itu sudah ditanggung TDEE. Menghitungnya kotor berarti membayar jam
  * yang sama dua kali dan membuat defisit user terlihat lebih besar dari
  * kenyataan.
  */
 
-import { createItems, createDirectus, readItems, rest, staticToken, updateItem } from '@directus/sdk';
+import {
+  createItems,
+  createDirectus,
+  readItems,
+  rest,
+  staticToken,
+  updateItem,
+} from '@directus/sdk';
 
 import type { WorkoutCategory } from '../src/constants/enums.js';
 import { env } from '../src/config/env.js';
@@ -51,51 +58,144 @@ interface SeedItem {
 
 const LIBRARY: SeedItem[] = [
   // --- CARDIO ---
-  { name: 'Jalan Santai', category: 'CARDIO', met: 3.0, description: 'Sekitar 4 km/jam, tempo mengobrol' },
+  {
+    name: 'Jalan Santai',
+    category: 'CARDIO',
+    met: 3.0,
+    description: 'Sekitar 4 km/jam, tempo mengobrol',
+  },
   { name: 'Jalan Cepat', category: 'CARDIO', met: 5.0, description: 'Sekitar 6,4 km/jam' },
   { name: 'Lari Santai', category: 'CARDIO', met: 8.3, description: 'Sekitar 8 km/jam' },
   { name: 'Lari Cepat', category: 'CARDIO', met: 11.5, description: 'Sekitar 12 km/jam' },
-  { name: 'Bersepeda Santai', category: 'CARDIO', met: 6.8, description: 'Sekitar 16-19 km/jam di jalan datar' },
+  {
+    name: 'Bersepeda Santai',
+    category: 'CARDIO',
+    met: 6.8,
+    description: 'Sekitar 16-19 km/jam di jalan datar',
+  },
   { name: 'Bersepeda Cepat', category: 'CARDIO', met: 8.0, description: 'Sekitar 19-22 km/jam' },
   { name: 'Renang', category: 'CARDIO', met: 5.8, description: 'Gaya bebas tempo sedang' },
   { name: 'Lompat Tali', category: 'CARDIO', met: 12.3, description: 'Tempo sedang' },
-  { name: 'Naik Tangga', category: 'CARDIO', met: 9.0, description: 'Naik turun tangga terus-menerus' },
-  { name: 'HIIT', category: 'CARDIO', met: 8.0, description: 'Interval intensitas tinggi, rata-rata satu sesi termasuk jeda', estimated: true },
+  {
+    name: 'Naik Tangga',
+    category: 'CARDIO',
+    met: 9.0,
+    description: 'Naik turun tangga terus-menerus',
+  },
+  {
+    name: 'HIIT',
+    category: 'CARDIO',
+    met: 8.0,
+    description: 'Interval intensitas tinggi, rata-rata satu sesi termasuk jeda',
+    estimated: true,
+  },
   { name: 'Zumba', category: 'CARDIO', met: 7.3, description: 'Senam aerobik berbasis tarian' },
   { name: 'Mendaki', category: 'CARDIO', met: 6.0, description: 'Lintas alam, medan menanjak' },
 
   // --- STRENGTH ---
-  { name: 'Angkat Beban Ringan', category: 'STRENGTH', met: 3.5, description: 'Beban ringan, 8-15 repetisi' },
-  { name: 'Angkat Beban Berat', category: 'STRENGTH', met: 6.0, description: 'Beban berat, repetisi sedikit' },
-  { name: 'Push Up', category: 'STRENGTH', met: 8.0, description: 'Latihan dada dan trisep, tempo cepat' },
-  { name: 'Pull Up', category: 'STRENGTH', met: 8.0, description: 'Latihan punggung dan bisep, tempo cepat' },
+  {
+    name: 'Angkat Beban Ringan',
+    category: 'STRENGTH',
+    met: 3.5,
+    description: 'Beban ringan, 8-15 repetisi',
+  },
+  {
+    name: 'Angkat Beban Berat',
+    category: 'STRENGTH',
+    met: 6.0,
+    description: 'Beban berat, repetisi sedikit',
+  },
+  {
+    name: 'Push Up',
+    category: 'STRENGTH',
+    met: 8.0,
+    description: 'Latihan dada dan trisep, tempo cepat',
+  },
+  {
+    name: 'Pull Up',
+    category: 'STRENGTH',
+    met: 8.0,
+    description: 'Latihan punggung dan bisep, tempo cepat',
+  },
   { name: 'Squat', category: 'STRENGTH', met: 5.0, description: 'Latihan paha dan bokong' },
-  { name: 'Deadlift', category: 'STRENGTH', met: 6.0, description: 'Latihan punggung bawah dan kaki' },
-  { name: 'Plank', category: 'STRENGTH', met: 3.8, description: 'Latihan inti tubuh statis', estimated: true },
+  {
+    name: 'Deadlift',
+    category: 'STRENGTH',
+    met: 6.0,
+    description: 'Latihan punggung bawah dan kaki',
+  },
+  {
+    name: 'Plank',
+    category: 'STRENGTH',
+    met: 3.8,
+    description: 'Latihan inti tubuh statis',
+    estimated: true,
+  },
   { name: 'Sit Up', category: 'STRENGTH', met: 3.8, description: 'Latihan perut, tempo sedang' },
   { name: 'Lunges', category: 'STRENGTH', met: 3.8, description: 'Latihan kaki satu per satu' },
-  { name: 'Latihan Beban Sirkuit', category: 'STRENGTH', met: 8.0, description: 'Berpindah antar alat tanpa jeda panjang' },
+  {
+    name: 'Latihan Beban Sirkuit',
+    category: 'STRENGTH',
+    met: 8.0,
+    description: 'Berpindah antar alat tanpa jeda panjang',
+  },
 
   // --- FLEXIBILITY ---
-  { name: 'Yoga', category: 'FLEXIBILITY', met: 2.5, description: 'Hatha, tempo pelan sampai sedang' },
+  {
+    name: 'Yoga',
+    category: 'FLEXIBILITY',
+    met: 2.5,
+    description: 'Hatha, tempo pelan sampai sedang',
+  },
   { name: 'Pilates', category: 'FLEXIBILITY', met: 3.0, description: 'Fokus pada inti tubuh' },
   { name: 'Peregangan', category: 'FLEXIBILITY', met: 2.3, description: 'Peregangan statis' },
   { name: 'Tai Chi', category: 'FLEXIBILITY', met: 3.0, description: 'Gerakan lambat terkendali' },
 
   // --- SPORTS ---
   { name: 'Sepak Bola', category: 'SPORTS', met: 7.0, description: 'Permainan rekreasi' },
-  { name: 'Futsal', category: 'SPORTS', met: 10.0, description: 'Lapangan kecil, tempo cepat terus-menerus', estimated: true },
+  {
+    name: 'Futsal',
+    category: 'SPORTS',
+    met: 10.0,
+    description: 'Lapangan kecil, tempo cepat terus-menerus',
+    estimated: true,
+  },
   { name: 'Basket', category: 'SPORTS', met: 8.0, description: 'Permainan penuh' },
-  { name: 'Bulu Tangkis', category: 'SPORTS', met: 5.5, description: 'Permainan rekreasi, tunggal maupun ganda' },
+  {
+    name: 'Bulu Tangkis',
+    category: 'SPORTS',
+    met: 5.5,
+    description: 'Permainan rekreasi, tunggal maupun ganda',
+  },
   { name: 'Tenis Meja', category: 'SPORTS', met: 4.0, description: 'Permainan rekreasi' },
   { name: 'Voli', category: 'SPORTS', met: 4.0, description: 'Permainan rekreasi' },
   { name: 'Tenis', category: 'SPORTS', met: 8.0, description: 'Permainan tunggal' },
-  { name: 'Panjat Tebing', category: 'SPORTS', met: 5.8, description: 'Dinding panjat dalam ruangan, kesulitan sedang' },
-  { name: 'Bela Diri', category: 'SPORTS', met: 10.3, description: 'Karate, taekwondo, judo, atau sejenisnya' },
+  {
+    name: 'Panjat Tebing',
+    category: 'SPORTS',
+    met: 5.8,
+    description: 'Dinding panjat dalam ruangan, kesulitan sedang',
+  },
+  {
+    name: 'Bela Diri',
+    category: 'SPORTS',
+    met: 10.3,
+    description: 'Karate, taekwondo, judo, atau sejenisnya',
+  },
 
   // --- OTHER ---
-  { name: 'Berkebun', category: 'OTHER', met: 3.8, description: 'Aktivitas fisik ringan sampai sedang' },
-  { name: 'Bersih-bersih Rumah', category: 'OTHER', met: 3.3, description: 'Menyapu, mengepel, merapikan' },
+  {
+    name: 'Berkebun',
+    category: 'OTHER',
+    met: 3.8,
+    description: 'Aktivitas fisik ringan sampai sedang',
+  },
+  {
+    name: 'Bersih-bersih Rumah',
+    category: 'OTHER',
+    met: 3.3,
+    description: 'Menyapu, mengepel, merapikan',
+  },
   { name: 'Menari', category: 'OTHER', met: 5.5, description: 'Tempo sedang' },
 ];
 
@@ -161,7 +261,7 @@ const main = async (): Promise<void> => {
 
     for (const item of baru) {
       write(
-        `  ${hijau('+')} ${item.name} — MET ${item.met}, ` +
+        `  ${hijau('+')} ${item.name}, MET ${item.met}, ` +
           `${netKcalPerMinuteAt70(item.met)} kkal/menit @70kg`,
       );
     }
@@ -178,7 +278,7 @@ const main = async (): Promise<void> => {
     );
 
     write(
-      `  ${kuning('~')} ${item.name} — ${lama.calories_burned_per_minute} → ` +
+      `  ${kuning('~')} ${item.name}, ${lama.calories_burned_per_minute} → ` +
         `${target.calories_burned_per_minute} kkal/menit (MET ${target.met})`,
     );
   }

@@ -28,7 +28,7 @@ export const Button = ({
   <button
     type={type}
     // Tombol yang sedang memuat tetap dinonaktifkan, supaya satu ketukan ganda
-    // tidak mengirim dua permintaan — untuk collection harian, yang kedua akan
+    // tidak mengirim dua permintaan, untuk collection harian, yang kedua akan
     // ditolak DUPLICATE_ENTRY dan user melihat error yang membingungkan.
     disabled={disabled === true || loading}
     aria-busy={loading}

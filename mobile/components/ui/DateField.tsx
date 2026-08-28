@@ -32,7 +32,7 @@ const parse = (value: string, fallback: Date): Date => {
  *
  * Sebelumnya tanggal diketik sebagai "YYYY-MM-DD" di kolom teks biasa. Itu
  * berjalan, tapi meminta orang mengetik tanggal lahirnya dengan format persis
- * di layar sentuh adalah cara tercepat membuat mereka salah isi — dan salah
+ * di layar sentuh adalah cara tercepat membuat mereka salah isi, dan salah
  * satu digit pada tahun lahir langsung menggeser perhitungan BMR.
  */
 export const DateField = ({

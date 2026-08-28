@@ -157,7 +157,7 @@ describe('calculateTDEE', () => {
   /**
    * Hari kantor tanpa olahraga harus mendarat di pita "sedentary or light
    * activity lifestyle" FAO/WHO, yaitu 1.40 sampai 1.69. Ini kalibrasi yang
-   * membenarkan nilai ACTIVITY_PAR — kalau meleset, seluruh angka TDEE ikut.
+   * membenarkan nilai ACTIVITY_PAR, kalau meleset, seluruh angka TDEE ikut.
    */
   it('mendarat di pita sedentary FAO/WHO untuk hari kantor biasa', () => {
     const hasil = calculateTDEE(dasar);
@@ -185,7 +185,7 @@ describe('calculateTDEE', () => {
    * Menambahkan olahraga tidak boleh menaikkan TDEE sebesar kalori olahraganya
    * secara utuh. Jam olahraga itu MENGGANTIKAN jam sisa hari, jadi baseline-nya
    * ikut berkurang. Kalau kenaikannya sama persis dengan kalori olahraga, berarti
-   * jam yang sama dibayar dua kali — persis bug yang metode ini dibuat untuk
+   * jam yang sama dibayar dua kali, persis bug yang metode ini dibuat untuk
    * menghapusnya.
    */
   it('tidak menghitung dua kali saat olahraga ditambahkan', () => {
@@ -197,7 +197,7 @@ describe('calculateTDEE', () => {
     expect(dengan.baseline).toBeLessThan(tanpa.baseline);
   });
 
-  it('sama untuk langkah — sebagian energinya sudah ada di sisa hari', () => {
+  it('sama untuk langkah, sebagian energinya sudah ada di sisa hari', () => {
     const sedikit = calculateTDEE({ ...dasar, steps: 0 });
     const banyak = calculateTDEE({ ...dasar, steps: 10_000 });
 
@@ -227,8 +227,7 @@ describe('netKcalPerMinuteAt70', () => {
   /**
    * Selalu di bawah nilai KOTOR-nya, dan selisihnya persis satu MET.
    *
-   * Perhatikan bahwa hasilnya TIDAK selalu di bawah angka MET mentahnya —
-   * di atas 5.44 MET justru melampauinya, karena pengali 1.225 tumbuh lebih
+   * Perhatikan bahwa hasilnya TIDAK selalu di bawah angka MET mentahnya, * di atas 5.44 MET justru melampauinya, karena pengali 1.225 tumbuh lebih
    * cepat daripada pengurangan satu MET. Itu juga berarti nilai library yang
    * lama (MET disalin mentah) tidak salah ke satu arah saja: olahraga ringan
    * dulu kelebihan, olahraga berat kekurangan.
@@ -317,7 +316,7 @@ describe('planWeightChange', () => {
   };
 
   /**
-   * Target yang wajar harus benar-benar mendarat di berat target — dibuktikan
+   * Target yang wajar harus benar-benar mendarat di berat target, dibuktikan
    * dengan menjalankan simulasinya kembali, bukan dengan mempercayai rumusnya.
    */
   it('menemukan asupan yang mencapai target tepat waktu', () => {

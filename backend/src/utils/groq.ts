@@ -20,6 +20,35 @@ const MAKS_TOTAL_BYTES = 20 * 1024 * 1024;
 /** Analisa AI bisa lambat, tapi tidak boleh menggantung request selamanya. */
 const TIMEOUT_MS = 60_000;
 
+/**
+ * Penalaran model DIMATIKAN untuk analisa gambar, dan ini bukan penghematan
+ * biasa: tanpa itu fiturnya memang rusak.
+ *
+ * Model vision yang dipakai adalah model penalaran. Dibiarkan bernalar, ia
+ * menghabiskan seluruh jatah keluarannya di dalam blok <think> dan JSON-nya
+ * tidak pernah sempat ditulis. Yang sampai ke user lalu berupa 400
+ * json_validate_failed dengan failed_generation kosong, diterjemahkan jadi
+ * "Layanan analisa AI sedang bermasalah", pesan yang sama sekali tidak
+ * menunjukkan sebabnya.
+ *
+ * Diukur pada permintaan yang sama: keluarannya turun dari ribuan token yang
+ * terpotong di tengah kalimat menjadi 212 token JSON yang utuh. Itu sekaligus
+ * meredam batas token per menit Groq, karena satu analisa jadi jauh lebih
+ * murah.
+ *
+ * Yang diminta di sini ekstraksi, bukan pertimbangan. Taksiran gram dan nilai
+ * gizi per 100 gram datang dari pengetahuan di dalam bobot model, dan itu tidak
+ * bertambah baik karena ia menimbang-nimbang lebih lama.
+ */
+const TANPA_NALAR = { reasoning_effort: 'none' } as const;
+
+/**
+ * Pagar terakhir kalau penalarannya entah bagaimana tetap hidup. Sepuluh bahan
+ * beserta nilai gizinya muat jauh di bawah angka ini, jadi batas ini hanya
+ * menyentuh keluaran yang memang sudah melantur.
+ */
+const MAKS_TOKEN_ANALISA = 1200;
+
 interface GroqChoice {
   message?: { content?: string };
 }
@@ -69,15 +98,17 @@ export const analyzeImages = async (
     })),
   ];
 
-  const kirim = async (): Promise<string> => {
+  const kirim = async (jsonKetat: boolean): Promise<string> => {
     const { data } = await axios.post<GroqResponse>(
       ENDPOINT,
       {
         model: env.GROQ_VISION_MODEL,
         messages: [{ role: 'user', content }],
         // Tanpa ini model bisa membalas prosa yang tidak bisa di-parse.
-        response_format: { type: 'json_object' },
+        ...(jsonKetat ? { response_format: { type: 'json_object' } } : {}),
         temperature: 0.2,
+        max_tokens: MAKS_TOKEN_ANALISA,
+        ...TANPA_NALAR,
       },
       {
         headers: {
@@ -95,9 +126,30 @@ export const analyzeImages = async (
   };
 
   try {
-    return parseJsonResponse(await kirim());
+    return parseJsonResponse(await kirim(true));
   } catch (error) {
     if (error instanceof AppError) throw error;
+
+    /*
+      Mode JSON terpaksa punya satu kegagalan yang khas: Groq membalas 400
+      json_validate_failed dengan failed_generation KOSONG. Artinya decoder
+      berbatasnya tidak berhasil menghasilkan apa pun yang sah.
+
+      Diulang sekali tanpa batasan itu, lalu JSON-nya dikorek dari prosanya.
+      Model tetap membalas isi yang benar; yang gagal cuma cara memaksanya.
+      Ini lebih baik daripada menyerah, karena di titik ini fotonya sudah
+      terlanjur diunggah dan user sudah menunggu.
+    */
+    if (gagalValidasiJson(error)) {
+      logger.warn('Mode JSON Groq gagal, mencoba ulang tanpa response_format');
+
+      try {
+        return parseJsonResponse(await kirim(false));
+      } catch (ulang) {
+        if (ulang instanceof AppError) throw ulang;
+        throw translateAxiosError(ulang);
+      }
+    }
 
     // Batas token per menit Groq gampang tersentuh: satu analisa foto badan
     // mengirim dua gambar sekaligus, dan free tier hanya memberi 8000 token
@@ -114,12 +166,19 @@ export const analyzeImages = async (
     await new Promise((resolve) => setTimeout(resolve, tunggu));
 
     try {
-      return parseJsonResponse(await kirim());
+      return parseJsonResponse(await kirim(true));
     } catch (ulang) {
       if (ulang instanceof AppError) throw ulang;
       throw translateAxiosError(ulang);
     }
   }
+};
+
+/** Kegagalan khas decoder JSON berbatas Groq, bukan kesalahan permintaan kita. */
+const gagalValidasiJson = (error: unknown): boolean => {
+  if (!axios.isAxiosError(error) || error.response?.status !== 400) return false;
+
+  return JSON.stringify(error.response.data ?? '').includes('json_validate_failed');
 };
 
 /** Batas atas menunggu. Lebih dari ini, user lebih baik disuruh mencoba lagi sendiri. */
@@ -150,17 +209,27 @@ const jedaRateLimit = (error: unknown): number | null => {
 };
 
 /**
- * Model kadang membungkus JSON dalam blok kode markdown walaupun sudah diminta
- * membalas JSON murni. Pembungkusnya dilepas dulu sebelum di-parse.
+ * Melepas semua pembungkus sebelum JSON-nya di-parse.
+ *
+ * Tiga lapis, dan ketiganya pernah benar-benar terjadi: blok penalaran
+ * `<think>` dari model penalaran, pagar kode markdown walaupun sudah diminta
+ * JSON murni, dan kalimat pengantar yang mengapit objeknya.
  */
 const parseJsonResponse = (raw: string): Record<string, unknown> => {
-  const bersih = raw
+  const tanpaNalar = raw.replace(/<think>[\s\S]*?<\/think>/gi, '');
+
+  const bersih = tanpaNalar
     .trim()
     .replace(/^```(?:json)?\s*/i, '')
     .replace(/\s*```$/, '');
 
+  // Kalau masih ada kalimat yang mengapit, objek terluarnya yang diambil.
+  const mulai = bersih.indexOf('{');
+  const akhir = bersih.lastIndexOf('}');
+  const kandidat = mulai >= 0 && akhir > mulai ? bersih.slice(mulai, akhir + 1) : bersih;
+
   try {
-    const parsed: unknown = JSON.parse(bersih);
+    const parsed: unknown = JSON.parse(kandidat);
 
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
       throw new Error('bukan objek JSON');
@@ -168,7 +237,7 @@ const parseJsonResponse = (raw: string): Record<string, unknown> => {
 
     return parsed as Record<string, unknown>;
   } catch {
-    logger.error({ raw: bersih.slice(0, 500) }, 'Respons Groq bukan JSON yang valid');
+    logger.error({ raw: kandidat.slice(0, 500) }, 'Respons Groq bukan JSON yang valid');
     throw AppError.upstream('Hasil analisa AI tidak bisa dibaca. Coba lagi.');
   }
 };
@@ -202,23 +271,56 @@ const translateAxiosError = (error: unknown): AppError => {
   return AppError.upstream('Layanan analisa AI sedang bermasalah');
 };
 
-/** Bagian tetap dari prompt analisa makanan, sesuai CLAUDE.md section 7. */
-const FOOD_BASE = `Analyze the food in this image. Return ONLY a JSON object with this exact structure:
+/**
+ * Bagian tetap dari prompt analisa makanan.
+ *
+ * Model diminta menguraikan piringnya menjadi bahan beserta BERATNYA, lalu
+ * menyebut nilai gizi per 100 gram. Yang mengalikan dan menjumlahkan adalah
+ * backend, bukan model.
+ *
+ * Sebelumnya model diminta langsung menyebut total kalori satu piring. Tebakan
+ * seperti itu tidak bisa diperiksa siapa pun: kalau hasilnya 700 kkal, tidak
+ * ada cara tahu apakah yang meleset porsi nasinya atau anggapan soal minyaknya.
+ * Diuraikan per bahan, kesalahannya kelihatan dan bisa dibetulkan user pada
+ * bagian yang memang salah.
+ *
+ * Ini juga menutup satu sumber kesalahan lain: aritmetika model. Sekarang
+ * angka yang dia sebut hanya taksiran (berapa gram, berapa kkal per 100 g),
+ * dan taksiran itulah yang memang jadi keahliannya.
+ */
+const FOOD_BASE = `Analyze the food in this image using TWO separate steps.
+
+STEP 1 - Break the meal into individual components. For each component, estimate its edible weight in grams AS SERVED in the photo. Use plate diameter, cutlery, bowls, and common Indonesian serving sizes as scale references.
+
+STEP 2 - For each component, state its nutrition PER 100 GRAMS from standard food composition tables.
+
+Return ONLY a JSON object with this exact structure:
 {
-  "foods_detected": ["string"],
-  "total_calories": number,
-  "protein_g": number,
-  "carbs_g": number,
-  "fat_g": number,
+  "items": [
+    {
+      "name": "string",
+      "grams": number,
+      "kcal_per_100g": number,
+      "protein_per_100g": number,
+      "carbs_per_100g": number,
+      "fat_per_100g": number
+    }
+  ],
   "confidence": "low" | "medium" | "high"
 }
-Estimate for the portion visible in the photo. Use Indonesian food names when the dish is Indonesian.`;
+
+Rules:
+- Do NOT return totals and do NOT multiply anything. The application computes every total from grams and the per-100g values.
+- Every per-100g value must describe the food as it appears in the photo. Fried food must reflect absorbed oil; cooked rice is not dry rice.
+- List drinks as items too. Treat 1 ml as 1 gram unless the drink is oil or syrup based.
+- Ignore anything not eaten: plates, cutlery, garnish that is only decoration.
+- Use Indonesian food names when the dish is Indonesian.`;
 
 /**
  * Prompt analisa makanan, ditambah catatan user sebagai konteks.
  *
  * Catatan user WAJIB ikut dikirim kalau ada. Model yang cuma melihat foto sering
- * keliru membedakan makanan yang mirip secara visual — lontong terbaca singkong,
+ * keliru membedakan makanan yang mirip secara visual, lontong terbaca singkong,
  * tempe terbaca tahu. User yang memotret tahu persis isi piringnya, jadi
  * keterangannya diperlakukan sebagai kebenaran untuk MENENTUKAN makanannya,
  * sementara foto tetap dipakai untuk menaksir porsi.
@@ -235,7 +337,9 @@ export const foodPrompt = (catatan?: string | null): string => {
 
 The user describes this meal as: "${bersih}"
 
-Treat that description as authoritative for WHAT the food is. Do not replace a dish the user named with a different one that merely looks similar in the photo. If the description names a component you cannot clearly see, still include it. Use the photo to judge portion size and to fill in anything the description leaves out.`;
+Treat that description as authoritative for WHAT the food is. Do not replace a dish the user named with a different one that merely looks similar in the photo. If the description names a component you cannot clearly see, still include it as an item. Use the photo to estimate grams, and use the description to fill in anything the photo leaves ambiguous.
+
+If the description states a portion explicitly, such as "nasi setengah porsi" or "ayam 2 potong", let it override your visual estimate of that item's grams.`;
 };
 
 /** Prompt analisa foto badan, sesuai CLAUDE.md section 7. */
@@ -310,7 +414,10 @@ export const chatCompletion = async (messages: ChatMessage[]): Promise<string> =
     const tunggu = jedaRateLimit(error);
     if (tunggu === null) throw translateAxiosError(error);
 
-    logger.warn({ tunggu_ms: tunggu }, 'Groq membatasi laju chat, menunggu lalu mencoba sekali lagi');
+    logger.warn(
+      { tunggu_ms: tunggu },
+      'Groq membatasi laju chat, menunggu lalu mencoba sekali lagi',
+    );
     await new Promise((resolve) => setTimeout(resolve, tunggu));
 
     try {

@@ -21,10 +21,13 @@ export const create = async (userId: string, data: CreateMoodDto): Promise<MoodL
   return log;
 };
 
-export const getToday = async (userId: string): Promise<MoodLogRecord | null> =>
+export const getByDate = async (userId: string, date: string): Promise<MoodLogRecord | null> =>
   forUser(userId).findOne('mood_logs', {
-    filter: { logged_at: { _eq: todayInJakarta() } },
+    filter: { logged_at: { _eq: date } },
   });
+
+export const getToday = async (userId: string): Promise<MoodLogRecord | null> =>
+  getByDate(userId, todayInJakarta());
 
 export const getRange = async (userId: string, range: DateRangeDto): Promise<MoodLogRecord[]> =>
   forUser(userId).list('mood_logs', {

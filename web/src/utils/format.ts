@@ -2,7 +2,7 @@
  * Mengubah nilai decimal dari API menjadi number.
  *
  * Directus mengembalikan kolom decimal sebagai string, dan Number('') bernilai
- * 0 — bukan NaN. Tanpa pemeriksaan string kosong, kolom kosong akan terbaca
+ * 0, bukan NaN. Tanpa pemeriksaan string kosong, kolom kosong akan terbaca
  * sebagai angka 0 yang terlihat sah padahal salah.
  */
 export const toNum = (value: string | number | null | undefined): number | null => {

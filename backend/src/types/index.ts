@@ -16,7 +16,7 @@ declare global {
        * Diisi auth.middleware. Sengaja optional karena route publik seperti
        * login dan register tidak melewati middleware itu.
        *
-       * Jangan diakses langsung di controller — pakai getAuthUser(req) supaya
+       * Jangan diakses langsung di controller, pakai getAuthUser(req) supaya
        * tidak perlu non-null assertion yang bisa meledak diam-diam.
        */
       user?: AuthenticatedUser;
@@ -29,7 +29,7 @@ declare global {
  *
  * Melempar UNAUTHORIZED kalau ternyata kosong. Kondisi itu seharusnya mustahil,
  * dan kalau sampai terjadi artinya ada route protected yang lupa dipasangi
- * authMiddleware — lebih baik ketahuan sebagai 401 daripada crash 500.
+ * authMiddleware, lebih baik ketahuan sebagai 401 daripada crash 500.
  */
 export const getAuthUser = (req: Request): AuthenticatedUser => {
   if (!req.user) {

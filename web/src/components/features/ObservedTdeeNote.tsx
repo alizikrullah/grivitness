@@ -12,7 +12,7 @@ import './ObservedTdeeNote.css';
  *
  * Ditampilkan terang-terangan, termasuk saat datanya belum cukup. Aplikasi
  * sejenis menampilkan satu angka TDEE tanpa pernah menyebut bahwa itu hasil
- * rumus dari 498 orang di tahun 1990 — user jadi mempercayainya seolah hasil
+ * rumus dari 498 orang di tahun 1990, user jadi mempercayainya seolah hasil
  * pengukuran, lalu bingung sendiri saat programnya tidak bekerja.
  */
 
@@ -54,7 +54,7 @@ export const ObservedTdeeNote = ({ observed }: { observed: ObservedTdee }) => {
           {/*
             Bobotnya ditampilkan karena pengukurannya bergantung pada ketelitian
             mencatat makan. Angka ini bergeser makin dekat ke hasil pengukuran
-            seiring datanya bertambah panjang dan rapat — bukan melompat penuh,
+            seiring datanya bertambah panjang dan rapat, bukan melompat penuh,
             supaya jatah kalori tidak berayun tiap minggu mengikuti berat air.
           */}
           <div className="obs-bar">

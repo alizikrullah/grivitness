@@ -16,7 +16,7 @@ import { useAuthStore } from '@/stores/auth.store';
  * pemisahan ini, layar pertama yang dilihat orang justru menunggu unduhan
  * paling berat di aplikasi.
  *
- * AuthPage sengaja TIDAK ikut dipisah — memuatnya secara terpisah malah
+ * AuthPage sengaja TIDAK ikut dipisah, memuatnya secara terpisah malah
  * menambah satu perjalanan jaringan sebelum layar pertama bisa digambar.
  */
 const DashboardPage = lazy(() =>
@@ -35,7 +35,7 @@ const ProfilePage = lazy(() =>
  *
  * Keadaan `loading` DIBEDAKAN dari `unauthenticated`. Kalau keduanya
  * disamakan, user yang sebenarnya sudah masuk akan melihat halaman login
- * berkedip sepersekian detik setiap kali me-refresh — karena token yang
+ * berkedip sepersekian detik setiap kali me-refresh, karena token yang
  * tersimpan belum sempat diverifikasi ke server.
  */
 const Terlindungi = () => {

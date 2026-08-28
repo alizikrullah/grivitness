@@ -4,8 +4,7 @@ const expoConfig = require('eslint-config-expo/flat');
  * Aturan import/* yang butuh penelusuran modul dimatikan.
  *
  * Penelusurnya (unrs-resolver) adalah binary native yang butuh Visual C++
- * Redistributable, dan runtime itu tidak terpasang di mesin pengembangan ini —
- * persoalan yang sama membuat Biome tidak bisa dipakai di backend. Tanpa
+ * Redistributable, dan runtime itu tidak terpasang di mesin pengembangan ini, * persoalan yang sama membuat Biome tidak bisa dipakai di backend. Tanpa
  * dimatikan, ESLint berhenti dengan "Cannot find native binding" dan tidak ada
  * satu berkas pun yang sempat diperiksa.
  *

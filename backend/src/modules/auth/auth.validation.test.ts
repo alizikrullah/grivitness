@@ -47,7 +47,7 @@ describe('RegisterSchema', () => {
   /**
    * bcrypt hanya membaca 72 byte pertama dan membuang sisanya tanpa peringatan.
    * Tanpa batas ini, dua password berbeda yang 72 karakter awalnya sama akan
-   * dianggap identik saat login — user mengira password panjangnya aman padahal
+   * dianggap identik saat login, user mengira password panjangnya aman padahal
    * bagian belakangnya tidak pernah ikut diperiksa.
    */
   it('menolak password lebih dari 72 karakter karena batas bcrypt', () => {

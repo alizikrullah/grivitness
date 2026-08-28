@@ -15,7 +15,7 @@ interface RingProps {
   children?: ReactNode;
   /**
    * Bagian lingkaran yang dipakai, 1 berarti penuh. Nilai seperti 0.75
-   * menyisakan celah di bawah — bentuk pengukur yang dipakai di referensi.
+   * menyisakan celah di bawah, bentuk pengukur yang dipakai di referensi.
    */
   sweep?: number;
 }
@@ -24,8 +24,7 @@ interface RingProps {
  * Cincin progres berbasis SVG.
  *
  * Dibuat sendiri alih-alih memakai pustaka chart karena bentuk yang diminta
- * referensi — cincin dengan celah, ujung membulat, dan isi bebas di tengah —
- * justru lebih ribet dipaksakan lewat pustaka daripada digambar langsung.
+ * referensi, cincin dengan celah, ujung membulat, dan isi bebas di tengah, * justru lebih ribet dipaksakan lewat pustaka daripada digambar langsung.
  */
 export const Ring = ({
   progress,

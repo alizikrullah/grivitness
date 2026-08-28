@@ -99,7 +99,7 @@ const renderInterface = (def: CollectionDef): string => {
 const userOwned = collections.filter((c) => c.fields.some((f) => f.field === 'user_id'));
 
 const header = `/**
- * BERKAS INI DI-GENERATE OTOMATIS — JANGAN DIEDIT MANUAL.
+ * BERKAS INI DI-GENERATE OTOMATIS, JANGAN DIEDIT MANUAL.
  *
  * Sumbernya: directus/schema.ts
  * Perintah  : npm run schema:types

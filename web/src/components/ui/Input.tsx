@@ -36,7 +36,7 @@ export const Input = ({ label, hint, error, icon, suffix, ...rest }: InputProps)
           id={id}
           className="field-input"
           aria-invalid={error ? true : undefined}
-          aria-describedby={error ?? hint ? hintId : undefined}
+          aria-describedby={(error ?? hint) ? hintId : undefined}
           {...rest}
         />
 

@@ -146,3 +146,32 @@
     text-align: center;
   }
 }
+
+/* Rincian bahan pada kartu makanan. Nama memakai flex: 1 supaya nama panjang
+   terpotong di ujungnya, bukan mendorong angka kalorinya keluar dari kartu. */
+.food-rincian {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--border);
+}
+
+.food-rincian-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.food-rincian-nama {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.food-rincian-kkal {
+  min-width: 68px;
+  text-align: right;
+}

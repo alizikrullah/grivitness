@@ -26,8 +26,7 @@ import { duration, initials, kg, thousands, volume } from '@/utils/format';
  * Pembagian yang aman terhadap target yang belum ada.
  *
  * Target sekarang datang dari backend, diturunkan dari berat, tinggi, usia, dan
- * target berat badan user. Sebelumnya ditulis di sini sebagai angka tetap —
- * 10.000 langkah, 2500ml, 8 jam — yang sama untuk semua orang dan tidak satu pun
+ * target berat badan user. Sebelumnya ditulis di sini sebagai angka tetap, * 10.000 langkah, 2500ml, 8 jam, yang sama untuk semua orang dan tidak satu pun
  * punya sumber. Yang 10.000 langkah bahkan asalnya nama produk pedometer Jepang
  * tahun 1965, bukan penelitian.
  */
@@ -116,8 +115,14 @@ export default function HomeScreen() {
 
               <View style={styles.burnRow}>
                 <View style={styles.burnItem}>
+                  {/*
+                    Labelnya menyebut sumbernya kalau angkanya datang dari
+                    smartwatch. Dua angka yang dihasilkan cara berbeda tidak
+                    boleh tampil dengan nama yang sama persis, karena user jadi
+                    tidak punya cara tahu yang mana yang sedang dia baca.
+                  */}
                   <Text variant="overline" tone="tertiary">
-                    Keluar
+                    {data?.calories_out_source === 'device' ? 'Keluar (jam)' : 'Keluar'}
                   </Text>
                   <Text variant="h3">{thousands(data?.calories_out ?? 0)}</Text>
                 </View>
@@ -179,7 +184,7 @@ export default function HomeScreen() {
               icon={<MoonStarsIcon size={16} color={metricColors.sleep} weight="fill" />}
               label="Tidur"
               value={duration(data?.sleep_minutes ?? 0)}
-              // Rentang, bukan satu angka — rekomendasinya memang 7-9 jam, dan
+              // Rentang, bukan satu angka, rekomendasinya memang 7-9 jam, dan
               // menampilkannya sebagai "8 jam tepat" memalsukan ketelitian yang
               // tidak dimiliki penelitiannya.
               unit={

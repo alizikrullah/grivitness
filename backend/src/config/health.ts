@@ -25,7 +25,7 @@ export interface HealthReport {
   };
 }
 
-/** Batas tunggu sengaja pendek — health check tidak boleh ikut menggantung. */
+/** Batas tunggu sengaja pendek, health check tidak boleh ikut menggantung. */
 const PROBE_TIMEOUT_MS = 3000;
 
 const probeDirectus = async (): Promise<HealthReport['dependencies']['directus']> => {

@@ -3,8 +3,7 @@
  * sesuai format CLAUDE.md section 10.
  *
  * Semua error yang disengaja di service layer WAJIB dilempar sebagai AppError.
- * Error lain apapun ditangkap error.middleware dan jadi INTERNAL_ERROR 500 —
- * detailnya tidak pernah dibocorkan ke client.
+ * Error lain apapun ditangkap error.middleware dan jadi INTERNAL_ERROR 500, * detailnya tidak pernah dibocorkan ke client.
  */
 
 export const ERROR_CODES = [

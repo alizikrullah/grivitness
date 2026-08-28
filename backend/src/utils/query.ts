@@ -19,7 +19,7 @@ export const dateString = z
  * Rentang tanggal untuk endpoint riwayat.
  *
  * Keduanya opsional. Kalau `to` dikosongkan, dipakai hari ini; kalau `from`
- * dikosongkan, dipakai 30 hari ke belakang — supaya permintaan tanpa parameter
+ * dikosongkan, dipakai 30 hari ke belakang, supaya permintaan tanpa parameter
  * tidak diam-diam menarik seluruh riwayat user.
  */
 export const DateRangeSchema = z

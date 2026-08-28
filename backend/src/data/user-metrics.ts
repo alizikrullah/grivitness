@@ -8,7 +8,7 @@ import { forUser } from './scoped.js';
  *
  * Sebelumnya tiap service mengambil berat badan terakhir sendiri-sendiri dengan
  * salinan fungsi yang sama. Begitu perhitungannya butuh tinggi badan dan jenis
- * kelamin juga — jarak per langkah sekarang diturunkan dari tinggi — salinan itu
+ * kelamin juga, jarak per langkah sekarang diturunkan dari tinggi, salinan itu
  * harus ikut bertambah di setiap tempat, dan yang terlewat tidak akan ketahuan
  * sampai angkanya sudah salah di layar.
  */
@@ -39,7 +39,7 @@ export interface UserMetrics {
 /**
  * Mengambil berat terakhir dan profil sekaligus, lalu menurunkan BMR.
  *
- * Dua query dijalankan bersamaan karena tidak saling bergantung — berurutan
+ * Dua query dijalankan bersamaan karena tidak saling bergantung, berurutan
  * berarti menumpuk dua kali latensi HTTP ke Directus tanpa alasan.
  */
 export const loadUserMetrics = async (userId: string): Promise<UserMetrics> => {
@@ -63,10 +63,7 @@ export const loadUserMetrics = async (userId: string): Promise<UserMetrics> => {
     age,
     gender,
     activityLevel,
-    bmr:
-      weightKg === null || !profile
-        ? null
-        : calculateBMR({ weightKg, heightCm, age, gender }),
+    bmr: weightKg === null || !profile ? null : calculateBMR({ weightKg, heightCm, age, gender }),
     complete: weightKg !== null && profile !== null,
     hasWeight: weightKg !== null,
     hasProfile: profile !== null,

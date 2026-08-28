@@ -4,7 +4,7 @@ import { del, get, patch, post } from '@/lib/api';
 import { invalidateAfterLog, qk } from '@/lib/query';
 import type { BodyMeasurement } from '@/types';
 
-/** Semua bagian opsional — user boleh mencatat pinggang saja. */
+/** Semua bagian opsional, user boleh mencatat pinggang saja. */
 export interface MeasurementInput {
   waist_cm?: number;
   hips_cm?: number;
@@ -45,6 +45,24 @@ export const useMeasurementRange = (from: string, to: string) =>
   useQuery({
     queryKey: qk.measurementsRange(from, to),
     queryFn: () => get<BodyMeasurement[]>('/api/measurements', { params: { from, to } }),
+  });
+
+/**
+ * Pengukuran pada satu tanggal.
+ *
+ * Tidak punya jalan pintas "hari ini" seperti modul lain, karena endpoint
+ * ringkasnya adalah pengukuran TERAKHIR, yang belum tentu jatuh pada hari ini.
+ */
+export const useMeasurementDate = (date: string) =>
+  useQuery({
+    queryKey: qk.measurementsDate(date),
+    queryFn: async () => {
+      try {
+        return await get<BodyMeasurement | null>('/api/measurements/day', { params: { date } });
+      } catch {
+        return null;
+      }
+    },
   });
 
 export const useSaveMeasurement = () => {

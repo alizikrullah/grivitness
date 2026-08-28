@@ -35,7 +35,7 @@ const TABS: TabDef[] = [
  *
  * Tab bar bawaan menempel ke tepi bawah dan memakai gaya sistem, yang di tema
  * segelap ini terlihat seperti potongan dari aplikasi lain. Versi kustom di
- * sini mengambang di atas isi halaman — karena itu setiap Screen menyediakan
+ * sini mengambang di atas isi halaman, karena itu setiap Screen menyediakan
  * ruang bawah lewat prop bottomInset.
  */
 export default function TabsLayout() {
@@ -56,7 +56,7 @@ export default function TabsLayout() {
               {TABS.map((tab) => {
                 // Dicocokkan lewat nama route, bukan lewat urutan array. Urutan
                 // di state.routes ditentukan navigator dan tidak dijamin sama
-                // dengan urutan TABS — menyamakan indeksnya begitu saja membuat
+                // dengan urutan TABS, menyamakan indeksnya begitu saja membuat
                 // tab yang menyala meleset begitu urutannya berbeda.
                 const aktif = state.routes[state.index]?.name === tab.name;
                 const { Icon } = tab;
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
    * mengambil sisa ruang.
    *
    * Sebelumnya keempatnya sama-sama flex: 1, jadi pil merah dapat jatah yang
-   * sama dengan slot yang cuma berisi ikon — padahal ia harus memuat ikon DAN
+   * sama dengan slot yang cuma berisi ikon, padahal ia harus memuat ikon DAN
    * teks. Label sepanjang "Beranda" jadi mepet ke tepi pil dan terlihat sesak.
    */
   itemIdle: { width: 56 },

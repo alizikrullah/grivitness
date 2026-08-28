@@ -21,8 +21,7 @@ import { logger } from '../../utils/logger.js';
 import type { LoginDto, RegisterDto } from './auth.validation.js';
 
 /**
- * Cost factor bcrypt. 12 memakan waktu sekitar 250ms per hash di hardware biasa —
- * cukup lambat untuk melumpuhkan serangan brute force, masih cukup cepat untuk login.
+ * Cost factor bcrypt. 12 memakan waktu sekitar 250ms per hash di hardware biasa, * cukup lambat untuk melumpuhkan serangan brute force, masih cukup cepat untuk login.
  */
 const BCRYPT_ROUNDS = 12;
 
@@ -34,7 +33,7 @@ export interface PublicUser {
   email: string;
   name: string;
   /**
-   * Bisa null secara tipe karena kolomnya memang nullable — Directus yang
+   * Bisa null secara tipe karena kolomnya memang nullable, Directus yang
    * mengisinya lewat flag date-created, jadi tidak boleh NOT NULL di database.
    * Dalam praktiknya selalu terisi setelah item berhasil dibuat.
    */
@@ -56,8 +55,8 @@ const toPublicUser = (user: UserRecord): PublicUser => ({
 });
 
 /**
- * Collection `users` tidak dimiliki user mana pun — barisnya JUSTRU si user itu
- * sendiri — jadi tidak bisa lewat forUser(). Ini salah satu dari sedikit tempat
+ * Collection `users` tidak dimiliki user mana pun, barisnya JUSTRU si user itu
+ * sendiri, jadi tidak bisa lewat forUser(). Ini salah satu dari sedikit tempat
  * yang boleh menyentuh SDK langsung, dan alasannya harus tetap jelas.
  */
 const findUserByEmail = async (email: string): Promise<UserRecord | null> => {
@@ -102,7 +101,7 @@ const issueTokens = async (
  * Membuat cerminan user di directus_users supaya terlihat di admin panel.
  *
  * Sengaja TIDAK fatal. Kalau langkah ini gagal, registrasi tetap lanjut dengan
- * directus_user_id bernilai null — kegagalan mencerminkan user ke admin panel
+ * directus_user_id bernilai null, kegagalan mencerminkan user ke admin panel
  * bukan alasan yang cukup untuk menolak pendaftaran. Kejadiannya dicatat di log,
  * dan nilai null-nya bisa dipakai untuk rekonsiliasi belakangan.
  *
@@ -183,7 +182,7 @@ export const register = async (
   });
 
   // Sengaja DI LUAR unitOfWork. Kalau penerbitan token gagal, akun yang sudah
-  // jadi tidak perlu ikut dibatalkan — user tinggal login biasa.
+  // jadi tidak perlu ikut dibatalkan, user tinggal login biasa.
   const tokens = await issueTokens(user, userAgent);
 
   logger.info({ user_id: user.id }, 'User baru terdaftar');
@@ -219,7 +218,7 @@ export const login = async (data: LoginDto, userAgent: string | null): Promise<A
  * Menukar refresh token dengan pasangan token baru, sekaligus merotasi tokennya.
  *
  * Token lama langsung direvoke. Kalau ada yang mencoba memakai token yang SUDAH
- * direvoke, itu pertanda token bocor — semua token milik user tersebut ikut
+ * direvoke, itu pertanda token bocor, semua token milik user tersebut ikut
  * direvoke, memaksa login ulang di seluruh device.
  */
 export const refresh = async (rawToken: string, userAgent: string | null): Promise<AuthResult> => {
@@ -264,7 +263,7 @@ export const refresh = async (rawToken: string, userAgent: string | null): Promi
 /**
  * Logout.
  *
- * Idempotent — token yang tidak ditemukan atau sudah direvoke tetap dianggap
+ * Idempotent, token yang tidak ditemukan atau sudah direvoke tetap dianggap
  * berhasil. Client yang menekan logout dua kali tidak perlu melihat error, dan
  * respons yang seragam mencegah endpoint ini dipakai menebak token yang valid.
  */

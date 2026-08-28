@@ -57,8 +57,7 @@ export const useAuthStore = create<AuthState>((set) => {
 
       try {
         // Sekaligus memastikan token benar-benar masih berlaku. Kalau access
-        // token sudah kedaluwarsa, interceptor akan memperbaruinya di sini —
-        // jauh sebelum user menyentuh layar mana pun.
+        // token sudah kedaluwarsa, interceptor akan memperbaruinya di sini, // jauh sebelum user menyentuh layar mana pun.
         const user = await get<PublicUser>('/api/users/me');
         set({ status: 'authenticated', user });
       } catch {

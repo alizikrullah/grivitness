@@ -22,7 +22,7 @@
 
 /* Posisi absolut, bukan tinggi persentase. Persentase di dalam wadah yang
    tingginya berasal dari aspect-ratio pernah menghasilkan tinggi nol di
-   Android — bug yang sama pernah membuat foto tidak muncul di mobile. */
+   Android, bug yang sama pernah membuat foto tidak muncul di mobile. */
 .picker-img {
   position: absolute;
   inset: 0;
@@ -63,4 +63,11 @@
 .picker-clear:hover {
   color: var(--danger);
   background: var(--primary-soft);
+}
+
+/* Penanda bahwa fotonya sudah terpasang, terpisah dari pratinjaunya. */
+.picker-siap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
 }

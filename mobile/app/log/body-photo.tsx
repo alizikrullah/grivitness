@@ -1,12 +1,14 @@
-import { Image } from 'expo-image';
 import { CameraIcon, SparkleIcon, TrashIcon } from 'phosphor-react-native';
 import { useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { PhotoSlot } from '@/components/features/PhotoSlot';
+import { RemoteImage } from '@/components/features/RemoteImage';
 import {
   Button,
   Card,
+  ConfirmDialog,
+  DateStrip,
   EmptyState,
   ErrorNote,
   Header,
@@ -18,20 +20,26 @@ import {
 } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/theme';
-import { imageSource, toApiError } from '@/lib/api';
+import { toApiError } from '@/lib/api';
 import { usePhotoPicker } from '@/hooks/usePhotoPicker';
 import {
+  useBodyPhotoDate,
   useBodyPhotoRange,
-  useBodyPhotoToday,
   useCreateBodyPhoto,
   useDeleteBodyPhoto,
 } from '@/services/body-photos.service';
-import { longDate, shiftDays, todayWIB } from '@/utils/date';
+import { dayPhrase, longDate, shiftDays, todayWIB } from '@/utils/date';
 
 export default function BodyPhotoScreen() {
+  /**
+   * Tanggal yang sedang dilihat. Bawaannya hari ini, tapi user bisa mundur
+   * untuk melengkapi hari yang terlewat.
+   */
+  const [dipilih, setDipilih] = useState(todayWIB());
+
   const hariIni = todayWIB();
 
-  const today = useBodyPhotoToday();
+  const today = useBodyPhotoDate(dipilih);
   const riwayat = useBodyPhotoRange(shiftDays(hariIni, -89), hariIni);
   const createPhoto = useCreateBodyPhoto();
   const deletePhoto = useDeleteBodyPhoto();
@@ -40,6 +48,19 @@ export default function BodyPhotoScreen() {
   const [depan, setDepan] = useState<string | null>(null);
   const [samping, setSamping] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Foto yang sudah dipilih dilepas saat pindah tanggal, disetel ulang saat
+   * render dan bukan lewat useEffect. Tanpa ini foto untuk hari ini ikut
+   * terbawa dan tersimpan ke tanggal yang salah.
+   */
+  const [tanggalTerakhir, setTanggalTerakhir] = useState(dipilih);
+  if (dipilih !== tanggalTerakhir) {
+    setTanggalTerakhir(dipilih);
+    setDepan(null);
+    setSamping(null);
+    setError(null);
+  }
 
   const ambil = async (sisi: 'depan' | 'samping', dari: 'kamera' | 'galeri') => {
     const hasil = dari === 'kamera' ? await picker.dariKamera() : await picker.dariGaleri();
@@ -59,7 +80,8 @@ export default function BodyPhotoScreen() {
     setError(null);
 
     createPhoto.mutate(
-      { front: depan, side: samping },
+      // Dicatat ke tanggal yang sedang dilihat, bukan selalu ke hari ini.
+      { front: depan, side: samping, logged_at: dipilih },
       {
         onSuccess: () => {
           setDepan(null);
@@ -70,12 +92,8 @@ export default function BodyPhotoScreen() {
     );
   };
 
-  const hapus = (id: string) => {
-    Alert.alert('Hapus foto ini?', 'Foto dan hasil analisanya akan hilang permanen.', [
-      { text: 'Batal', style: 'cancel' },
-      { text: 'Hapus', style: 'destructive', onPress: () => deletePhoto.mutate(id) },
-    ]);
-  };
+  /** Id foto yang sedang ditanyakan konfirmasi hapusnya. */
+  const [akanDihapus, setAkanDihapus] = useState<string | null>(null);
 
   const sudahHariIni = today.data !== null && today.data !== undefined;
 
@@ -83,8 +101,10 @@ export default function BodyPhotoScreen() {
     <Screen refreshing={riwayat.isRefetching} onRefresh={() => void riwayat.refetch()}>
       <Header
         title="Foto badan"
-        subtitle={sudahHariIni ? 'Sudah difoto hari ini' : 'Satu set per hari'}
+        subtitle={sudahHariIni ? 'Sudah difoto ' + dayPhrase(dipilih) : 'Satu set per hari'}
       />
+
+      <DateStrip value={dipilih} onChange={setDipilih} />
 
       <Card variant="outline" padding="md">
         <Text variant="caption" tone="secondary">
@@ -164,23 +184,23 @@ export default function BodyPhotoScreen() {
                     ) : null}
                   </View>
 
-                  <IconCircle size={36} onPress={() => hapus(foto.id)}>
+                  <IconCircle size={36} onPress={() => setAkanDihapus(foto.id)}>
                     <TrashIcon size={16} color={colors.textSecondary} weight="regular" />
                   </IconCircle>
                 </View>
 
                 <View style={styles.historyPhotos}>
-                  <Image
-                    source={imageSource(foto.front_photo_url)}
+                  <RemoteImage
+                    path={foto.front_photo_url}
                     style={styles.historyImage}
-                    contentFit="cover"
-                    transition={200}
+                    aspectRatio={3 / 4}
+                    accessibilityLabel="Foto badan tampak depan"
                   />
-                  <Image
-                    source={imageSource(foto.side_photo_url)}
+                  <RemoteImage
+                    path={foto.side_photo_url}
                     style={styles.historyImage}
-                    contentFit="cover"
-                    transition={200}
+                    aspectRatio={3 / 4}
+                    accessibilityLabel="Foto badan tampak samping"
                   />
                 </View>
 
@@ -223,6 +243,18 @@ export default function BodyPhotoScreen() {
           );
         })
       )}
+
+      <ConfirmDialog
+        visible={akanDihapus !== null}
+        title="Hapus foto ini?"
+        message="Foto depan, foto samping, dan hasil analisanya akan hilang permanen."
+        onCancel={() => setAkanDihapus(null)}
+        onConfirm={() => {
+          const id = akanDihapus;
+          setAkanDihapus(null);
+          if (id) deletePhoto.mutate(id);
+        }}
+      />
     </Screen>
   );
 }
@@ -235,9 +267,10 @@ const styles = StyleSheet.create({
   historyHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   historyText: { flex: 1, gap: 2 },
   historyPhotos: { flexDirection: 'row', gap: spacing.sm },
+  // aspectRatio sengaja TIDAK di sini, melainkan lewat prop RemoteImage, supaya
+  // tingginya dihitung dari lebar terukur dan bukan diselesaikan Yoga.
   historyImage: {
     flex: 1,
-    aspectRatio: 3 / 4,
     borderRadius: radius.md,
     backgroundColor: colors.surfaceHigh,
   },

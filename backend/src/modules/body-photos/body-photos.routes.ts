@@ -7,7 +7,7 @@ import {
   validateParams,
   validateQuery,
 } from '../../middlewares/validate.middleware.js';
-import { DateRangeSchema, UuidParamSchema } from '../../utils/query.js';
+import { DateRangeSchema, SingleDateSchema, UuidParamSchema } from '../../utils/query.js';
 import * as bodyPhotosController from './body-photos.controller.js';
 import { CreateBodyPhotoSchema } from './body-photos.validation.js';
 
@@ -16,6 +16,7 @@ const router: Router = Router();
 router.use(authMiddleware);
 
 router.get('/today', bodyPhotosController.getToday);
+router.get('/day', validateQuery(SingleDateSchema), bodyPhotosController.getDay);
 router.get('/', validateQuery(DateRangeSchema), bodyPhotosController.getRange);
 
 router.post(

@@ -6,8 +6,7 @@
   padding: var(--space-xl);
   /* Cahaya merah lembut dari kiri atas, satu-satunya aksen di halaman ini. */
   background:
-    radial-gradient(900px 500px at 12% -8%, rgba(242, 51, 63, 0.14), transparent 60%),
-    var(--bg);
+    radial-gradient(900px 500px at 12% -8%, rgba(242, 51, 63, 0.14), transparent 60%), var(--bg);
 }
 
 .auth-panel {

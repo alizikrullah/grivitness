@@ -1,25 +1,15 @@
 import { z } from 'zod';
 
 /**
- * Riwayat percakapan dikirim ulang oleh klien setiap kali, bukan disimpan di
- * server. Untuk aplikasi satu orang, menyimpan percakapan berarti satu
- * collection baru yang harus dijaga hanya demi kenyamanan yang bisa didapat
- * dari state di sisi klien.
+ * Client mengirim SATU pesan baru, bukan seluruh riwayat.
  *
- * Batas 20 pesan menahan biaya token: setiap pesan lama ikut dikirim ke model
- * pada SETIAP giliran, jadi percakapan yang tidak dibatasi tumbuh biayanya
- * secara kuadratik.
+ * Sebelumnya riwayatnya hidup di state klien dan dikirim ulang tiap giliran.
+ * Sejak percakapan disimpan di server, cara itu jadi salah dalam dua hal:
+ * membuang jaringan untuk mengirim ulang hal yang sudah ada di database, dan
+ * membiarkan client menentukan sendiri isi riwayat yang dilihat model.
  */
 export const ChatSchema = z.object({
-  messages: z
-    .array(
-      z.object({
-        role: z.enum(['user', 'assistant']),
-        content: z.string().trim().min(1, 'Pesan tidak boleh kosong').max(2000),
-      }),
-    )
-    .min(1, 'Tidak ada pesan untuk dikirim')
-    .max(20),
+  message: z.string().trim().min(1, 'Pesan tidak boleh kosong').max(2000),
 });
 
 export type ChatDto = z.infer<typeof ChatSchema>;

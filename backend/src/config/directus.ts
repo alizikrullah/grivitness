@@ -16,7 +16,7 @@ import { env } from './env.js';
  * Contoh yang BENAR:
  *   readItems('weight_logs', { filter: { user_id: { _eq: userId } } })
  *
- * Contoh yang SALAH — mengembalikan data semua user:
+ * Contoh yang SALAH, mengembalikan data semua user:
  *   readItems('weight_logs', {})
  */
 export const directus = createDirectus<DirectusSchema>(env.DIRECTUS_URL)

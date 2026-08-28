@@ -6,7 +6,7 @@ interface CardProps {
   children: ReactNode;
   variant?: 'solid' | 'outline';
   padding?: 'md' | 'lg';
-  /** Diisi berarti kartunya bisa diklik — dirender sebagai <button>, bukan <div>. */
+  /** Diisi berarti kartunya bisa diklik, dirender sebagai <button>, bukan <div>. */
   onClick?: () => void;
   className?: string;
 }
@@ -16,7 +16,7 @@ interface CardProps {
  *
  * Kartu yang bisa diklik dirender sebagai <button>, bukan <div onClick>. Div
  * yang diberi handler klik tidak bisa dicapai lewat Tab dan tidak merespons
- * Enter atau Spasi — pembaca layar pun tidak mengumumkannya sebagai sesuatu
+ * Enter atau Spasi, pembaca layar pun tidak mengumumkannya sebagai sesuatu
  * yang bisa ditekan.
  */
 export const Card = ({

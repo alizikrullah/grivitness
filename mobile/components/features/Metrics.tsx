@@ -57,7 +57,7 @@ export const MetricTile = ({
  * Perbandingan protein, karbohidrat, dan lemak dalam satu batang.
  *
  * Ditampilkan sebagai proporsi, bukan angka mutlak, karena yang berguna dilihat
- * sehari-hari adalah komposisinya — bukan berapa gram persisnya.
+ * sehari-hari adalah komposisinya, bukan berapa gram persisnya.
  */
 export const MacroBar = ({
   protein,
@@ -113,7 +113,7 @@ export const MacroBar = ({
  * Lencana rentetan hari.
  *
  * Angka nol tetap ditampilkan, tidak disembunyikan. Rentetan yang putus adalah
- * informasi yang berguna — menyembunyikannya membuat user mengira fiturnya rusak.
+ * informasi yang berguna, menyembunyikannya membuat user mengira fiturnya rusak.
  */
 export const StreakBadge = ({ current, longest }: { current: number; longest: number }) => {
   const menyala = current > 0;

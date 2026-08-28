@@ -9,13 +9,13 @@ import { round } from './number.js';
  *                  energy expenditure in healthy individuals." Am J Clin Nutr
  *                  1990;51(2):241-247.
  *   TDEE           FAO/WHO/UNU. "Human Energy Requirements." Roma 2001, terbit 2004.
- *                  Bab 5 dan Annex 5 — metode faktorial dan tabel PAR.
+ *                  Bab 5 dan Annex 5, metode faktorial dan tabel PAR.
  *   Nilai MET      Ainsworth BE dkk. "2011 Compendium of Physical Activities."
  *                  Med Sci Sports Exerc 2011;43(8):1575-1581.
  *   Konversi MET   Persamaan metabolik ACSM: 1 MET = 3.5 ml O2/kg/menit.
  *   Batas kalori   NIH/NHLBI. "Clinical Guidelines on the Identification, Evaluation,
  *                  and Treatment of Overweight and Obesity in Adults." 1998.
- *   Laju aman      CDC dan NHLBI — 0,5 sampai 1 kg per minggu.
+ *   Laju aman      CDC dan NHLBI, 0,5 sampai 1 kg per minggu.
  *
  * Angka-angka di bawah adalah ESTIMASI POPULASI, bukan pengukuran. Mifflin-St Jeor
  * masuk dalam ±10% dari pengukuran sesungguhnya untuk sekitar 82% orang non-obesitas
@@ -50,7 +50,7 @@ export interface BmrInput {
  *
  * Rumus aslinya cuma mendefinisikan dua varian, pria dan wanita, yang selisihnya
  * ada di konstanta terakhir: +5 dan -161. Untuk gender OTHER dipakai titik tengah
- * keduanya (-78) — bukan angka dari literatur, melainkan pilihan yang menghindari
+ * keduanya (-78), bukan angka dari literatur, melainkan pilihan yang menghindari
  * memaksa siapa pun masuk ke kategori yang tidak sesuai, dengan galat yang tidak
  * lebih besar daripada galat bawaan rumusnya sendiri.
  */
@@ -76,7 +76,7 @@ const LANGKAH_PER_MENIT = 100;
 const MET_JALAN = 3.0;
 
 /**
- * Kalori BERSIH per langkah per kg berat badan — 0.00035.
+ * Kalori BERSIH per langkah per kg berat badan, 0.00035.
  *
  * Sengaja DIHITUNG di sini, bukan ditulis sebagai angka jadi. Persis kebiasaan
  * menyimpan hasil tanpa cara memperolehnya yang membuat kesalahan konversi di
@@ -86,7 +86,7 @@ const MET_JALAN = 3.0;
  *   bersih      = (3.0 - 1) x 3.5 / 200        = 0.035 per kg per menit
  *   per langkah = 0.035 / 100 langkah/menit    = 0.00035 per kg
  *
- * Dikurangi satu MET karena MET mengukur pengeluaran KOTOR — sudah termasuk
+ * Dikurangi satu MET karena MET mengukur pengeluaran KOTOR, sudah termasuk
  * energi yang tetap terbakar walau cuma duduk diam. Energi itu sudah ditanggung
  * BMR di dalam TDEE, jadi menghitungnya lagi di sini membayar jam yang sama
  * dua kali.
@@ -141,7 +141,7 @@ export const caloriesFromWorkout = (
 ): number => round((netKcalPerMinute * durationMinutes * weightKg) / BERAT_ACUAN_KG, 0);
 
 // ============================================================
-// TDEE — METODE FAKTORIAL
+// TDEE, METODE FAKTORIAL
 // ============================================================
 
 /** Menit dalam sehari. */
@@ -154,7 +154,7 @@ const PAR_TIDUR = 1.0;
  * Durasi tidur yang diasumsikan ketika user belum mencatatnya.
  *
  * Delapan jam adalah titik tengah rekomendasi 7-9 jam. Menganggap tidurnya nol
- * akan membuat sisa hari mengisi 24 jam penuh dan TDEE melonjak — persis arah
+ * akan membuat sisa hari mengisi 24 jam penuh dan TDEE melonjak, persis arah
  * kesalahan yang paling berbahaya untuk aplikasi penurunan berat badan.
  */
 const TIDUR_DEFAULT_MENIT = 8 * 60;
@@ -171,11 +171,11 @@ export interface PalInput {
  * Menghitung PAL satu hari dengan membagi habis 24 jam.
  *
  * Jam berjalan dan jam olahraga diberi PAR 1.0 di sini, BUKAN nilai MET-nya.
- * Yang dihitung di potongan ini hanyalah bagian istirahatnya — biaya kerja di
+ * Yang dihitung di potongan ini hanyalah bagian istirahatnya, biaya kerja di
  * atas istirahat sudah dihitung terpisah sebagai kalori bersih langkah dan
  * olahraga, lalu dijumlahkan di calculateTDEE. Secara aljabar hasilnya sama
  * dengan memberi tiap potongan nilai MET penuh, tapi cara ini tidak memerlukan
- * nilai MET tersimpan di setiap log — sehingga olahraga yang diinput manual,
+ * nilai MET tersimpan di setiap log, sehingga olahraga yang diinput manual,
  * yang memang tidak punya MET, tetap terhitung benar.
  *
  * Karena 24 jam dipartisi, satu jam mustahil masuk dua potongan sekaligus.
@@ -211,8 +211,7 @@ export interface TdeeBreakdown {
   /**
    * PAL sesungguhnya: TDEE dibagi BMR.
    *
-   * Sengaja dihitung dari hasil akhir, bukan diambil dari restingPartitionPAL —
-   * yang itu cuma potongan istirahatnya dan angkanya selalu lebih rendah.
+   * Sengaja dihitung dari hasil akhir, bukan diambil dari restingPartitionPAL, * yang itu cuma potongan istirahatnya dan angkanya selalu lebih rendah.
    * Menampilkan angka setengah jadi dengan nama "PAL" akan menyesatkan siapa pun
    * yang membandingkannya dengan pita FAO/WHO.
    */
@@ -229,7 +228,7 @@ export interface TdeeBreakdown {
  * Rumus lama `TDEE + olahraga + langkah` menjumlahkan tiga hal yang saling
  * tumpang tindih: pengali aktivitas mendeskripsikan seluruh hari, jadi olahraga
  * dan langkah yang ditambahkan setelahnya menabrak dirinya sendiri. Efeknya
- * defisit terlihat lebih besar daripada kenyataan — persis alasan orang bingung
+ * defisit terlihat lebih besar daripada kenyataan, persis alasan orang bingung
  * kenapa beratnya tidak turun sesuai perkiraan aplikasi.
  */
 export const calculateTDEE = (input: TdeeInput): TdeeBreakdown => {
@@ -251,7 +250,7 @@ export const calculateTDEE = (input: TdeeInput): TdeeBreakdown => {
  * Langkah yang diasumsikan pada hari biasa ketika menghitung TDEE acuan.
  *
  * Dipakai sebagai dasar budget kalori, bukan sebagai target. Angkanya sengaja
- * rendah — kira-kira gerak seadanya orang yang tidak berolahraga — supaya
+ * rendah, kira-kira gerak seadanya orang yang tidak berolahraga, supaya
  * budget-nya konservatif. Untuk aplikasi penurunan berat badan, salah menaksir
  * ke bawah membuat user turun sedikit lebih cepat dari perkiraan; salah menaksir
  * ke atas membuat programnya diam-diam tidak bekerja.
@@ -287,7 +286,7 @@ export const baselineTDEE = (bmr: number, weightKg: number, activityLevel: Activ
  * Angkanya sendiri wajar sebagai kerapatan energi jaringan campuran. Yang keliru
  * adalah cara lamanya dipakai: dibagi sekali di awal, seolah TDEE diam saja
  * sepanjang program. Hall KD dkk. (Lancet 2011;378:826-837) menunjukkan justru
- * di situ letak kesalahannya — makin ringan badan, makin sedikit yang terbakar.
+ * di situ letak kesalahannya, makin ringan badan, makin sedikit yang terbakar.
  *
  * Karena itu di bawah ini angka tersebut hanya dipakai per hari, di dalam
  * simulasi yang menghitung ulang BMR dari berat badan hari itu juga.
@@ -321,10 +320,7 @@ export const calorieFloor = (gender: Gender): number => BATAS_BAWAH_KALORI[gende
 
 /** Laju penurunan aman untuk berat badan tertentu, dalam kg per minggu. */
 export const safeWeeklyLossKg = (weightKg: number): number =>
-  round(
-    Math.min(LAJU_MAKSIMAL_KG_PER_MINGGU, weightKg * LAJU_MAKSIMAL_RASIO_PER_MINGGU),
-    2,
-  );
+  round(Math.min(LAJU_MAKSIMAL_KG_PER_MINGGU, weightKg * LAJU_MAKSIMAL_RASIO_PER_MINGGU), 2);
 
 export interface PlanInput {
   currentWeightKg: number;
@@ -341,7 +337,7 @@ export interface PlanInput {
    *
    * Dipakai sebagai RASIO, bukan angka mutlak, supaya koreksinya ikut menyusut
    * bersama berat badan selama simulasi. Menyuntikkan satu angka tetap akan
-   * membuat TDEE berhenti turun saat badan mengurus — persis kesalahan yang
+   * membuat TDEE berhenti turun saat badan mengurus, persis kesalahan yang
    * simulasi hari-per-hari ini dibuat untuk menghindarinya.
    */
   tdeeFactor?: number;
@@ -364,7 +360,7 @@ const tdeeTerkoreksi = (weightKg: number, input: PlanInput): number => {
  *
  * Inilah yang menggantikan pembagian sekali jalan `(selisih x 7700) / hari`.
  * BMR dihitung ulang dari berat badan hari itu di setiap langkah, jadi
- * melambatnya penurunan seiring turunnya berat ikut tertangkap — kegagalan
+ * melambatnya penurunan seiring turunnya berat ikut tertangkap, kegagalan
  * utama kaidah linear yang ditunjukkan Hall.
  */
 const simulasi = (
@@ -398,7 +394,7 @@ const cariAsupan = (days: number, input: PlanInput): number => {
 
   // Berat akhir naik secara monoton terhadap asupan, jadi pencarian biner selalu
   // menemukan jawabannya. Empat puluh iterasi memberi ketelitian jauh di bawah
-  // satu kalori — murah, karena simulasinya cuma aritmetika.
+  // satu kalori, murah, karena simulasinya cuma aritmetika.
   for (let i = 0; i < 40; i++) {
     const tengah = (bawah + atas) / 2;
 
@@ -460,12 +456,12 @@ const proyeksiHari = (intake: number, input: PlanInput): number | null => {
  * Menyusun rencana penurunan (atau penambahan) berat badan.
  *
  * Urutannya: cari dulu asupan yang secara matematis mencapai target tepat waktu,
- * lalu tahan dengan tiga pagar keamanan sekaligus — batas bawah kalori, defisit
+ * lalu tahan dengan tiga pagar keamanan sekaligus, batas bawah kalori, defisit
  * maksimal 25% TDEE, dan laju maksimal per minggu. Yang paling ketat menang.
  *
  * Kalau target ternyata tertahan pagar, angkanya TIDAK dipaksakan. Yang
  * dikembalikan adalah budget yang aman, tanggal realistisnya, dan berapa langkah
- * tambahan yang bisa menutup selisihnya — karena defisit yang tidak boleh datang
+ * tambahan yang bisa menutup selisihnya, karena defisit yang tidak boleh datang
  * dari makanan masih boleh datang dari gerak.
  */
 export const planWeightChange = (input: PlanInput): WeightPlan => {

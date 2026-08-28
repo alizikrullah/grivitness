@@ -22,7 +22,7 @@ router.get('/', validateQuery(FoodDateSchema), foodController.getByDate);
 // multipart baru tersedia di req.body setelah Multer selesai mem-parse-nya.
 router.post('/', upload.single('photo'), validateBody(CreateFoodSchema), foodController.create);
 
-// Koreksi manual atas hasil AI. Sengaja tidak menerima foto — mengganti foto
+// Koreksi manual atas hasil AI. Sengaja tidak menerima foto, mengganti foto
 // berarti analisa ulang, dan itu pencatatan baru, bukan penyuntingan.
 router.patch(
   '/:id',

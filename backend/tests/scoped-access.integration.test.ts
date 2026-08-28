@@ -16,10 +16,10 @@ import { cleanupTestUsers, testEmail } from './helpers/directus-cleanup.js';
 /**
  * Dua hal diuji di sini:
  *
- * 1. auth.middleware — sampai sekarang belum ada endpoint protected di aplikasi,
+ * 1. auth.middleware, sampai sekarang belum ada endpoint protected di aplikasi,
  *    jadi tanpa test ini perilakunya sama sekali belum pernah dibuktikan.
  *
- * 2. forUser() — lapisan yang mencegah data satu user terbaca user lain.
+ * 2. forUser(), lapisan yang mencegah data satu user terbaca user lain.
  *    Backend memakai admin token, jadi kalau lapisan ini bocor, tidak ada
  *    pertahanan lain di belakangnya.
  */
@@ -128,7 +128,7 @@ describe('authMiddleware', () => {
   });
 });
 
-describe('forUser — pembatasan akses antar user', () => {
+describe('forUser, pembatasan akses antar user', () => {
   const hariIni = '2026-08-22';
 
   it('hanya mengembalikan data milik user yang bersangkutan', async () => {
@@ -228,7 +228,7 @@ describe('forUser — pembatasan akses antar user', () => {
   });
 });
 
-describe('user_date_key — pengganti composite unique', () => {
+describe('user_date_key, pengganti composite unique', () => {
   it('menolak dua log pada tanggal sama untuk user yang sama', async () => {
     const tanggal = '2026-01-15';
     const repo = forUser(userA.id);
@@ -267,7 +267,7 @@ describe('user_date_key — pengganti composite unique', () => {
   });
 });
 
-describe('GET /api/files/:id — penyajian file privat', () => {
+describe('GET /api/files/:id, penyajian file privat', () => {
   /**
    * File di Directus bersifat privat, jadi client tidak bisa memuatnya langsung.
    * Backend yang menyajikannya setelah memastikan file itu memang dirujuk oleh

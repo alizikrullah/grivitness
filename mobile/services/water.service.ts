@@ -2,16 +2,27 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { del, get, patch, post } from '@/lib/api';
 import { invalidateAfterLog, qk } from '@/lib/query';
+import { todayWIB } from '@/utils/date';
 import type { WaterDay, WaterLog } from '@/types';
 
 export const useWaterToday = () =>
   useQuery({ queryKey: qk.waterToday, queryFn: () => get<WaterDay>('/api/water/today') });
 
-export const useWaterDate = (date: string) =>
-  useQuery({
-    queryKey: qk.waterDate(date),
-    queryFn: () => get<WaterDay>('/api/water', { params: { date } }),
+/**
+ * Minum pada satu tanggal. Hari ini dialihkan ke endpoint dan kunci cache
+ * "today" supaya layar catat dan beranda berbagi satu salinan data.
+ */
+export const useWaterDate = (date: string) => {
+  const iniHariIni = date === todayWIB();
+
+  return useQuery({
+    queryKey: iniHariIni ? qk.waterToday : qk.waterDate(date),
+    queryFn: () =>
+      iniHariIni
+        ? get<WaterDay>('/api/water/today')
+        : get<WaterDay>('/api/water', { params: { date } }),
   });
+};
 
 const segarkan = (client: ReturnType<typeof useQueryClient>) => {
   void client.invalidateQueries({ queryKey: ['water'] });

@@ -23,7 +23,7 @@ interface LineChartProps {
  * Grafik garis untuk tren berat badan.
  *
  * Titik bernilai null berarti hari itu tidak ada catatan. Titik seperti itu
- * dilewati dan garisnya tetap tersambung ke titik berikutnya — menariknya ke
+ * dilewati dan garisnya tetap tersambung ke titik berikutnya, menariknya ke
  * nol akan menggambarkan penurunan berat drastis yang tidak pernah terjadi.
  */
 export const LineChart = ({
@@ -56,7 +56,7 @@ export const LineChart = ({
 
   // Rentang nol terjadi kalau semua nilainya sama. Dibiarkan nol, pembagian
   // berikutnya menghasilkan NaN dan garisnya hilang; diberi rentang semu,
-  // garisnya digambar mendatar di tengah — yang memang benar.
+  // garisnya digambar mendatar di tengah, yang memang benar.
   const rentang = maks - min || 1;
 
   const pad = 10;

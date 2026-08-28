@@ -12,7 +12,7 @@ import { patch } from '@/lib/api';
  * `expo-notifications` mendaftarkan listener di lingkup global berkasnya, dan
  * di Expo Go pendaftaran itu melempar error. Karena impor di React Native
  * dievaluasi begitu berkas dimuat, satu impor statis di sini cukup untuk
- * menjatuhkan seluruh root layout — yang muncul sebagai "Route ./_layout.tsx
+ * menjatuhkan seluruh root layout, yang muncul sebagai "Route ./_layout.tsx
  * is missing the required default export", bukan sebagai pesan tentang push.
  *
  * Karena itu modulnya dimuat lewat impor dinamis di bawah, setelah dipastikan
@@ -24,7 +24,7 @@ const DI_EXPO_GO = Constants.executionEnvironment === ExecutionEnvironment.Store
  * Mendaftarkan perangkat ini untuk menerima pengingat.
  *
  * Tanpa langkah ini, sakelar pengingat di layar profil hanya mengubah baris di
- * database dan tidak pernah menghasilkan notifikasi — backend tidak punya
+ * database dan tidak pernah menghasilkan notifikasi, backend tidak punya
  * alamat yang bisa dituju. Token Expo itulah alamatnya.
  *
  * Semua kegagalan di sini ditelan diam-diam. Notifikasi adalah pelengkap, dan
@@ -56,7 +56,7 @@ const ambilToken = async (): Promise<string | null> => {
   }
 
   // projectId hanya ada setelah proyek terhubung ke EAS. Sebelum itu token
-  // tidak bisa diterbitkan, dan itu bukan kesalahan — hanya belum saatnya.
+  // tidak bisa diterbitkan, dan itu bukan kesalahan, hanya belum saatnya.
   const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
 
   if (typeof projectId !== 'string') return null;

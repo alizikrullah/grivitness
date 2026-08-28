@@ -38,6 +38,16 @@ export const CreateWorkoutSchema = z
       .optional(),
 
     intensity: z.enum(WORKOUT_INTENSITY),
+
+    /**
+     * true kalau sesi ini SUDAH ikut terhitung di angka smartwatch hari itu.
+     *
+     * Menentukan apakah kalorinya boleh ditambahkan di atas angka perangkat.
+     * Jalan santai dan berkebun yang dilakukan sambil memakai jam tangan sudah
+     * masuk di sana; berenang atau sesi yang jamnya dilepas belum.
+     */
+    tracked_by_device: z.boolean().optional(),
+
     notes: z.string().trim().max(1000).optional(),
     logged_at: dateString.optional(),
   })
@@ -76,7 +86,7 @@ export const CreateWorkoutSchema = z
 /**
  * Koreksi log olahraga yang sudah tercatat.
  *
- * Sumbernya (library / custom / manual) tidak bisa diubah — mengganti sumber
+ * Sumbernya (library / custom / manual) tidak bisa diubah, mengganti sumber
  * berarti olahraga yang berbeda, dan itu catatan baru, bukan penyuntingan.
  */
 export const UpdateWorkoutSchema = z
@@ -98,6 +108,7 @@ export const UpdateWorkoutSchema = z
       .optional(),
 
     intensity: z.enum(WORKOUT_INTENSITY).optional(),
+    tracked_by_device: z.boolean().optional(),
     notes: z.string().trim().max(1000).nullable().optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {

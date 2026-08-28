@@ -22,8 +22,7 @@ export interface PublicUser {
 /**
  * Profil ditambah nilai turunan yang dihitung backend.
  *
- * bmr dan tdee bernilai null selama user belum pernah mencatat berat badan —
- * rumus Mifflin-St Jeor butuh berat, dan menebaknya akan menghasilkan angka
+ * bmr dan tdee bernilai null selama user belum pernah mencatat berat badan, * rumus Mifflin-St Jeor butuh berat, dan menebaknya akan menghasilkan angka
  * yang terlihat resmi padahal karangan.
  */
 export interface ProfileWithDerived {
@@ -36,7 +35,7 @@ export interface ProfileWithDerived {
    * Penjelasan activity_level dalam bahasa yang bisa dijawab user.
    *
    * Sejak TDEE memakai metode faktorial, field ini TIDAK lagi berarti "seberapa
-   * aktif kamu" — tidur, langkah, dan olahraga sudah punya potongan waktunya
+   * aktif kamu", tidur, langkah, dan olahraga sudah punya potongan waktunya
    * sendiri. Yang ditanyakan sekarang adalah seperti apa sisa harimu, praktisnya
    * seperti apa pekerjaanmu. Label ini yang menyampaikan pergeseran itu ke layar.
    */
@@ -52,14 +51,14 @@ export interface ProfileWithDerived {
    * Kalau ikut naik-turun mengikuti aktivitas harian, user tidak pernah tahu
    * berapa yang boleh dimakan sampai harinya berakhir.
    *
-   * Sudah dikoreksi pengukuran kalau datanya memadai — lihat `observed_tdee`.
+   * Sudah dikoreksi pengukuran kalau datanya memadai, lihat `observed_tdee`.
    */
   tdee: number | null;
   /**
    * Hasil mengukur TDEE dari catatan berat dan makanan user sendiri.
    *
    * Rumus cuma titik awal. Begitu ada cukup data, angkanya digeser ke arah yang
-   * benar-benar terjadi pada tubuh user ini — karena Mifflin-St Jeor tahu soal
+   * benar-benar terjadi pada tubuh user ini, karena Mifflin-St Jeor tahu soal
    * 498 orang di tahun 1990, dan tidak tahu apa-apa soal orang ini.
    */
   observed_tdee: ObservedTdee | null;
@@ -75,7 +74,7 @@ const toPublicUser = (user: UserRecord): PublicUser => ({
 });
 
 /**
- * Collection `users` tidak bisa lewat forUser() — barisnya JUSTRU si user itu
+ * Collection `users` tidak bisa lewat forUser(), barisnya JUSTRU si user itu
  * sendiri, bukan data yang dimilikinya. Ini salah satu dari sedikit tempat yang
  * boleh menyentuh SDK langsung, dan filternya tetap ditulis eksplisit.
  */

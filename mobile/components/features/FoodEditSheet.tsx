@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { RemoteImage } from '@/components/features/RemoteImage';
 import { Button, ChipGroup, ErrorNote, Input, Sheet, Text } from '@/components/ui';
 import { MEAL_LABEL, MEAL_OPTIONS } from '@/constants/labels';
-import { spacing } from '@/constants/theme';
+import { radius, spacing } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
 import { useUpdateFood } from '@/services/food.service';
 import type { FoodLog, MealType } from '@/types';
@@ -80,6 +81,23 @@ export const FoodEditSheet = ({ log, onClose }: FoodEditSheetProps) => {
         <Button label="Simpan perubahan" onPress={simpan} loading={update.isPending} size="lg" />
       }
     >
+      {/*
+        Fotonya ditampilkan di paling atas, sebelum satu pun kolom isian.
+
+        Yang sedang dikoreksi user adalah taksiran AI ATAS foto ini, jadi
+        fotonya adalah rujukan untuk menilai benar tidaknya angka di bawahnya.
+        Mengoreksi tanpa melihat piringnya berarti menebak dua kali.
+
+        Sekaligus jadi bukti bahwa fotonya memang tersimpan utuh di server, bukan
+        cuma sempat terlihat sekali saat diunggah.
+      */}
+      <RemoteImage
+        path={log.photo_url}
+        style={styles.foto}
+        aspectRatio={4 / 3}
+        accessibilityLabel={'Foto ' + MEAL_LABEL[log.meal_type]}
+      />
+
       <Input
         label="Makanan"
         value={makanan}
@@ -157,6 +175,10 @@ export const FoodEditSheet = ({ log, onClose }: FoodEditSheetProps) => {
 };
 
 const styles = StyleSheet.create({
+  // Perbandingan sisinya disamakan dengan kotak pengambilan foto di layar
+  // catat, supaya yang terlihat di sini sama persis dengan yang dipotret.
+  // aspectRatio lewat prop RemoteImage, bukan di sini. Lihat catatan di sana.
+  foto: { width: '100%', borderRadius: radius.lg },
   group: { gap: spacing.md },
   macros: { flexDirection: 'row', gap: spacing.sm },
   macroItem: { flex: 1 },

@@ -1,0 +1,42 @@
+.datefield {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.datefield-input {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 14px;
+  /* color-scheme memberi tahu browser bahwa latarnya gelap, sehingga ikon
+     kalender bawaan dan panel pemilihnya ikut memakai varian gelap. Tanpa ini
+     ikonnya digambar hitam di atas kartu hitam dan praktis tidak terlihat. */
+  color-scheme: dark;
+  cursor: pointer;
+}
+
+.datefield-input:focus {
+  outline: none;
+  border-color: var(--border-focus);
+}
+
+.datefield-reset {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: 999px;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.datefield-reset:hover {
+  border-color: var(--primary);
+  color: var(--text-primary);
+}

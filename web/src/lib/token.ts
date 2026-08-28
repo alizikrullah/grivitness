@@ -3,8 +3,7 @@
  *
  * PERBEDAAN PENTING DARI MOBILE, dan ini kompromi yang sadar.
  *
- * Mobile memakai expo-secure-store yang menaruh token di Keychain/Keystore —
- * terenkripsi dan tidak terbaca oleh proses lain. Browser tidak punya padanan
+ * Mobile memakai expo-secure-store yang menaruh token di Keychain/Keystore, * terenkripsi dan tidak terbaca oleh proses lain. Browser tidak punya padanan
  * itu. Yang tersedia cuma localStorage/sessionStorage, dan keduanya bisa dibaca
  * oleh JavaScript mana pun yang berhasil berjalan di halaman ini. Artinya satu
  * celah XSS sudah cukup untuk mencuri sesi.
@@ -12,7 +11,7 @@
  * Yang benar-benar aman adalah menaruh refresh token di cookie httpOnly, karena
  * cookie seperti itu tidak bisa disentuh JavaScript sama sekali. Tapi itu
  * menuntut backend ikut berubah: mengirim Set-Cookie, menyalakan CORS dengan
- * credentials, dan menambah perlindungan CSRF — yang tanpa itu justru membuka
+ * credentials, dan menambah perlindungan CSRF, yang tanpa itu justru membuka
  * lubang baru.
  *
  * Untuk sekarang dipakai localStorage, dan keputusannya ditulis di sini supaya
@@ -20,7 +19,7 @@
  * berikutnya kalau aplikasi ini dipakai lebih dari satu orang.
  *
  * sessionStorage sempat dipertimbangkan dan ditolak: tokennya hilang setiap tab
- * ditutup, jadi user harus masuk ulang terus-menerus — sementara terhadap XSS
+ * ditutup, jadi user harus masuk ulang terus-menerus, sementara terhadap XSS
  * dia sama rentannya.
  */
 
@@ -57,7 +56,7 @@ export const readTokens = (): TokenPair | null =>
     const access = localStorage.getItem(ACCESS_KEY);
     const refresh = localStorage.getItem(REFRESH_KEY);
 
-    // Satu token tanpa pasangannya tidak ada gunanya — access tanpa refresh akan
+    // Satu token tanpa pasangannya tidak ada gunanya, access tanpa refresh akan
     // mati dalam 15 menit tanpa bisa diperpanjang.
     if (!access || !refresh) return null;
 

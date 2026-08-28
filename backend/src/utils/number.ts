@@ -4,7 +4,7 @@ import { AppError } from './api-error.js';
  * Directus mengembalikan kolom decimal sebagai STRING, bukan number.
  * Sudah diverifikasi ke instance: weight_kg 82.55 terbaca "82.55".
  *
- * Aritmetika langsung pada nilai itu diam-diam salah — `"82.55" + 1` menghasilkan
+ * Aritmetika langsung pada nilai itu diam-diam salah, `"82.55" + 1` menghasilkan
  * `"82.551"` tanpa melempar error apapun. Jadi setiap decimal dari Directus
  * WAJIB lewat helper ini dulu sebelum dipakai berhitung.
  */
@@ -21,7 +21,7 @@ export const toNumber = (value: string | number): number => {
   }
 
   // Number('') dan Number('   ') menghasilkan 0, bukan NaN. Tanpa pemeriksaan
-  // ini, kolom decimal yang kosong akan terbaca sebagai berat 0 kg — salah,
+  // ini, kolom decimal yang kosong akan terbaca sebagai berat 0 kg, salah,
   // tapi tidak melempar error apa pun sehingga sulit terdeteksi.
   if (value.trim() === '') {
     throw new AppError(500, 'INTERNAL_ERROR', 'Nilai numerik kosong dari database');

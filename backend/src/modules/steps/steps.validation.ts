@@ -15,7 +15,7 @@ export const CreateStepsSchema = z.object({
 
 export const UpdateStepsSchema = z.object({
   // Hanya `steps` yang bisa diubah. distance_km dan calories_burned adalah
-  // turunan yang dihitung backend — membiarkan client mengirimnya berarti
+  // turunan yang dihitung backend, membiarkan client mengirimnya berarti
   // angka di database bisa tidak konsisten dengan jumlah langkahnya.
   steps,
 });

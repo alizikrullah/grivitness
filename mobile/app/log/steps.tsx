@@ -9,6 +9,7 @@ import {
   BarChart,
   Button,
   Card,
+  DateStrip,
   ErrorNote,
   Header,
   Loading,
@@ -24,17 +25,17 @@ import { toApiError } from '@/lib/api';
 import {
   useDeleteSteps,
   useSaveSteps,
+  useStepsDate,
   useStepsRange,
-  useStepsToday,
 } from '@/services/steps.service';
 import { useDailySummary } from '@/services/misc.service';
-import { dateRange, dayLabel, shiftDays, todayWIB } from '@/utils/date';
+import { dateRange, dayLabel, dayPhrase, shiftDays, todayWIB } from '@/utils/date';
 import { thousands } from '@/utils/format';
 
 /**
  * Membaca langkah hari ini dari sensor perangkat.
  *
- * getStepCountAsync hanya tersedia di iOS — Android tidak menyimpan riwayat
+ * getStepCountAsync hanya tersedia di iOS, Android tidak menyimpan riwayat
  * langkah yang bisa dibaca begitu saja. Karena itu kegagalannya diperlakukan
  * sebagai "sensor tidak tersedia", bukan sebagai kesalahan; user tetap bisa
  * mengisi angkanya sendiri.
@@ -77,10 +78,19 @@ const useLangkahSensor = () => {
 };
 
 export default function StepsScreen() {
+  /**
+   * Tanggal yang sedang dilihat. Bawaannya hari ini, tapi user bisa mundur
+   * untuk membaca dan melengkapi catatan hari-hari sebelumnya.
+   */
+  const [dipilih, setDipilih] = useState(todayWIB());
+
+  // Chart tetap berlabuh pada hari ini apa pun tanggal yang sedang dibuka,
+  // supaya bentuk sepekannya tidak ikut bergeser setiap kali user menoleh ke
+  // belakang.
   const hariIni = todayWIB();
   const awal = shiftDays(hariIni, -6);
 
-  const today = useStepsToday();
+  const today = useStepsDate(dipilih);
   const riwayat = useStepsRange(awal, hariIni);
   const saveSteps = useSaveSteps();
   const deleteSteps = useDeleteSteps();
@@ -90,7 +100,7 @@ export default function StepsScreen() {
    * badan. Query-nya sudah terisi dari beranda, jadi ini tidak menambah
    * permintaan jaringan dalam pemakaian normal.
    */
-  const target = useDailySummary(hariIni).data?.targets.steps;
+  const target = useDailySummary(dipilih).data?.targets.steps;
 
   const logHariIni = today.data ?? null;
 
@@ -100,11 +110,32 @@ export default function StepsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [pesan, setPesan] = useState<string | null>(null);
 
+  /**
+   * Angka yang sedang diketik dilepas saat pindah tanggal, disetel ulang saat
+   * render dan bukan lewat useEffect. Tanpa ini, angka hari kemarin yang tampil
+   * adalah angka hari ini yang barusan dilihat.
+   */
+  const [tanggalTerakhir, setTanggalTerakhir] = useState(dipilih);
+  if (dipilih !== tanggalTerakhir) {
+    setTanggalTerakhir(dipilih);
+    setLangkah(null);
+    setError(null);
+    setPesan(null);
+  }
+
   const nilai = langkah ?? today.data?.steps ?? 0;
 
   const batang: BarDatum[] = dateRange(awal, hariIni).map((tanggal) => {
-    const jumlah = riwayat.data?.find((l) => l.logged_at === tanggal)?.steps ?? 0;
-    return { label: dayLabel(tanggal), value: jumlah, caption: thousands(jumlah) };
+    // null, bukan nol. Hari yang tidak dicatat berbeda dari hari tanpa langkah,
+    // dan menggambarnya sebagai nol sama saja mengarang bahwa user diam saja.
+    const log = riwayat.data?.find((l) => l.logged_at === tanggal);
+    const jumlah = log?.steps ?? null;
+
+    return {
+      label: dayLabel(tanggal),
+      value: jumlah,
+      caption: jumlah === null ? undefined : thousands(jumlah),
+    };
   });
 
   const simpan = () => {
@@ -112,7 +143,8 @@ export default function StepsScreen() {
     setPesan(null);
 
     saveSteps.mutate(
-      { id: today.data?.id, steps: nilai },
+      // Dicatat ke tanggal yang sedang dilihat, bukan selalu ke hari ini.
+      { id: today.data?.id, steps: nilai, logged_at: dipilih },
       {
         onSuccess: () => setPesan('Langkah tersimpan'),
         onError: (e) => setError(toApiError(e).message),
@@ -124,17 +156,19 @@ export default function StepsScreen() {
     <Screen>
       <Header
         title="Langkah kaki"
-        subtitle="Satu catatan per hari"
+        subtitle={'Satu catatan per hari · ' + dayPhrase(dipilih)}
         action={
           logHariIni ? (
             <LogActions
               onDelete={() => deleteSteps.mutate(logHariIni.id)}
-              deleteMessage="Catatan langkah hari ini akan dihapus."
+              deleteMessage={'Catatan langkah ' + dayPhrase(dipilih) + ' akan dihapus.'}
               row
             />
           ) : undefined
         }
       />
+
+      <DateStrip value={dipilih} onChange={setDipilih} />
 
       {today.isPending ? (
         <Loading />
@@ -168,7 +202,7 @@ export default function StepsScreen() {
 
               {/*
                 Dua lapis, dan pemisahannya disengaja. Lapis pertama murni
-                kesehatan — Paluch dkk. 2022 menunjukkan manfaatnya mendatar
+                kesehatan, Paluch dkk. 2022 menunjukkan manfaatnya mendatar
                 sekitar 8.000, bukan 10.000. Lapis kedua muncul cuma kalau
                 target beratmu tidak bisa dikejar dari makanan saja tanpa
                 menembus batas aman, jadi angkanya bisa dijelaskan.

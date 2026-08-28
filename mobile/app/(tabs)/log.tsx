@@ -9,6 +9,7 @@ import {
   RulerIcon,
   ScalesIcon,
   SmileyIcon,
+  WatchIcon,
   type IconProps,
 } from 'phosphor-react-native';
 import type { ComponentType } from 'react';
@@ -94,6 +95,14 @@ export default function LogHubScreen() {
       color: metricColors.sleep,
       status: (d?.sleep_minutes ?? 0) > 0 ? duration(d?.sleep_minutes ?? 0) : 'Belum dicatat',
       done: (d?.sleep_minutes ?? 0) > 0,
+    },
+    {
+      href: '/log/device-energy',
+      label: 'Kalori jam',
+      Icon: WatchIcon,
+      color: metricColors.device,
+      status: d?.device_kcal != null ? thousands(d.device_kcal) + ' kkal' : 'Belum dicatat',
+      done: d?.device_kcal != null,
     },
     {
       href: '/log/mood',

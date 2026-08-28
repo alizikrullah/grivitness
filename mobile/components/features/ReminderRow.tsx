@@ -25,7 +25,7 @@ interface ReminderRowProps {
  * keduanya ke satu baris yang membuka sheet berarti menyalakan pengingat butuh
  * dua ketukan untuk hal yang seharusnya satu.
  *
- * Pil nilainya diredupkan saat pengingat mati — masih bisa disentuh untuk
+ * Pil nilainya diredupkan saat pengingat mati, masih bisa disentuh untuk
  * mengatur jam terlebih dulu, tapi terlihat jelas bahwa belum ada yang berbunyi.
  */
 export const ReminderRow = ({

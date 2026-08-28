@@ -5,6 +5,7 @@ import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import {
   Button,
   Card,
+  DateStrip,
   ErrorNote,
   Header,
   Input,
@@ -22,10 +23,10 @@ import { toApiError } from '@/lib/api';
 import {
   useCreateWeight,
   useUpdateWeight,
+  useWeightDate,
   useWeightRange,
-  useWeightToday,
 } from '@/services/weight.service';
-import { shiftDays, shortDate, todayWIB } from '@/utils/date';
+import { dayPhrase, shiftDays, shortDate, todayWIB } from '@/utils/date';
 import { signed, toNum } from '@/utils/format';
 
 /** Berat awal saat user belum punya catatan apa pun. */
@@ -34,11 +35,20 @@ const BERAT_AWAL = 70;
 export default function WeightScreen() {
   const router = useRouter();
 
-  const hariIni = todayWIB();
-  const hariAwal = shiftDays(hariIni, -29);
+  /**
+   * Tanggal yang sedang dilihat. Bawaannya hari ini, tapi user bisa mundur
+   * untuk membaca dan membetulkan penimbangan hari-hari sebelumnya.
+   */
+  const [tanggal, setTanggal] = useState(todayWIB());
 
-  const today = useWeightToday();
-  const riwayat = useWeightRange(hariAwal, hariIni);
+  // Chart tetap berlabuh pada hari ini apa pun tanggal yang sedang dibuka.
+  // Kalau ikut bergeser, bentuk trennya berubah setiap kali user menoleh ke
+  // belakang dan jadi tidak bisa dijadikan pegangan.
+  const akhirRentang = todayWIB();
+  const hariAwal = shiftDays(akhirRentang, -29);
+
+  const today = useWeightDate(tanggal);
+  const riwayat = useWeightRange(hariAwal, akhirRentang);
 
   const createWeight = useCreateWeight();
   const updateWeight = useUpdateWeight();
@@ -47,10 +57,26 @@ export default function WeightScreen() {
   const [catatan, setCatatan] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Angka yang sedang diketik dilepas saat pindah tanggal, disetel ulang saat
+   * render dan bukan lewat useEffect.
+   *
+   * Tanpa ini, berat yang tampil untuk 20 Agustus adalah angka yang barusan
+   * dilihat di 23 Agustus, dan menyimpannya akan menulis nilai yang salah ke
+   * hari yang salah.
+   */
+  const [tanggalTerakhir, setTanggalTerakhir] = useState(tanggal);
+  if (tanggal !== tanggalTerakhir) {
+    setTanggalTerakhir(tanggal);
+    setBerat(null);
+    setCatatan('');
+    setError(null);
+  }
+
   const memuat = today.isPending || riwayat.isPending;
 
   // Nilai awal stepper: berat hari ini kalau sudah tercatat, kalau belum maka
-  // catatan terakhir — karena berat besok hampir selalu dekat dengan hari ini.
+  // catatan terakhir, karena berat besok hampir selalu dekat dengan hari ini.
   const terakhir = riwayat.data?.[riwayat.data.length - 1];
   const nilaiAwal = toNum(today.data?.weight_kg) ?? toNum(terakhir?.weight_kg) ?? BERAT_AWAL;
 
@@ -84,7 +110,12 @@ export default function WeightScreen() {
     }
 
     createWeight.mutate(
-      { weight_kg: nilai, notes: catatan.trim() === '' ? undefined : catatan.trim() },
+      {
+        weight_kg: nilai,
+        notes: catatan.trim() === '' ? undefined : catatan.trim(),
+        // Dicatat ke tanggal yang sedang dilihat, bukan selalu ke hari ini.
+        logged_at: tanggal,
+      },
       { onSuccess, onError },
     );
   };
@@ -97,8 +128,10 @@ export default function WeightScreen() {
       <Screen>
         <Header
           title="Berat badan"
-          subtitle={sudahAda ? 'Sudah dicatat hari ini' : 'Belum dicatat hari ini'}
+          subtitle={(sudahAda ? 'Sudah dicatat ' : 'Belum dicatat ') + dayPhrase(tanggal)}
         />
+
+        <DateStrip value={tanggal} onChange={setTanggal} />
 
         {memuat ? (
           <Loading />
@@ -107,7 +140,7 @@ export default function WeightScreen() {
             <Card>
               <View style={styles.stepperCard}>
                 <Text variant="overline" tone="tertiary" align="center">
-                  Berat hari ini
+                  {'Berat ' + dayPhrase(tanggal)}
                 </Text>
 
                 <Stepper

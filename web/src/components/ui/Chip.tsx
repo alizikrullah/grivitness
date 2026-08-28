@@ -11,7 +11,7 @@ export const Chip = ({ label, active = false, onClick }: ChipProps) => (
     type="button"
     onClick={onClick}
     // aria-pressed memberi tahu pembaca layar bahwa ini sakelar yang sedang
-    // menyala, bukan sekadar tombol biasa — warnanya saja tidak menyampaikan itu.
+    // menyala, bukan sekadar tombol biasa, warnanya saja tidak menyampaikan itu.
     aria-pressed={active}
     className={'chip' + (active ? ' chip-active' : '')}
   >

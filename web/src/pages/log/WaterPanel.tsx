@@ -1,12 +1,20 @@
 import { DropIcon, PlusIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
 
-import { Card, EmptyState, ErrorNote, Loading, Ring, SectionHeader } from '@/components/ui';
+import {
+  Card,
+  DateField,
+  EmptyState,
+  ErrorNote,
+  Loading,
+  Ring,
+  SectionHeader,
+} from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
 import { toApiError } from '@/lib/api';
 import { useDailySummary } from '@/services/misc.service';
-import { useAddWater, useDeleteWater, useWaterToday } from '@/services/water.service';
-import { timeWIB, todayWIB } from '@/utils/date';
+import { useAddWater, useDeleteWater, useWaterDate } from '@/services/water.service';
+import { dayPhrase, timeWIB, todayWIB, wibToISO } from '@/utils/date';
 import { ratio, volume } from '@/utils/format';
 import { LogActions } from './LogActions';
 
@@ -14,7 +22,14 @@ import { LogActions } from './LogActions';
 const TAKARAN = [150, 250, 500, 750];
 
 export const WaterPanel = () => {
-  const today = useWaterToday();
+  /**
+   * Tanggal yang sedang dilihat. Bawaannya hari ini, tapi user bisa mundur
+   * untuk membaca dan melengkapi catatan hari-hari sebelumnya.
+   */
+  const [tanggal, setTanggal] = useState(todayWIB());
+  const hariIni = tanggal === todayWIB();
+
+  const today = useWaterDate(tanggal);
   const tambah = useAddWater();
   const hapus = useDeleteWater();
 
@@ -23,21 +38,32 @@ export const WaterPanel = () => {
   const total = today.data?.total_ml ?? 0;
 
   /**
-   * Target minum diturunkan backend dari berat badan dan usia — 35 ml per kg
+   * Target minum diturunkan backend dari berat badan dan usia, 35 ml per kg
    * untuk dewasa, lebih rendah untuk usia lanjut, plus tambahan sesuai lama
    * olahraga hari itu. Angka tetap 2500ml memaksa orang bertubuh kecil minum
    * berlebihan sementara yang bertubuh besar merasa cukup padahal belum.
    */
-  const targetMl = useDailySummary(todayWIB()).data?.targets.water_ml ?? 0;
+  const targetMl = useDailySummary(tanggal).data?.targets.water_ml ?? 0;
 
   const catat = (ml: number) => {
     setError(null);
-    tambah.mutate({ amount_ml: ml }, { onError: (e) => setError(toApiError(e).message) });
+    tambah.mutate(
+      {
+        amount_ml: ml,
+        // Saat menelusuri hari lampau, tegukan dicatat ke tanggal ITU. Tengah
+        // hari dipakai sebagai jam netral karena jam sesungguhnya sudah tidak
+        // bisa diingat lagi.
+        logged_at: hariIni ? undefined : wibToISO(tanggal, '12:00'),
+      },
+      { onError: (e) => setError(toApiError(e).message) },
+    );
   };
 
   return (
     <>
       <SectionHeader title="Minum air" />
+
+      <DateField value={tanggal} onChange={setTanggal} />
 
       {today.isPending ? (
         <Loading />
@@ -78,12 +104,12 @@ export const WaterPanel = () => {
 
           {error ? <ErrorNote message={error} /> : null}
 
-          <SectionHeader title="Catatan hari ini" />
+          <SectionHeader title={'Catatan ' + dayPhrase(tanggal)} />
 
           {(today.data?.logs.length ?? 0) === 0 ? (
             <EmptyState
               icon={<DropIcon size={28} color={colors.textTertiary} weight="duotone" />}
-              title="Belum minum apa-apa"
+              title="Belum ada catatan minum"
               message="Klik salah satu takaran di atas untuk mencatat."
             />
           ) : (

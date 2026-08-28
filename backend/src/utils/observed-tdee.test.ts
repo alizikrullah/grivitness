@@ -39,7 +39,7 @@ describe('observeTDEE', () => {
    * Contoh yang jadi alasan seluruh berkas ini ada.
    *
    * Makan 1900 kkal selama 21 hari sambil turun 1,2 kg berarti TDEE-nya
-   * 1900 + (1,2/21) x 7700 = 2340 — bukan 2685 seperti tebakan rumus.
+   * 1900 + (1,2/21) x 7700 = 2340, bukan 2685 seperti tebakan rumus.
    */
   it('menghitung TDEE dari asupan dan laju penurunan', () => {
     const hasil = observeTDEE(dasar());
@@ -151,7 +151,7 @@ describe('observeTDEE', () => {
   it('tahan terhadap satu penimbangan yang meleset', () => {
     const bersih = timbangan(85, 1.2 / 21, 21);
 
-    // Satu kilo air di penimbangan TERAKHIR — posisi paling merusak, karena di
+    // Satu kilo air di penimbangan TERAKHIR, posisi paling merusak, karena di
     // ujung rentang pengaruhnya terhadap kemiringan garis paling besar.
     const kacau = bersih.map((w, i) => (i === bersih.length - 1 ? { ...w, kg: w.kg + 1 } : w));
 

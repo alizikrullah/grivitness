@@ -16,7 +16,7 @@ export const CreateGoalSchema = z.object({
 
   /**
    * Opsional. Kalau dikosongkan, backend menghitungnya dari TDEE dan selisih
-   * berat menuju target. Kalau diisi, nilai dari user yang dipakai — dia berhak
+   * berat menuju target. Kalau diisi, nilai dari user yang dipakai, dia berhak
    * menentukan sendiri, misalnya karena mengikuti anjuran dokter atau pelatih.
    */
   daily_calorie_budget: z

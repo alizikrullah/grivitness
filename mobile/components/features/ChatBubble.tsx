@@ -1,5 +1,11 @@
 import * as Haptics from 'expo-haptics';
-import { ChatCircleDotsIcon, PaperPlaneRightIcon, SparkleIcon, XIcon } from 'phosphor-react-native';
+import {
+  ChatCircleDotsIcon,
+  PaperPlaneRightIcon,
+  SparkleIcon,
+  TrashIcon,
+  XIcon,
+} from 'phosphor-react-native';
 import { useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -9,15 +15,16 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ErrorNote, Text } from '@/components/ui';
+import { ConfirmDialog, ErrorNote, Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { elevation, radius, spacing, typography } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
-import { useSendChat, type ChatMessage } from '@/services/chat.service';
+import { useChatHistory, useClearChat, useSendChat } from '@/services/chat.service';
 
 /**
  * Tinggi tab bar melayang: satu baris setinggi 48 ditambah padding 8 di atas
@@ -42,12 +49,32 @@ const CONTOH = [
  */
 export const ChatBubble = () => {
   const insets = useSafeAreaInsets();
+
+  /**
+   * Tinggi panel dipatok pada porsi layar, bukan dibiarkan mengikuti isinya.
+   *
+   * Sebelumnya area pesan memakai flexGrow: 0, jadi panelnya setinggi isi saja.
+   * Percakapan yang baru dimulai cuma berisi satu sapaan, dan panelnya menciut
+   * jadi sekadar pita tipis di bawah layar: ruang bacanya sempit, dan tiap
+   * balasan baru membuat seluruh panel melompat tinggi.
+   *
+   * Dihitung dalam piksel dari useWindowDimensions, bukan persentase, karena
+   * induknya KeyboardAvoidingView yang tingginya tidak pasti dan persentase di
+   * atasnya tidak bisa diandalkan.
+   */
+  const { height: tinggiLayar } = useWindowDimensions();
+  const tinggiPanel = Math.round(tinggiLayar * 0.78);
   const kirimAI = useSendChat();
+  const hapusRiwayat = useClearChat();
+
+  // Riwayatnya datang dari server sekarang, bukan dari state komponen. Percakapan
+  // karena itu bertahan setelah aplikasi ditutup.
+  const riwayat = useChatHistory().data ?? [];
 
   const [terbuka, setTerbuka] = useState(false);
-  const [riwayat, setRiwayat] = useState<ChatMessage[]>([]);
   const [teks, setTeks] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [tanyaHapus, setTanyaHapus] = useState(false);
 
   const scroller = useRef<ScrollView>(null);
 
@@ -55,7 +82,7 @@ export const ChatBubble = () => {
   // luar layar dan terlihat seperti tidak ada jawaban sama sekali.
   useEffect(() => {
     if (riwayat.length > 0) scroller.current?.scrollToEnd({ animated: true });
-  }, [riwayat, kirimAI.isPending]);
+  }, [riwayat.length, kirimAI.isPending]);
 
   const kirim = (isi: string) => {
     const bersih = isi.trim();
@@ -65,20 +92,13 @@ export const ChatBubble = () => {
     setError(null);
     setTeks('');
 
-    const berikutnya: ChatMessage[] = [...riwayat, { role: 'user', content: bersih }];
-    setRiwayat(berikutnya);
-
-    kirimAI.mutate(berikutnya, {
-      onSuccess: (hasil) => {
-        setRiwayat([...berikutnya, { role: 'assistant', content: hasil.reply }]);
-      },
+    kirimAI.mutate(bersih, {
       onError: (e) => {
         setError(toApiError(e).message);
 
         // Pesan yang gagal dikembalikan ke kolom ketik supaya tidak perlu
-        // diketik ulang. Membiarkannya menggantung di riwayat tanpa jawaban
-        // membuat giliran berikutnya membawa konteks yang timpang.
-        setRiwayat(riwayat);
+        // diketik ulang. Yang menempelkannya sementara ke riwayat sudah
+        // dilepas sendiri oleh onError di service.
         setTeks(bersih);
       },
     });
@@ -112,7 +132,12 @@ export const ChatBubble = () => {
       >
         <View style={styles.scrim}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+            <View
+              style={[
+                styles.sheet,
+                { height: tinggiPanel, paddingBottom: Math.max(insets.bottom, spacing.lg) },
+              ]}
+            >
               <View style={styles.head}>
                 <View style={styles.headIcon}>
                   <SparkleIcon size={18} color={colors.primary} weight="fill" />
@@ -124,6 +149,17 @@ export const ChatBubble = () => {
                     Seputar kebugaran dan gizi
                   </Text>
                 </View>
+
+                {riwayat.length > 0 ? (
+                  <Pressable
+                    onPress={() => setTanyaHapus(true)}
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel="Hapus riwayat percakapan"
+                  >
+                    <TrashIcon size={19} color={colors.textSecondary} weight="regular" />
+                  </Pressable>
+                ) : null}
 
                 <Pressable
                   onPress={() => setTerbuka(false)}
@@ -161,10 +197,13 @@ export const ChatBubble = () => {
                   </View>
                 ) : (
                   riwayat.map((m, i) => (
-                    <View key={i} style={m.role === 'user' ? styles.dariUser : styles.dariAI}>
+                    <View
+                      key={m.id + i}
+                      style={m.role === 'USER' ? styles.dariUser : styles.dariAI}
+                    >
                       <Text
                         variant="body"
-                        tone={m.role === 'user' ? 'inverse' : 'primary'}
+                        tone={m.role === 'USER' ? 'inverse' : 'primary'}
                         style={styles.pesanTeks}
                       >
                         {m.content}
@@ -211,6 +250,20 @@ export const ChatBubble = () => {
               </View>
             </View>
           </KeyboardAvoidingView>
+
+          <ConfirmDialog
+            visible={tanyaHapus}
+            title="Hapus riwayat percakapan?"
+            message="Seluruh percakapan dengan asisten akan hilang permanen, dan dia tidak lagi ingat apa yang sudah kamu tanyakan."
+            onCancel={() => setTanyaHapus(false)}
+            onConfirm={() => {
+              setTanyaHapus(false);
+              setError(null);
+              hapusRiwayat.mutate(undefined, {
+                onError: (e) => setError(toApiError(e).message),
+              });
+            }}
+          />
         </View>
       </Modal>
     </>
@@ -232,7 +285,6 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.75 },
   scrim: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0, 0, 0, 0.55)' },
   sheet: {
-    maxHeight: '88%',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     borderTopLeftRadius: radius.xxl,
@@ -252,7 +304,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primarySoft,
   },
   headText: { flex: 1, gap: 2 },
-  log: { flexGrow: 0 },
+  /* flex: 1 supaya area pesan mengisi sisa panel dan kolom ketik tetap menempel
+     di bawah, apa pun panjang percakapannya. */
+  log: { flex: 1 },
   logIsi: { gap: spacing.sm, paddingBottom: spacing.sm },
   kosong: { gap: spacing.sm, paddingVertical: spacing.md },
   contoh: {

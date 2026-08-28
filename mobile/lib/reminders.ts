@@ -7,7 +7,7 @@ import type { NotificationSettings } from '@/types';
  * Penjadwalan pengingat DI PERANGKAT, bukan lewat push dari server.
  *
  * Semua pengingat di aplikasi ini berbasis jam: timbang jam sekian, minum tiap
- * sekian jam. Jadwal seperti itu tidak butuh server sama sekali — sistem operasi
+ * sekian jam. Jadwal seperti itu tidak butuh server sama sekali, sistem operasi
  * bisa menyimpannya sendiri. Konsekuensinya pengingat tetap muncul walau HP
  * sedang offline, dan tidak ada satu pun bagian infrastruktur yang bisa mati
  * dan membuatnya berhenti.

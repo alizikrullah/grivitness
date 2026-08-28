@@ -16,7 +16,7 @@ import { type DailyTargets, dailyTargets } from '../../utils/targets.js';
 export interface EnergyBreakdown {
   /** Physical Activity Level hari itu, hasil membagi habis 24 jam. */
   pal: number;
-  /** Metabolisme basal dikali PAL — hidup dan kegiatan sehari-hari. */
+  /** Metabolisme basal dikali PAL, hidup dan kegiatan sehari-hari. */
   baseline: number;
   /** Kalori bersih dari berjalan, di atas metabolisme istirahat. */
   step_calories: number;
@@ -29,6 +29,21 @@ export interface DailySummary {
   weight_kg: number | null;
   calories_in: number;
   calories_out: number;
+  /**
+   * Kalori keluar menurut smartwatch, kalau user mencatatnya hari itu.
+   *
+   * Disertakan terpisah supaya layar bisa menyebut angkanya apa adanya dan user
+   * bisa membandingkannya dengan hitungan rumus, bukan cuma melihat satu angka
+   * tanpa tahu dari mana asalnya.
+   */
+  device_kcal: number | null;
+  /**
+   * Dari mana calories_out diambil hari itu.
+   *
+   * "device" berarti angka smartwatch yang dipakai, ditambah olahraga yang
+   * jamnya tidak melihat. "formula" berarti metode faktorial biasa.
+   */
+  calories_out_source: 'formula' | 'device';
   calorie_budget: number | null;
   /** Sisa jatah kalori hari ini. Negatif berarti sudah lewat budget. */
   calories_remaining: number | null;
@@ -57,7 +72,7 @@ export interface DailySummary {
    * Target harian yang diturunkan dari tubuh dan tujuan user.
    *
    * Dikirim dari sini supaya layar tidak perlu menghitung apa pun, dan supaya
-   * angka target tidak lagi ditulis sebagai konstanta di kode mobile — yang
+   * angka target tidak lagi ditulis sebagai konstanta di kode mobile, yang
    * membuatnya sama untuk semua orang dan mustahil dipertanggungjawabkan.
    */
   targets: DailyTargets;
@@ -86,6 +101,8 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
     workoutKalori,
     mood,
     fotoBadan,
+    deviceLog,
+    workoutKaloriLuarDevice,
   ] = await Promise.all([
     loadEnergyProfile(userId),
     repo.findOne('weight_logs', { filter: hari }),
@@ -101,6 +118,14 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
     repo.sum('workout_logs', 'calories_burned', hari),
     repo.findOne('mood_logs', { filter: hari }),
     repo.count('body_photos', hari),
+    repo.findOne('device_energy_logs', { filter: hari }),
+    // Baris lama dibuat sebelum kolom penandanya ada, jadi nilainya null, bukan
+    // false. Memakai _eq: false saja akan melewatkan semuanya dan olahraga yang
+    // seharusnya ditambahkan justru hilang dari hitungan.
+    repo.sum('workout_logs', 'calories_burned', {
+      logged_at: { _eq: date },
+      _or: [{ tracked_by_device: { _eq: false } }, { tracked_by_device: { _null: true } }],
+    }),
   ]);
 
   const weightKg = weightLog ? toNumber(weightLog.weight_kg) : null;
@@ -118,7 +143,7 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
    * Pengeluaran energi lewat metode faktorial: 24 jam dibagi habis.
    *
    * Rumus lama `TDEE + olahraga + langkah` menjumlahkan tiga hal yang saling
-   * menabrak — pengali aktivitas mendeskripsikan seluruh hari, jadi apa pun yang
+   * menabrak, pengali aktivitas mendeskripsikan seluruh hari, jadi apa pun yang
    * ditambahkan sesudahnya menghitung ulang jam yang sama. Efeknya defisit
    * terlihat lebih besar daripada kenyataan.
    */
@@ -137,7 +162,7 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
 
   /**
    * Rencana dihitung ulang di sini semata untuk mengetahui berapa langkah
-   * tambahan yang dibutuhkan target — bukan untuk mengubah budget yang sudah
+   * tambahan yang dibutuhkan target, bukan untuk mengubah budget yang sudah
    * tersimpan di goal. Budget harus stabil; kalau ikut berubah tiap kali layar
    * dibuka, user tidak pernah tahu berapa yang boleh dimakan.
    */
@@ -160,14 +185,41 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
         })
       : null;
 
+  const kaloriDevice = deviceLog?.total_kcal ?? null;
+
+  /**
+   * Kalori keluar hari itu, dengan angka smartwatch MENGGANTIKAN rumus.
+   *
+   * Bukan ditambahkan. Jam tangan mengukur seluruh hari: jalan kaki dan kegiatan
+   * di luar olahraga sudah ada di dalamnya, dan keduanya juga sudah dihitung
+   * metode faktorial dari step_logs serta activity_level. Menjumlahkan keduanya
+   * berarti menghitung jam yang sama dua kali, kekeliruan yang persis sama
+   * dengan rumus lama TDEE + olahraga + langkah yang sudah dibuang.
+   *
+   * Yang ditambahkan di atasnya hanya olahraga yang TIDAK dilihat jam tangan,
+   * misalnya berenang atau sesi yang jamnya kebetulan dilepas.
+   *
+   * Ini TIDAK menyentuh jatah kalori harian. Budget datang dari baselineTDEE()
+   * dan sengaja stabil, supaya user tahu berapa yang boleh dimakan sejak pagi
+   * dan bukan baru setelah harinya berakhir.
+   */
+  const kaloriKeluar =
+    kaloriDevice === null
+      ? // Tanpa profil, metabolisme tidak bisa dihitung dan yang tersisa cuma
+        // kalori aktivitas. Angkanya jadi jauh lebih kecil dari kenyataan, tapi
+        // itu lebih jujur daripada menebak metabolisme basal user.
+        energi
+        ? energi.tdee
+        : (stepLog?.calories_burned ?? 0) + workoutKalori
+      : kaloriDevice + workoutKaloriLuarDevice;
+
   return {
     date,
     weight_kg: weightKg,
     calories_in: kaloriMasuk,
-    // Tanpa profil, metabolisme tidak bisa dihitung dan yang tersisa cuma kalori
-    // aktivitas. Angkanya jadi jauh lebih kecil dari kenyataan, tapi itu lebih
-    // jujur daripada menebak metabolisme basal user.
-    calories_out: energi ? energi.tdee : (stepLog?.calories_burned ?? 0) + workoutKalori,
+    calories_out: kaloriKeluar,
+    device_kcal: kaloriDevice,
+    calories_out_source: kaloriDevice === null ? 'formula' : 'device',
     calorie_budget: budget,
     calories_remaining: budget === null ? null : budget - kaloriMasuk,
     energy: energi
@@ -219,6 +271,15 @@ export interface PeriodSummary {
   total_workout_calories: number;
   /** Berapa hari user benar-benar mencatat sesuatu dalam periode ini. */
   days_logged: number;
+  /**
+   * Rata-rata kalori keluar menurut smartwatch, dari hari-hari yang dicatat saja.
+   * Null kalau tidak ada satu pun catatan perangkat di periode ini.
+   *
+   * Ini bahan pembanding, BUKAN bahan perhitungan. Dipisahkan supaya user bisa
+   * melihat sendiri seberapa jauh jam tangannya berbeda dari TDEE yang diukur
+   * dari kekekalan energi, tanpa salah satu diam-diam mempengaruhi yang lain.
+   */
+  avg_device_kcal: number | null;
 }
 
 const rata = (total: number, hari: number): number =>
@@ -247,6 +308,8 @@ const getPeriod = async (userId: string, from: string, to: string): Promise<Peri
     workoutMenit,
     workoutKalori,
     hariTercatat,
+    deviceTotal,
+    deviceHari,
   ] = await Promise.all([
     repo.findOne('weight_logs', { filter: filterTanggal, sort: ['logged_at'] }),
     repo.findOne('weight_logs', { filter: filterTanggal, sort: ['-logged_at'] }),
@@ -257,6 +320,8 @@ const getPeriod = async (userId: string, from: string, to: string): Promise<Peri
     repo.sum('workout_logs', 'duration_minutes', filterTanggal),
     repo.sum('workout_logs', 'calories_burned', filterTanggal),
     repo.count('weight_logs', filterTanggal),
+    repo.sum('device_energy_logs', 'total_kcal', filterTanggal),
+    repo.count('device_energy_logs', filterTanggal),
   ]);
 
   const hari =
@@ -285,6 +350,11 @@ const getPeriod = async (userId: string, from: string, to: string): Promise<Peri
     total_workout_minutes: workoutMenit,
     total_workout_calories: workoutKalori,
     days_logged: hariTercatat,
+    // Dibagi jumlah hari YANG DICATAT, bukan jumlah hari dalam periode. Membagi
+    // dengan seluruh periode akan menurunkan rata-ratanya setiap kali user lupa
+    // mencatat, dan angkanya jadi menggambarkan kerajinan mencatat, bukan
+    // pengeluaran energi.
+    avg_device_kcal: deviceHari === 0 ? null : Math.round(deviceTotal / deviceHari),
   };
 };
 

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { del, get, patch, post } from '@/lib/api';
 import { invalidateAfterLog, qk } from '@/lib/query';
+import { todayWIB } from '@/utils/date';
 import type { SleepDay, SleepLog } from '@/types';
 
 export interface SleepInput {
@@ -11,7 +12,7 @@ export interface SleepInput {
   notes?: string;
 }
 
-/** Balasannya objek rekap harian, bukan array — lihat catatan di tipe SleepDay. */
+/** Balasannya objek rekap harian, bukan array, lihat catatan di tipe SleepDay. */
 export const useSleepToday = () =>
   useQuery({ queryKey: qk.sleepToday, queryFn: () => get<SleepDay>('/api/sleep/today') });
 
@@ -20,6 +21,25 @@ export const useSleepRange = (from: string, to: string) =>
     queryKey: qk.sleepRange(from, to),
     queryFn: () => get<SleepLog[]>('/api/sleep', { params: { from, to } }),
   });
+
+/**
+ * Tidur pada satu tanggal, dipakai layar catat untuk menelusuri hari lampau.
+ *
+ * Untuk hari ini permintaannya dialihkan ke endpoint dan kunci cache "today",
+ * supaya layar catat dan beranda berbagi satu salinan data. Tanpa itu hal yang
+ * sama tersimpan dua kali dengan kunci berbeda, dan salah satunya pasti basi.
+ */
+export const useSleepDate = (date: string) => {
+  const iniHariIni = date === todayWIB();
+
+  return useQuery({
+    queryKey: iniHariIni ? qk.sleepToday : qk.sleepDate(date),
+    queryFn: () =>
+      iniHariIni
+        ? get<SleepDay>('/api/sleep/today')
+        : get<SleepDay>('/api/sleep/day', { params: { date } }),
+  });
+};
 
 const segarkan = (client: ReturnType<typeof useQueryClient>) => {
   void client.invalidateQueries({ queryKey: ['sleep'] });

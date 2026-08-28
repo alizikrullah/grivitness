@@ -2,7 +2,7 @@
  * Palet GriviTness, diturunkan dari referensi visual.
  *
  * Aturan pemakaian merah: dipakai HEMAT tapi berani. Satu layar idealnya punya
- * satu titik merah dominan saja — CTA, chip aktif, atau satu batang chart.
+ * satu titik merah dominan saja, CTA, chip aktif, atau satu batang chart.
  * Kalau merah dipakai di mana-mana, tidak ada lagi yang menonjol.
  */
 export const colors = {
@@ -53,6 +53,12 @@ export const metricColors = {
   workout: '#2ED573',
   mood: '#FBBF24',
   measurement: '#F472B6',
+  /**
+   * Kalori keluar menurut perangkat. Emas tembaga, sengaja dijauhkan dari
+   * oranye `calories` supaya kalori MASUK dan kalori KELUAR tidak pernah
+   * tertukar hanya karena warnanya bersebelahan.
+   */
+  device: '#D9A441',
 } as const;
 
 export type MetricKey = keyof typeof metricColors;

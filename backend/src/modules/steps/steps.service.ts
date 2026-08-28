@@ -11,7 +11,7 @@ import type { CreateStepsDto, UpdateStepsDto } from './steps.validation.js';
  * Menghitung turunan dari jumlah langkah: jarak tempuh dan kalori terbakar.
  *
  * Jaraknya sekarang diturunkan dari tinggi badan, bukan lagi asumsi 80cm per
- * langkah untuk semua orang — asumsi itu melebihkan jarak sekitar 10% pada
+ * langkah untuk semua orang, asumsi itu melebihkan jarak sekitar 10% pada
  * tinggi rata-rata dan makin meleset untuk yang bertubuh kecil.
  *
  * Kalorinya BERSIH, di atas metabolisme istirahat. Yang istirahat sudah
@@ -39,10 +39,13 @@ export const create = async (userId: string, data: CreateStepsDto): Promise<Step
   return log;
 };
 
-export const getToday = async (userId: string): Promise<StepLogRecord | null> =>
+export const getByDate = async (userId: string, date: string): Promise<StepLogRecord | null> =>
   forUser(userId).findOne('step_logs', {
-    filter: { logged_at: { _eq: todayInJakarta() } },
+    filter: { logged_at: { _eq: date } },
   });
+
+export const getToday = async (userId: string): Promise<StepLogRecord | null> =>
+  getByDate(userId, todayInJakarta());
 
 export const getRange = async (userId: string, range: DateRangeDto): Promise<StepLogRecord[]> =>
   forUser(userId).list('step_logs', {
@@ -55,7 +58,7 @@ export const getRange = async (userId: string, range: DateRangeDto): Promise<Ste
  * Mengubah jumlah langkah.
  *
  * Jarak dan kalori ikut dihitung ulang. Kalau tidak, angka di database jadi
- * bertentangan satu sama lain — langkahnya berubah tapi kalorinya tetap.
+ * bertentangan satu sama lain, langkahnya berubah tapi kalorinya tetap.
  */
 export const update = async (
   userId: string,

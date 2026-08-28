@@ -1,9 +1,4 @@
-import {
-  FireIcon,
-  FootprintsIcon,
-  TrendDownIcon,
-  WarningCircleIcon,
-} from '@phosphor-icons/react';
+import { FireIcon, FootprintsIcon, TrendDownIcon, WarningCircleIcon } from '@phosphor-icons/react';
 
 import { ObservedTdeeNote } from '@/components/features/ObservedTdeeNote';
 import { Card, Divider, Row } from '@/components/ui';
@@ -25,7 +20,7 @@ const kgPerMinggu = (n: number): string => Math.abs(n).toFixed(2).replace('.', '
  * Menjelaskan rencana penurunan berat badan dengan angka yang bisa dijalankan.
  *
  * Yang paling penting di kartu ini adalah bagian peringatannya. Target yang
- * terlalu agresif TIDAK dipaksakan jadi anjuran — backend menahan budget di
+ * terlalu agresif TIDAK dipaksakan jadi anjuran, backend menahan budget di
  * batas aman, lalu kartu ini menyampaikan dua hal yang biasanya disembunyikan
  * aplikasi sejenis: kapan targetmu benar-benar tercapai pada jatah yang aman,
  * dan berapa langkah tambahan yang bisa menutup selisihnya.
@@ -93,7 +88,7 @@ export const PlanCard = ({ goal, targets }: PlanCardProps) => {
             <Divider />
             {/*
               Protein didahulukan karena dialah yang menentukan apakah berat yang
-              hilang itu lemak atau otot — dan otot itu yang menjaga metabolisme
+              hilang itu lemak atau otot, dan otot itu yang menjaga metabolisme
               tetap tinggi setelah programnya selesai.
             */}
             <Row label="Protein" value={targets.macros.protein_g + ' g'} tone="success" />

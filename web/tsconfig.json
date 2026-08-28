@@ -21,7 +21,7 @@
     "skipLibCheck": true,
     "noEmit": true,
 
-    // Tanpa `baseUrl` — sudah usang di TypeScript 6 dan berhenti berfungsi di 7.
+    // Tanpa `baseUrl`, sudah usang di TypeScript 6 dan berhenti berfungsi di 7.
     // Sejak TS 5, `paths` tanpa baseUrl dihitung relatif terhadap berkas ini,
     // jadi hasilnya sama persis tanpa opsi yang akan hilang.
     "paths": { "@/*": ["./src/*"] }
