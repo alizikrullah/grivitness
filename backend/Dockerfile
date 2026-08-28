@@ -16,10 +16,16 @@ COPY package*.json ./
 # npm ci, bukan npm install: versinya dikunci persis seperti lockfile, jadi yang
 # jalan di server sama dengan yang diuji di sini.
 #
-# devDependencies ikut terpasang karena TypeScript dibutuhkan untuk build di
-# baris bawah. NODE_ENV sengaja belum disetel production pada titik ini, sebab
-# npm akan melewati devDependencies dan `npm run build` langsung gagal.
-RUN npm ci
+# --include=dev WAJIB, dan bukan sekadar kehati-hatian. Coolify menyuntikkan
+# NODE_ENV=production sebagai variabel BUILD-TIME, jauh sebelum baris ENV di
+# bawah dijalankan. Dalam keadaan itu npm melewati devDependencies, TypeScript
+# tidak ikut terpasang, dan build gagal dengan "tsc: not found".
+#
+# Menyetel ulang urutan ENV di sini tidak menolong, karena yang menyuntikkan ada
+# di luar Dockerfile. Flag ini memaksa devDependencies terpasang apa pun nilai
+# NODE_ENV yang datang dari luar, jadi build-nya tidak lagi bergantung pada
+# setelan di panel Coolify yang bisa berubah tanpa terlihat dari repo.
+RUN npm ci --include=dev
 
 COPY . .
 
