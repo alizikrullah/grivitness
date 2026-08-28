@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "scheme": "grivitness",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
     "backgroundColor": "#0A0A0B",
     "assetBundlePatterns": [
       "**/*"
@@ -22,7 +21,6 @@
     },
     "android": {
       "package": "my.id.grivilabs.grivitness",
-      "edgeToEdgeEnabled": true,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.ACTIVITY_RECOGNITION",
