@@ -1,0 +1,28 @@
+# Berkas yang TIDAK boleh ikut masuk image.
+#
+# Ini bukan sekadar penghematan ukuran. `COPY . .` menyalin dari filesystem,
+# bukan dari git, jadi .gitignore sama sekali tidak berlaku di sini. Tanpa
+# daftar ini, .env berisi DIRECTUS_ADMIN_TOKEN, JWT_SECRET, dan GROQ_API_KEY
+# ikut terpanggang ke dalam image dan terbawa ke mana pun image itu didorong.
+
+.env
+.env.*
+!.env.example
+
+# Dipasang ulang di dalam container lewat npm ci. Menyalinnya dari Windows
+# justru berbahaya: binary native seperti sharp dibangun per platform.
+node_modules
+
+# Hasil build lama dari mesin lokal. Dibuat ulang oleh `npm run build`.
+dist
+
+.git
+.gitignore
+.vscode
+.idea
+
+npm-debug.log*
+*.log
+
+Dockerfile
+.dockerignore
