@@ -1,0 +1,26 @@
+.konfirmasi-isi {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+}
+
+.konfirmasi-ikon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--primary-soft);
+}
+
+/* Batal di kiri, tindakan merusak di kanan, keduanya selebar setengah dialog. */
+.konfirmasi-tombol {
+  display: flex;
+  gap: var(--space-md);
+}
+
+.konfirmasi-tombol > * {
+  flex: 1;
+}

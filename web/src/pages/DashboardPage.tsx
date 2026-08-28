@@ -23,7 +23,7 @@ import './DashboardPage.css';
  * Pembagian yang aman terhadap target yang belum tiba.
  *
  * Target datang dari backend, diturunkan dari berat, tinggi, usia, dan target
- * berat badan user — bukan lagi angka tetap yang sama untuk semua orang.
+ * berat badan user, bukan lagi angka tetap yang sama untuk semua orang.
  */
 const rasio = (nilai: number, target: number | undefined): number =>
   target && target > 0 ? nilai / target : 0;
@@ -75,7 +75,15 @@ export const DashboardPage = () => {
 
             <div className="dash-burn">
               <div className="dash-burn-item">
-                <span className="t-overline c-tertiary">Keluar</span>
+                {/*
+                  Labelnya menyebut sumbernya kalau angkanya datang dari
+                  smartwatch. Dua angka yang dihasilkan cara berbeda tidak boleh
+                  tampil dengan nama yang sama persis, karena user jadi tidak
+                  punya cara tahu yang mana yang sedang dia baca.
+                */}
+                <span className="t-overline c-tertiary">
+                  {data?.calories_out_source === 'device' ? 'Keluar (jam)' : 'Keluar'}
+                </span>
                 <span className="t-h3">{thousands(data?.calories_out ?? 0)}</span>
               </div>
 
@@ -110,8 +118,8 @@ export const DashboardPage = () => {
             */}
             {data?.energy ? (
               <span className="t-caption c-tertiary dash-breakdown">
-                {thousands(data.energy.baseline)} metabolisme + {data.energy.step_calories} langkah +{' '}
-                {data.energy.workout_calories} olahraga
+                {thousands(data.energy.baseline)} metabolisme + {data.energy.step_calories} langkah
+                + {data.energy.workout_calories} olahraga
               </span>
             ) : null}
           </div>
@@ -151,7 +159,7 @@ export const DashboardPage = () => {
               icon={<MoonStarsIcon size={16} color={metricColors.sleep} weight="fill" />}
               label="Tidur"
               value={duration(data?.sleep_minutes ?? 0)}
-              // Rentang, bukan satu angka — rekomendasinya memang 7-9 jam, dan
+              // Rentang, bukan satu angka, rekomendasinya memang 7-9 jam, dan
               // menampilkannya sebagai "8 jam tepat" memalsukan ketelitian yang
               // tidak dimiliki penelitiannya.
               unit={
@@ -214,7 +222,11 @@ export const DashboardPage = () => {
       <SectionHeader title="Catat cepat" />
 
       <div className="grid-4">
-        <QuickLink to="/log/weight" label="Berat" icon={<ScalesIcon size={20} weight="duotone" />} />
+        <QuickLink
+          to="/log/weight"
+          label="Berat"
+          icon={<ScalesIcon size={20} weight="duotone" />}
+        />
         <QuickLink to="/log/food" label="Makan" icon={<FireIcon size={20} weight="duotone" />} />
         <QuickLink
           to="/log/workout"
@@ -258,15 +270,7 @@ const MacroBar = ({
   </div>
 );
 
-const QuickLink = ({
-  to,
-  label,
-  icon,
-}: {
-  to: string;
-  label: string;
-  icon: React.ReactNode;
-}) => (
+const QuickLink = ({ to, label, icon }: { to: string; label: string; icon: React.ReactNode }) => (
   <Link to={to} className="dash-quick">
     <span className="dash-quick-icon">{icon}</span>
     <span className="t-label">{label}</span>

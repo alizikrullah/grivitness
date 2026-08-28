@@ -4,11 +4,42 @@ import axios, {
   type AxiosRequestConfig,
   type InternalAxiosRequestConfig,
 } from 'axios';
+import Constants from 'expo-constants';
 
 import type { ApiErrorBody, ApiSuccess, AuthResult } from '@/types';
 import { clearTokens, readTokens, saveTokens } from './token';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+/** Port backend saat development. Sama dengan PORT di backend/.env. */
+const PORT_BACKEND_DEV = 3000;
+
+/**
+ * Alamat backend saat development, diturunkan dari alamat Metro yang sedang
+ * berjalan.
+ *
+ * Mesin pengembangan memakai alamat DHCP dari hotspot, jadi nomornya berganti
+ * sendiri setiap sewa habis, WiFi tersambung ulang, atau hotspot dinyalakan
+ * ulang. Setiap kali itu terjadi, alamat yang ditulis tangan di .env jadi basi
+ * dan SELURUH aplikasi berhenti bekerja: data tidak termuat, foto tidak tampil,
+ * dan gejalanya menyerupai bug di mana-mana kecuali di tempat sebenarnya.
+ *
+ * Metro sudah tahu alamat yang benar, karena ponselnya terhubung ke situ untuk
+ * mengambil bundel. Alamat yang sama pasti bisa menjangkau backend di mesin yang
+ * sama, jadi tidak ada gunanya menuliskannya kedua kali dan berharap keduanya
+ * tetap selaras.
+ *
+ * hostUri hanya ada saat dijalankan lewat @expo/cli. Pada build produksi
+ * nilainya kosong, dan EXPO_PUBLIC_API_URL yang dipakai.
+ */
+const alamatDevDariMetro = (): string | null => {
+  if (!__DEV__) return null;
+
+  const hostUri = Constants.expoConfig?.hostUri;
+  const host = hostUri?.split(':')[0];
+
+  return host ? `http://${host}:${PORT_BACKEND_DEV}` : null;
+};
+
+const BASE_URL = alamatDevDariMetro() ?? process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
 
 /** Analisa foto oleh Groq bisa memakan waktu; batas bawaan axios terlalu pendek. */
 const TIMEOUT_MS = 90_000;
@@ -24,7 +55,7 @@ export const api: AxiosInstance = axios.create({
  *
  * Backend selalu membalas { success: false, error: { code, message } } dengan
  * pesan berbahasa Indonesia yang layak ditampilkan. Yang perlu dijaga adalah
- * kasus di luar itu — jaringan mati, server tak terjangkau — yang tidak punya
+ * kasus di luar itu, jaringan mati, server tak terjangkau, yang tidak punya
  * amplop sama sekali dan kalau dibiarkan akan muncul sebagai "Network Error".
  */
 export class ApiError extends Error {
@@ -95,8 +126,7 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
  * Satu-satunya proses refresh yang boleh berjalan.
  *
  * Ini bukan sekadar optimasi. Backend merotasi refresh token setiap kali
- * dipakai dan menganggap pemakaian token lama sebagai indikasi pencurian —
- * seluruh sesi user langsung dicabut. Kalau tiga request kedaluwarsa bersamaan
+ * dipakai dan menganggap pemakaian token lama sebagai indikasi pencurian, * seluruh sesi user langsung dicabut. Kalau tiga request kedaluwarsa bersamaan
  * lalu masing-masing menukar refresh token yang sama, dua di antaranya memakai
  * token yang sudah dirotasi dan user akan tertendang keluar.
  *
@@ -187,7 +217,7 @@ export const del = async (url: string): Promise<void> => {
  *
  * Berkas di Directus bersifat privat, jadi backend menyajikannya lewat proxy
  * ber-autentikasi di /api/files/:id. Konsekuensinya setiap permintaan gambar
- * wajib membawa header Authorization — lihat imageSource() di bawah.
+ * wajib membawa header Authorization, lihat imageSource() di bawah.
  */
 export const fileUrl = (path: string): string => (path.startsWith('http') ? path : BASE_URL + path);
 

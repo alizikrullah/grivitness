@@ -1,11 +1,12 @@
 import { SmileyIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
 
-import { Button, Card, ErrorNote, Loading, SectionHeader } from '@/components/ui';
+import { Button, Card, DateField, ErrorNote, Loading, SectionHeader } from '@/components/ui';
 import { metricColors } from '@/constants/colors';
 import { SCORE_LABEL } from '@/constants/labels';
 import { toApiError } from '@/lib/api';
-import { useDeleteMood, useMoodToday, useSaveMood } from '@/services/mood.service';
+import { useDeleteMood, useMoodDate, useSaveMood } from '@/services/mood.service';
+import { dayPhrase, todayWIB } from '@/utils/date';
 import { LogActions } from './LogActions';
 
 const SkorPicker = ({
@@ -42,7 +43,10 @@ const SkorPicker = ({
 );
 
 export const MoodPanel = () => {
-  const today = useMoodToday();
+  /** Tanggal yang sedang dilihat. Bawaannya hari ini. */
+  const [tanggal, setTanggal] = useState(todayWIB());
+
+  const today = useMoodDate(tanggal);
   const save = useSaveMood();
   const hapus = useDeleteMood();
 
@@ -51,12 +55,28 @@ export const MoodPanel = () => {
   const [error, setError] = useState<string | null>(null);
   const [pesan, setPesan] = useState<string | null>(null);
 
+  /**
+   * Skor dikembalikan ke nilai tengah saat pindah tanggal, disesuaikan saat
+   * render dan bukan lewat useEffect. Tanpa ini, skor hari ini ikut terbawa ke
+   * tanggal lain dan tersimpan ke hari yang salah.
+   */
+  const [tanggalTerakhir, setTanggalTerakhir] = useState(tanggal);
+  if (tanggal !== tanggalTerakhir) {
+    setTanggalTerakhir(tanggal);
+    setMood(3);
+    setEnergi(3);
+    setError(null);
+    setPesan(null);
+  }
+
   const simpan = () => {
     setError(null);
     setPesan(null);
 
     save.mutate(
-      { mood_score: mood, energy_score: energi },
+      // Satu baris per hari, jadi mencatat ulang pada tanggal yang sama harus
+      // memperbarui baris yang ada, bukan menambah baris baru.
+      { id: today.data?.id, mood_score: mood, energy_score: energi, logged_at: tanggal },
       {
         onError: (e) => setError(toApiError(e).message),
         onSuccess: () => setPesan('Mood tersimpan'),
@@ -66,7 +86,9 @@ export const MoodPanel = () => {
 
   return (
     <>
-      <SectionHeader title="Mood hari ini" />
+      <SectionHeader title={'Mood ' + dayPhrase(tanggal)} />
+
+      <DateField value={tanggal} onChange={setTanggal} />
 
       <Card>
         <div className="stack">
@@ -107,7 +129,7 @@ export const MoodPanel = () => {
                   onError: (e) => setError(toApiError(e).message),
                 })
               }
-              confirmMessage="Hapus catatan mood hari ini?"
+              confirmMessage={'Hapus catatan mood ' + dayPhrase(tanggal) + '?'}
             />
           </div>
         </Card>

@@ -7,6 +7,7 @@ import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import {
   Button,
   Card,
+  DateStrip,
   EmptyState,
   ErrorNote,
   Header,
@@ -22,15 +23,22 @@ import { colors, metricColors } from '@/constants/colors';
 import { SCORE_LABEL } from '@/constants/labels';
 import { spacing, typography } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
-import { useCreateSleep, useDeleteSleep, useSleepToday } from '@/services/sleep.service';
+import { useCreateSleep, useDeleteSleep, useSleepDate } from '@/services/sleep.service';
 import type { SleepLog } from '@/types';
-import { shiftDays, timeWIB, todayWIB, wibToISO } from '@/utils/date';
+import { dayPhrase, shiftDays, timeWIB, todayWIB, wibToISO } from '@/utils/date';
 import { duration } from '@/utils/format';
 
 const FORMAT_JAM = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export default function SleepScreen() {
-  const today = useSleepToday();
+  /**
+   * Tanggal yang sedang dilihat, yaitu tanggal BANGUN. Backend mengelompokkan
+   * tidur menurut hari bangunnya, jadi memilih tanggal di sini berarti memilih
+   * "tidur untuk pagi hari itu".
+   */
+  const [tanggal, setTanggal] = useState(todayWIB());
+
+  const today = useSleepDate(tanggal);
   const createSleep = useCreateSleep();
   const deleteSleep = useDeleteSleep();
 
@@ -45,17 +53,19 @@ export default function SleepScreen() {
 
   /**
    * Tidur hampir selalu melewati tengah malam, jadi jam bangun yang lebih kecil
-   * dari jam tidur berarti keesokan harinya — bukan durasi negatif.
+   * dari jam tidur berarti keesokan harinya, bukan durasi negatif.
    */
   const hitungRentang = () => {
-    const hariIni = todayWIB();
     const tidurMalamSebelumnya = mulai >= bangun;
 
-    const tanggalMulai = tidurMalamSebelumnya ? shiftDays(hariIni, -1) : hariIni;
+    // Dihitung terhadap tanggal yang sedang dilihat, bukan terhadap hari ini.
+    // Tanpa itu, tidur yang dicatat sambil menelusuri hari lampau tetap jatuh
+    // ke hari ini dan tanggal yang sedang dibuka tetap terlihat kosong.
+    const tanggalMulai = tidurMalamSebelumnya ? shiftDays(tanggal, -1) : tanggal;
 
     return {
       start: wibToISO(tanggalMulai, mulai),
-      end: wibToISO(hariIni, bangun),
+      end: wibToISO(tanggal, bangun),
     };
   };
 
@@ -106,6 +116,8 @@ export default function SleepScreen() {
     >
       <Screen>
         <Header title="Tidur" subtitle="Boleh lebih dari satu sesi, termasuk tidur siang" />
+
+        <DateStrip value={tanggal} onChange={setTanggal} />
 
         <Card>
           <View style={styles.card}>
@@ -170,7 +182,7 @@ export default function SleepScreen() {
         <Button label="Simpan tidur" onPress={simpan} loading={createSleep.isPending} size="lg" />
 
         <SectionHeader
-          title="Tidur hari ini"
+          title={'Tidur ' + dayPhrase(tanggal)}
           action={
             <Text variant="caption" tone="tertiary">
               total {duration(today.data?.total_minutes ?? 0)}
@@ -193,7 +205,7 @@ export default function SleepScreen() {
                 <View style={styles.logText}>
                   <Text variant="label">{duration(log.duration_minutes)}</Text>
                   <Text variant="caption" tone="secondary">
-                    {timeWIB(log.sleep_start)} – {timeWIB(log.sleep_end)} ·{' '}
+                    {timeWIB(log.sleep_start)} - {timeWIB(log.sleep_end)} ·{' '}
                     {SCORE_LABEL.sleep[log.quality_score]}
                   </Text>
                   {log.notes ? (

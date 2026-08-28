@@ -8,6 +8,7 @@ import {
   BarChart,
   Button,
   Card,
+  DateStrip,
   ErrorNote,
   Header,
   Input,
@@ -21,16 +22,23 @@ import {
 import { colors, metricColors } from '@/constants/colors';
 import { spacing } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
-import { useDeleteMood, useMoodRange, useMoodToday, useSaveMood } from '@/services/mood.service';
-import { dateRange, dayLabel, shiftDays, todayWIB } from '@/utils/date';
+import { useDeleteMood, useMoodDate, useMoodRange, useSaveMood } from '@/services/mood.service';
+import { dateRange, dayLabel, dayPhrase, shiftDays, todayWIB } from '@/utils/date';
 
 export default function MoodScreen() {
   const router = useRouter();
 
+  /**
+   * Tanggal yang sedang dilihat. Bawaannya hari ini, tapi user bisa mundur
+   * untuk membaca dan melengkapi catatan hari-hari sebelumnya.
+   */
+  const [dipilih, setDipilih] = useState(todayWIB());
+
+  // Chart tetap berlabuh pada hari ini apa pun tanggal yang sedang dibuka.
   const hariIni = todayWIB();
   const awal = shiftDays(hariIni, -6);
 
-  const today = useMoodToday();
+  const today = useMoodDate(dipilih);
   const riwayat = useMoodRange(awal, hariIni);
   const saveMood = useSaveMood();
   const deleteMood = useDeleteMood();
@@ -43,8 +51,23 @@ export default function MoodScreen() {
   const [error, setError] = useState<string | null>(null);
   const [terisi, setTerisi] = useState(false);
 
-  // Kalau hari ini sudah dicatat, form dibuka dengan nilai yang tersimpan agar
-  // user menyunting, bukan mengisi ulang dari nol.
+  /**
+   * Isian dikosongkan saat pindah tanggal, disetel ulang saat render dan bukan
+   * lewat useEffect. Tanpa ini, mood hari kemarin terisi dengan mood hari ini
+   * yang barusan dilihat, dan menyimpannya menulis nilai salah ke hari salah.
+   */
+  const [tanggalTerakhir, setTanggalTerakhir] = useState(dipilih);
+  if (dipilih !== tanggalTerakhir) {
+    setTanggalTerakhir(dipilih);
+    setMood(null);
+    setEnergi(null);
+    setCatatan('');
+    setError(null);
+    setTerisi(false);
+  }
+
+  // Kalau tanggal itu sudah dicatat, form dibuka dengan nilai yang tersimpan
+  // agar user menyunting, bukan mengisi ulang dari nol.
   if (!terisi && today.data) {
     setMood(today.data.mood_score);
     setEnergi(today.data.energy_score);
@@ -56,8 +79,9 @@ export default function MoodScreen() {
     const log = riwayat.data?.find((l) => l.logged_at === tanggal);
     return {
       label: dayLabel(tanggal),
-      value: log?.mood_score ?? 0,
-      caption: log ? log.mood_score + '/5' : '-',
+      // null, bukan nol. Hari yang tidak dicatat bukan berarti mood terburuk.
+      value: log?.mood_score ?? null,
+      caption: log ? log.mood_score + '/5' : undefined,
     };
   });
 
@@ -75,6 +99,8 @@ export default function MoodScreen() {
         mood_score: mood,
         energy_score: energi,
         notes: catatan.trim() === '' ? undefined : catatan.trim(),
+        // Dicatat ke tanggal yang sedang dilihat, bukan selalu ke hari ini.
+        logged_at: dipilih,
       },
       {
         onSuccess: () => router.back(),
@@ -91,7 +117,7 @@ export default function MoodScreen() {
       <Screen>
         <Header
           title="Mood & energi"
-          subtitle={today.data ? 'Sudah dicatat hari ini' : 'Satu catatan per hari'}
+          subtitle={today.data ? 'Sudah dicatat ' + dayPhrase(dipilih) : 'Satu catatan per hari'}
           action={
             logHariIni ? (
               <LogActions
@@ -108,11 +134,13 @@ export default function MoodScreen() {
                     },
                   })
                 }
-                deleteMessage="Catatan mood hari ini akan dihapus."
+                deleteMessage={'Catatan mood ' + dayPhrase(dipilih) + ' akan dihapus.'}
               />
             ) : undefined
           }
         />
+
+        <DateStrip value={dipilih} onChange={setDipilih} />
 
         {today.isPending ? (
           <Loading />

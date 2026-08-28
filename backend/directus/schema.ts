@@ -20,6 +20,7 @@
  */
 
 import {
+  CHAT_ROLE,
   ACTIVITY_LEVEL,
   GENDER,
   MEAL_TYPE,
@@ -49,7 +50,7 @@ export interface RelationDef {
 export interface FieldDef {
   field: string;
   type: FieldType;
-  /** Default false — mayoritas field wajib diisi. */
+  /** Default false, mayoritas field wajib diisi. */
   nullable?: boolean;
   unique?: boolean;
   primaryKey?: boolean;
@@ -86,7 +87,7 @@ export interface CollectionDef {
 }
 
 // ============================================================
-// HELPER — menekan pengulangan definisi field
+// HELPER, menekan pengulangan definisi field
 // ============================================================
 
 /** Primary key UUID, di-generate otomatis oleh Directus. */
@@ -209,7 +210,7 @@ export const collections: CollectionDef[] = [
     collection: 'users',
     typeName: 'UserRecord',
     icon: 'person',
-    note: 'Akun aplikasi GriviTness. Terpisah dari directus_users — ini yang dipakai auth backend.',
+    note: 'Akun aplikasi GriviTness. Terpisah dari directus_users, ini yang dipakai auth backend.',
     fields: [
       pk(),
       {
@@ -441,6 +442,12 @@ export const collections: CollectionDef[] = [
         note: 'calories_per_minute * durasi * (berat_user / 70)',
       },
       enumField('intensity', WORKOUT_INTENSITY),
+      {
+        field: 'tracked_by_device',
+        type: 'boolean',
+        defaultValue: false,
+        note: 'true kalau sesi ini SUDAH ikut terhitung di angka device_energy_logs hari itu. Dipakai supaya kalorinya tidak dihitung dua kali.',
+      },
       notes(),
       loggedAtDate(),
       createdAt(),
@@ -462,6 +469,45 @@ export const collections: CollectionDef[] = [
         type: 'integer',
         note: 'Estimasi: steps * berat_kg * 0.0005',
       },
+      loggedAtDate(),
+      userDateKey(),
+      createdAt(),
+    ],
+  },
+
+  {
+    collection: 'device_energy_logs',
+    typeName: 'DeviceEnergyLogRecord',
+    icon: 'watch',
+    note: 'Kalori keluar seharian menurut smartwatch user. Satu baris per user per hari. Angka ini MENGGANTIKAN hitungan TDEE hari itu, bukan ditambahkan ke atasnya.',
+    fields: [
+      pk(),
+      userFk('device_energy_logs'),
+      {
+        field: 'total_kcal',
+        type: 'integer',
+        note: 'Kalori TOTAL sehari, sudah termasuk metabolisme istirahat. Inilah yang dipakai summary. Kalau user memasukkan kalori aktif, kolom ini HASIL TURUNAN dari active_kcal + bmr_kcal.',
+      },
+      {
+        field: 'active_kcal',
+        type: 'integer',
+        nullable: true,
+        note: 'Kalori AKTIF apa adanya dari perangkat, tanpa metabolisme istirahat. Terisi hanya kalau itu yang dimasukkan user. Null berarti user memasukkan angka total langsung.',
+      },
+      {
+        field: 'bmr_kcal',
+        type: 'integer',
+        nullable: true,
+        note: 'BMR yang ditambahkan ke active_kcal untuk memperoleh total_kcal. Disimpan supaya angka turunannya bisa ditelusuri kembali, bukan dipercaya begitu saja.',
+      },
+      {
+        field: 'source',
+        type: 'string',
+        maxLength: 64,
+        nullable: true,
+        note: 'Nama perangkatnya, misalnya "Galaxy Watch". Sekadar keterangan.',
+      },
+      notes(),
       loggedAtDate(),
       userDateKey(),
       createdAt(),
@@ -562,6 +608,26 @@ export const collections: CollectionDef[] = [
   // STREAK & NOTIFICATIONS
   // ----------------------------------------------------------
   {
+    collection: 'chat_messages',
+    typeName: 'ChatMessageRecord',
+    icon: 'chat',
+    note: 'Riwayat percakapan dengan asisten AI. Satu percakapan berjalan per user, diurutkan menurut created_at.',
+    fields: [
+      pk(),
+      userFk('chat_messages'),
+      enumField('role', CHAT_ROLE, {
+        note: 'USER kalau ditulis user, ASSISTANT kalau balasan model',
+      }),
+      {
+        field: 'content',
+        type: 'text',
+        note: 'Isi pesan apa adanya. Balasan model sudah dibersihkan tanda pisahnya sebelum disimpan.',
+      },
+      createdAt(),
+    ],
+  },
+
+  {
     collection: 'streaks',
     typeName: 'StreakRecord',
     icon: 'local_fire_department',
@@ -647,11 +713,11 @@ export const collections: CollectionDef[] = [
       decimalField('met', 4, 1, {
         // Nullable karena baris yang sudah ada sebelum kolom ini memang belum
         // punya nilai MET. Mengisinya dengan angka bawaan akan mengarang data
-        // yang terlihat resmi — biarkan kosong sampai npm run seed mengisinya.
+        // yang terlihat resmi, biarkan kosong sampai npm run seed mengisinya.
         nullable: true,
         note:
           'Nilai MET dari Compendium of Physical Activities (Ainsworth dkk. 2011). ' +
-          'Ini DATA SUMBERNYA — calories_burned_per_minute cuma turunannya.',
+          'Ini DATA SUMBERNYA, calories_burned_per_minute cuma turunannya.',
       }),
       decimalField('calories_burned_per_minute', 5, 2, {
         note:

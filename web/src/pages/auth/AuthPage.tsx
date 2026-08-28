@@ -16,8 +16,7 @@ interface AuthPageProps {
 /**
  * Satu komponen untuk masuk dan daftar.
  *
- * Keduanya berbagi tata letak, validasi, dan penanganan error yang sama persis —
- * memisahkannya jadi dua berkas berarti dua salinan yang harus dijaga selaras,
+ * Keduanya berbagi tata letak, validasi, dan penanganan error yang sama persis, * memisahkannya jadi dua berkas berarti dua salinan yang harus dijaga selaras,
  * dan yang terlewat akan tampak sebagai dua halaman yang anehnya berbeda.
  */
 export const AuthPage = ({ mode }: AuthPageProps) => {
@@ -59,9 +58,7 @@ export const AuthPage = ({ mode }: AuthPageProps) => {
 
     setMemproses(true);
 
-    const jalan = daftar
-      ? register(nama.trim(), email.trim(), sandi)
-      : login(email.trim(), sandi);
+    const jalan = daftar ? register(nama.trim(), email.trim(), sandi) : login(email.trim(), sandi);
 
     jalan
       .then(() => navigate('/', { replace: true }))
@@ -77,7 +74,7 @@ export const AuthPage = ({ mode }: AuthPageProps) => {
           <span className="t-h2">GriviTness</span>
         </div>
 
-        {/* Judul besar dengan satu kata di dalam pil merah — elemen khas yang
+        {/* Judul besar dengan satu kata di dalam pil merah, elemen khas yang
             diambil dari referensi visual, sama seperti HeroTitle di mobile. */}
         <h1 className="t-display auth-title">
           {daftar ? 'Mulai ' : 'Lanjutkan '}

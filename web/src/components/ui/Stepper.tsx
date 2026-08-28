@@ -23,7 +23,7 @@ interface StepperProps {
  * Nilainya dikirim ke atas pada SETIAP ketikan, bukan cuma saat blur. Versi
  * yang menunggu blur pernah dipakai di mobile dan jadi jebakan: user mengetik
  * angka lalu langsung menekan Simpan, tombol Simpan mengambil fokus tanpa
- * memicu blur pada waktunya, dan yang tersimpan adalah nilai lama — nol.
+ * memicu blur pada waktunya, dan yang tersimpan adalah nilai lama, nol.
  *
  * Batas bawah sengaja TIDAK diterapkan saat mengetik. Kalau diterapkan, "8"
  * yang sedang dalam perjalanan menuju "85" akan langsung dilompatkan ke batas
@@ -43,7 +43,7 @@ export const Stepper = ({
   const [nilaiTerakhir, setNilaiTerakhir] = useState(value);
 
   /**
-   * Menyelaraskan teks ketika nilainya berubah DARI LUAR — misalnya saat data
+   * Menyelaraskan teks ketika nilainya berubah DARI LUAR, misalnya saat data
    * server tiba setelah komponen ini sempat dirender.
    *
    * Disesuaikan saat render, bukan di dalam useEffect. Effect akan menjalankan

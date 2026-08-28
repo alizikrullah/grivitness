@@ -15,7 +15,7 @@ export default defineConfig({
     hookTimeout: 60_000,
 
     // Berkas test dijalankan berurutan, tidak paralel. Test integrasi berbagi
-    // satu instance Directus yang sama — kalau jalan bersamaan, data uji milik
+    // satu instance Directus yang sama, kalau jalan bersamaan, data uji milik
     // satu berkas bisa terbaca atau terhapus oleh berkas lain.
     fileParallelism: false,
   },

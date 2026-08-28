@@ -37,8 +37,7 @@ export const Modal = ({ open, title, onClose, children, footer }: ModalProps) =>
       ref={ref}
       className="modal"
       // Escape memicu event ini, bukan onClose milik React. Tanpa dijembatani,
-      // dialognya tertutup di DOM tapi state di React masih mengira terbuka —
-      // dan dialog itu tidak akan pernah bisa dibuka lagi.
+      // dialognya tertutup di DOM tapi state di React masih mengira terbuka, // dan dialog itu tidak akan pernah bisa dibuka lagi.
       onCancel={(e) => {
         e.preventDefault();
         onClose();

@@ -8,6 +8,7 @@ import {
   Button,
   Card,
   ChipGroup,
+  DateStrip,
   EmptyState,
   ErrorNote,
   Header,
@@ -34,10 +35,12 @@ import {
   useCustomWorkouts,
   useDeleteWorkout,
   useWorkoutLibrary,
-  useWorkoutsToday,
+  useWorkoutsDate,
   type WorkoutInput,
 } from '@/services/workouts.service';
 import type { WorkoutCategory, WorkoutIntensity, WorkoutLog } from '@/types';
+import { useDeviceEnergyDate } from '@/services/device-energy.service';
+import { dayPhrase, todayWIB } from '@/utils/date';
 import { duration, thousands, toNum } from '@/utils/format';
 
 /** Olahraga yang dipilih user, apa pun sumbernya. */
@@ -48,10 +51,28 @@ interface Pilihan {
   perMenit: number;
 }
 
+/** Pilihan pada pertanyaan "terekam smartwatch". */
+const REKAM = ['YA', 'TIDAK'] as const;
+const REKAM_LABEL = { YA: 'Ya, jam saya pakai', TIDAK: 'Tidak' };
+
 export default function WorkoutScreen() {
-  const today = useWorkoutsToday();
+  /**
+   * Tanggal yang sedang dilihat. Bawaannya hari ini, tapi user bisa mundur
+   * untuk membaca dan melengkapi catatan hari-hari sebelumnya.
+   */
+  const [tanggal, setTanggal] = useState(todayWIB());
+  const hariIni = tanggal === todayWIB();
+
+  const today = useWorkoutsDate(tanggal);
   const createWorkout = useCreateWorkout();
   const deleteWorkout = useDeleteWorkout();
+
+  /**
+   * Pertanyaan "terekam smartwatch" hanya relevan kalau hari itu memang ada
+   * angka dari perangkat. Tanpa itu kalori olahraga selalu dihitung penuh, dan
+   * menanyakannya cuma menambah satu keputusan yang tidak berpengaruh apa-apa.
+   */
+  const angkaPerangkat = useDeviceEnergyDate(tanggal).data;
 
   const [sheet, setSheet] = useState(false);
   const [pilihan, setPilihan] = useState<Pilihan | null>(null);
@@ -60,6 +81,7 @@ export default function WorkoutScreen() {
   const [menit, setMenit] = useState(30);
   const [intensitas, setIntensitas] = useState<WorkoutIntensity>('MEDIUM');
   const [catatan, setCatatan] = useState('');
+  const [terekam, setTerekam] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [diedit, setDiedit] = useState<WorkoutLog | null>(null);
 
@@ -72,11 +94,16 @@ export default function WorkoutScreen() {
       duration_minutes: menit,
       intensity: intensitas,
       notes: catatan.trim() === '' ? undefined : catatan.trim(),
+      // Kalau hari itu tidak ada angka perangkat, pertanyaannya tidak muncul di
+      // layar, jadi tidak boleh ada nilai yang menyelinap dari sesi sebelumnya.
+      tracked_by_device: angkaPerangkat ? terekam : false,
+      // Saat menelusuri hari lampau, sesi dicatat ke tanggal ITU.
+      logged_at: hariIni ? undefined : tanggal,
     };
 
     if (pilihan) {
       // Kalori dihitung backend dari durasi dan berat badan user, jadi tidak
-      // dikirim dari sini — nilai apa pun yang dikirim client akan diabaikan.
+      // dikirim dari sini, nilai apa pun yang dikirim client akan diabaikan.
       if (pilihan.sumber === 'library') body.workout_library_id = pilihan.id;
       else body.custom_workout_id = pilihan.id;
     } else {
@@ -103,6 +130,7 @@ export default function WorkoutScreen() {
         setManual('');
         setKaloriManual('');
         setCatatan('');
+        setTerekam(false);
       },
       onError: (e) => setError(toApiError(e).message),
     });
@@ -117,6 +145,8 @@ export default function WorkoutScreen() {
     >
       <Screen>
         <Header title="Olahraga" subtitle="Boleh lebih dari satu sesi per hari" />
+
+        <DateStrip value={tanggal} onChange={setTanggal} />
 
         <Pressable
           onPress={() => setSheet(true)}
@@ -192,6 +222,35 @@ export default function WorkoutScreen() {
           />
         </View>
 
+        {/*
+          Muncul HANYA kalau hari itu ada angka kalori dari smartwatch.
+
+          Jawabannya menentukan apakah kalori sesi ini ditambahkan di atas angka
+          perangkat atau tidak. Jalan santai dan berkebun yang dilakukan sambil
+          memakai jam sudah ikut terhitung di sana, jadi menambahkannya lagi
+          berarti menghitung dua kali. Berenang atau sesi yang jamnya dilepas
+          belum, jadi memang harus ditambahkan.
+        */}
+        {angkaPerangkat ? (
+          <View style={styles.group}>
+            <Text variant="label" tone="secondary">
+              Sesi ini terekam smartwatch?
+            </Text>
+            <ChipGroup
+              options={REKAM}
+              value={terekam ? 'YA' : 'TIDAK'}
+              onChange={(v) => setTerekam(v === 'YA')}
+              labels={REKAM_LABEL}
+              wrap
+            />
+            <Text variant="caption" tone="tertiary">
+              {'Kalau jawabannya ya, kalorinya sudah termasuk di angka ' +
+                thousands(angkaPerangkat.total_kcal) +
+                ' kkal dan tidak dihitung lagi.'}
+            </Text>
+          </View>
+        ) : null}
+
         <Input
           label="Catatan"
           value={catatan}
@@ -212,7 +271,7 @@ export default function WorkoutScreen() {
         />
 
         <SectionHeader
-          title="Hari ini"
+          title={dayPhrase(tanggal) === 'hari ini' ? 'Hari ini' : dayPhrase(tanggal)}
           action={
             <Text variant="caption" tone="tertiary">
               {duration(today.data?.total_minutes ?? 0)} ·{' '}
@@ -241,12 +300,19 @@ export default function WorkoutScreen() {
                     {duration(log.duration_minutes)} · {thousands(log.calories_burned)} kkal ·{' '}
                     {INTENSITY_LABEL[log.intensity]}
                   </Text>
+                  {log.tracked_by_device ? (
+                    <Text variant="caption" tone="tertiary">
+                      Sudah termasuk di angka smartwatch
+                    </Text>
+                  ) : null}
                 </View>
 
                 <LogActions
                   onEdit={() => setDiedit(log)}
                   onDelete={() => deleteWorkout.mutate(log.id)}
-                  deleteMessage={log.workout_name + ' akan dihapus dari catatan hari ini.'}
+                  deleteMessage={
+                    log.workout_name + ' akan dihapus dari catatan ' + dayPhrase(tanggal) + '.'
+                  }
                 />
               </View>
             </Card>

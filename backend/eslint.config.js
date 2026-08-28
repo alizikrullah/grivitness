@@ -7,7 +7,7 @@ import tseslint from 'typescript-eslint';
  *
  * Memakai typed linting (projectService), yang berarti ESLint punya akses ke
  * informasi tipe TypeScript. Itu yang memungkinkan aturan seperti
- * no-floating-promises — aturan paling berharga di codebase ini, karena
+ * no-floating-promises, aturan paling berharga di codebase ini, karena
  * hampir semua akses data ke Directus itu asinkron dan satu `await` yang
  * kelupaan menghasilkan bug yang sangat sulit dilacak.
  *
@@ -81,7 +81,7 @@ export default tseslint.config(
       'no-console': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
 
-      // `res.body` dari supertest memang bertipe any secara desain — tidak ada
+      // `res.body` dari supertest memang bertipe any secara desain, tidak ada
       // cara supertest tahu bentuk response endpoint kita. Mengetiknya satu per
       // satu di setiap assertion cuma menambah keriuhan tanpa menambah keamanan,
       // karena yang sedang diperiksa justru bentuk response itu sendiri.

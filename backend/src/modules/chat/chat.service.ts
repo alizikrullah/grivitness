@@ -1,3 +1,6 @@
+import { forUser } from '../../data/scoped.js';
+import { unitOfWork } from '../../data/unit-of-work.js';
+import type { ChatMessageRecord } from '../../types/directus-schema.js';
 import { chatCompletion, type ChatMessage } from '../../utils/groq.js';
 import { todayInJakarta } from '../../utils/daily-key.js';
 import * as summaryService from '../summary/summary.service.js';
@@ -53,7 +56,8 @@ const susunFakta = (
       `Profil: umur ${profil.age} tahun, ${profil.gender === 'MALE' ? 'pria' : profil.gender === 'FEMALE' ? 'wanita' : 'lainnya'}, tinggi ${profil.height_cm} cm.`,
     );
     b.push(`Kesehariannya: ${profil.activity_label}`);
-    if (profil.current_weight_kg !== null) b.push(`Berat terakhir: ${profil.current_weight_kg} kg.`);
+    if (profil.current_weight_kg !== null)
+      b.push(`Berat terakhir: ${profil.current_weight_kg} kg.`);
     if (profil.bmr !== null) b.push(`BMR: ${angka(profil.bmr)} kkal.`);
     if (profil.tdee !== null) b.push(`TDEE hari biasa: ${angka(profil.tdee)} kkal.`);
 
@@ -71,9 +75,18 @@ const susunFakta = (
 
   b.push('');
   b.push('HARI INI:');
-  b.push(`Kalori masuk ${angka(harian.calories_in)} kkal, keluar ${angka(harian.calories_out)} kkal.`);
+  b.push(
+    `Kalori masuk ${angka(harian.calories_in)} kkal, keluar ${angka(harian.calories_out)} kkal.`,
+  );
+  if (harian.calories_out_source === 'device') {
+    b.push(
+      `Angka kalori keluar itu berasal dari smartwatch-nya (${angka(harian.device_kcal ?? 0)} kkal), bukan dari rumus, ditambah olahraga yang jamnya tidak merekam.`,
+    );
+  }
   if (harian.calorie_budget !== null) {
-    b.push(`Jatah kalori ${angka(harian.calorie_budget)} kkal, sisa ${angka(harian.calories_remaining ?? 0)} kkal.`);
+    b.push(
+      `Jatah kalori ${angka(harian.calorie_budget)} kkal, sisa ${angka(harian.calories_remaining ?? 0)} kkal.`,
+    );
   } else {
     b.push('Belum ada target berat badan aktif, jadi jatah kalorinya belum ada.');
   }
@@ -106,8 +119,11 @@ const susunFakta = (
   b.push('');
   b.push(`TUJUH HARI TERAKHIR (${pekan.from} sampai ${pekan.to}):`);
   if (pekan.weight_change_kg !== null) {
-    const arah = pekan.weight_change_kg < 0 ? 'turun' : pekan.weight_change_kg > 0 ? 'naik' : 'tetap';
-    b.push(`Berat ${arah} ${Math.abs(pekan.weight_change_kg)} kg (dari ${pekan.weight_start} ke ${pekan.weight_end} kg).`);
+    const arah =
+      pekan.weight_change_kg < 0 ? 'turun' : pekan.weight_change_kg > 0 ? 'naik' : 'tetap';
+    b.push(
+      `Berat ${arah} ${Math.abs(pekan.weight_change_kg)} kg (dari ${pekan.weight_start} ke ${pekan.weight_end} kg).`,
+    );
   } else {
     b.push('Penimbangannya belum cukup untuk melihat perubahan berat.');
   }
@@ -153,29 +169,86 @@ const ambilProfil = async (userId: string): Promise<usersService.ProfileWithDeri
  */
 const tanpaTandaPisah = (teks: string): string =>
   teks
-    .replace(/^[ ]*—[ ]*/gm, '- ')
-    .replace(/[ ]*—[ ]*/g, ', ')
-    .replace(/[–‑−]/g, '-')
+    // Tanda pisahnya ditulis sebagai escape unicode, BUKAN karakternya langsung.
+    //
+    // Karakter aslinya di sini pernah ikut tersapu ketika em dash dibersihkan
+    // dari seluruh repo, dan fungsi ini diam-diam berubah jadi mengganti KOMA.
+    // Bentuk escape membuatnya kebal terhadap penyisiran teks, dan kerusakan
+    // semacam itu tidak akan tertangkap typecheck maupun lint.
+    //
+    // u2014 em dash, u2013 en dash, u2011 hyphen non-breaking, u2212 minus.
+    .replace(/^[ ]*\u2014[ ]*/gm, '- ')
+    .replace(/[ ]*\u2014[ ]*/g, ', ')
+    .replace(/[\u2013\u2011\u2212]/g, '-')
     .replace(/[*][*]/g, '')
     .replace(/^#{1,6} +/gm, '');
 
-export const reply = async (
-  userId: string,
-  messages: { role: 'user' | 'assistant'; content: string }[],
-): Promise<{ reply: string }> => {
+/**
+ * Berapa pesan terakhir yang ikut dikirim ke model.
+ *
+ * Riwayatnya disimpan seluruhnya, tapi yang dikirim dibatasi. Setiap pesan lama
+ * ikut terkirim pada SETIAP giliran, jadi percakapan tanpa batas membuat
+ * biayanya tumbuh kuadratik dan cepat menabrak batas token per menit Groq.
+ */
+const KONTEKS_MAKS = 20;
+
+/** Seluruh riwayat percakapan user, urut dari yang paling lama. */
+export const getHistory = async (userId: string): Promise<ChatMessageRecord[]> =>
+  forUser(userId).list('chat_messages', { sort: ['created_at'], limit: -1 });
+
+export const clearHistory = async (userId: string): Promise<{ deleted: number }> => {
+  const repo = forUser(userId);
+
+  const pesan = await repo.list('chat_messages', { fields: ['id'], limit: -1 });
+
+  // Dihapus bersamaan, bukan satu per satu. Setiap penghapusan adalah round-trip
+  // HTTP ke Directus, dan percakapan panjang berarti puluhan kali latensi
+  // ditumpuk hanya untuk satu ketukan tombol.
+  await Promise.all(pesan.map((p) => repo.remove('chat_messages', p.id)));
+
+  return { deleted: pesan.length };
+};
+
+export const reply = async (userId: string, pesanBaru: string): Promise<{ reply: string }> => {
   const hariIni = todayInJakarta();
 
-  const [harian, pekan, profil] = await Promise.all([
+  const [harian, pekan, profil, riwayat] = await Promise.all([
     summaryService.getDaily(userId, hariIni),
     // Tanpa argumen, getWeekly memakai tujuh hari terakhir sampai hari ini.
     summaryService.getWeekly(userId),
     ambilProfil(userId),
+    getHistory(userId),
   ]);
+
+  const sebelumnya: ChatMessage[] = riwayat.slice(-KONTEKS_MAKS).map((p) => ({
+    role: p.role === 'ASSISTANT' ? 'assistant' : 'user',
+    content: p.content,
+  }));
 
   const percakapan: ChatMessage[] = [
     { role: 'system', content: `${ATURAN}\n\nDATA:\n${susunFakta(harian, pekan, profil)}` },
-    ...messages,
+    ...sebelumnya,
+    { role: 'user', content: pesanBaru },
   ];
 
-  return { reply: tanpaTandaPisah(await chatCompletion(percakapan)) };
+  /*
+    Model dipanggil LEBIH DULU, baru keduanya disimpan.
+
+    Kalau pesan user disimpan duluan lalu Groq gagal, riwayatnya menyisakan
+    pertanyaan tanpa jawaban, dan giliran berikutnya membawa konteks yang
+    timpang. Menunda penyimpanan sampai balasannya ada membuat keadaan setengah
+    jadi itu tidak mungkin terjadi.
+  */
+  const balasan = tanpaTandaPisah(await chatCompletion(percakapan));
+
+  // Dua penulisan, jadi dibungkus unitOfWork: kalau menyimpan balasan gagal,
+  // pesan user yang sudah tersimpan ikut dibatalkan.
+  await unitOfWork(async (tx) => {
+    const repo = forUser(userId, tx);
+
+    await repo.create('chat_messages', { role: 'USER', content: pesanBaru });
+    await repo.create('chat_messages', { role: 'ASSISTANT', content: balasan });
+  });
+
+  return { reply: balasan };
 };

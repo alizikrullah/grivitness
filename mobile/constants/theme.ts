@@ -35,7 +35,7 @@ export const fonts = {
 } as const;
 
 /**
- * Skala tipografi. Angka besar sengaja pakai letterSpacing negatif — pada
+ * Skala tipografi. Angka besar sengaja pakai letterSpacing negatif, pada
  * ukuran display, jarak huruf bawaan terlihat renggang dan kurang tegas.
  */
 export const typography = {

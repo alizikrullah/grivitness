@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { del, get, patch, post } from '@/lib/api';
 import { invalidateAfterLog, qk } from '@/lib/query';
+import { todayWIB } from '@/utils/date';
 import type { MoodLog } from '@/types';
 
 export interface MoodInput {
@@ -29,10 +30,34 @@ export const useMoodRange = (from: string, to: string) =>
     queryFn: () => get<MoodLog[]>('/api/mood', { params: { from, to } }),
   });
 
+/**
+ * Mood pada satu tanggal, dipakai layar catat untuk menelusuri hari lampau.
+ *
+ * Untuk hari ini permintaannya dialihkan ke endpoint dan kunci cache "today",
+ * supaya layar catat dan beranda berbagi satu salinan data. Tanpa itu hal yang
+ * sama tersimpan dua kali dengan kunci berbeda, dan salah satunya pasti basi.
+ */
+export const useMoodDate = (date: string) => {
+  const iniHariIni = date === todayWIB();
+
+  return useQuery({
+    queryKey: iniHariIni ? qk.moodToday : qk.moodDate(date),
+    queryFn: async () => {
+      try {
+        return iniHariIni
+          ? await get<MoodLog | null>('/api/mood/today')
+          : await get<MoodLog | null>('/api/mood/day', { params: { date } });
+      } catch {
+        return null;
+      }
+    },
+  });
+};
+
 export const useSaveMood = () => {
   const client = useQueryClient();
 
-  /** Satu baris per hari — kalau hari ini sudah ada, yang terjadi pembaruan. */
+  /** Satu baris per hari, kalau hari ini sudah ada, yang terjadi pembaruan. */
   return useMutation({
     mutationFn: ({ id, ...body }: { id?: string } & MoodInput) =>
       id ? patch<MoodLog>('/api/mood/' + id, body) : post<MoodLog>('/api/mood', body),

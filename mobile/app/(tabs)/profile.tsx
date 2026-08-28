@@ -10,11 +10,12 @@ import {
   TargetIcon,
 } from 'phosphor-react-native';
 import { useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import {
   Button,
   Card,
+  ConfirmDialog,
   DateField,
   Divider,
   ErrorNote,
@@ -68,12 +69,7 @@ export default function ProfileScreen() {
   // Jadwal di perangkat disusun ulang setiap pengaturan berubah.
   useReminderScheduler(settings.data);
 
-  const keluar = () => {
-    Alert.alert('Keluar dari akun?', 'Kamu perlu masuk lagi untuk melihat catatanmu.', [
-      { text: 'Batal', style: 'cancel' },
-      { text: 'Keluar', style: 'destructive', onPress: () => void logout() },
-    ]);
-  };
+  const [tanyaKeluar, setTanyaKeluar] = useState(false);
 
   const ubahReminder = (kunci: string, nilai: boolean) => {
     updateSettings.mutate({ [kunci]: nilai });
@@ -140,7 +136,7 @@ export default function ProfileScreen() {
 
             {/*
               "TDEE" tanpa penjelasan terbaca seperti angka mutlak. Padahal ini
-              acuan hari biasa — tanpa olahraga, dengan gerak seadanya — dan
+              acuan hari biasa, tanpa olahraga, dengan gerak seadanya, dan
               sengaja begitu supaya jatah kalorimu tidak naik-turun mengikuti
               aktivitas hari itu. Hari yang benar-benar aktif dihitung terpisah
               di rekap harian.
@@ -252,7 +248,7 @@ export default function ProfileScreen() {
 
       <Button
         label="Keluar"
-        onPress={keluar}
+        onPress={() => setTanyaKeluar(true)}
         variant="secondary"
         icon={<SignOutIcon size={18} color={colors.textPrimary} weight="bold" />}
       />
@@ -267,6 +263,17 @@ export default function ProfileScreen() {
           onClose={() => setSheetReminder(null)}
         />
       ) : null}
+      <ConfirmDialog
+        visible={tanyaKeluar}
+        title="Keluar dari akun?"
+        message="Kamu perlu masuk lagi untuk melihat catatanmu."
+        confirmLabel="Keluar"
+        onCancel={() => setTanyaKeluar(false)}
+        onConfirm={() => {
+          setTanyaKeluar(false);
+          void logout();
+        }}
+      />
     </Screen>
   );
 }
@@ -282,7 +289,7 @@ const Stat = ({ label, value }: { label: string; value: string }) => (
 
 /**
  * Membuat target baru selalu menonaktifkan target lama di backend, jadi form
- * ini sengaja tidak menawarkan mode "ubah" — yang terjadi adalah menetapkan
+ * ini sengaja tidak menawarkan mode "ubah", yang terjadi adalah menetapkan
  * target baru, dan target lama tetap tersimpan sebagai riwayat.
  */
 const GoalSheet = ({ visible, onClose }: { visible: boolean; onClose: () => void }) => {

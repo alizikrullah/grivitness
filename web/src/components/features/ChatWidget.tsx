@@ -1,10 +1,16 @@
-import { ChatCircleDotsIcon, PaperPlaneRightIcon, SparkleIcon, XIcon } from '@phosphor-icons/react';
+import {
+  ChatCircleDotsIcon,
+  PaperPlaneRightIcon,
+  SparkleIcon,
+  TrashIcon,
+  XIcon,
+} from '@phosphor-icons/react';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 
-import { ErrorNote } from '@/components/ui';
+import { ConfirmDialog, ErrorNote } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { toApiError } from '@/lib/api';
-import { useSendChat, type ChatMessage } from '@/services/chat.service';
+import { useChatHistory, useClearChat, useSendChat } from '@/services/chat.service';
 import './ChatWidget.css';
 
 const SAPAAN = 'Tanya apa saja soal latihan, makan, atau progresmu. Aku bisa melihat catatanmu.';
@@ -24,11 +30,16 @@ const CONTOH = [
  */
 export const ChatWidget = () => {
   const kirimAI = useSendChat();
+  const hapusRiwayat = useClearChat();
+
+  // Riwayatnya datang dari server sekarang, bukan dari state komponen. Percakapan
+  // karena itu bertahan setelah tab ditutup, dan sama dengan yang di mobile.
+  const riwayat = useChatHistory().data ?? [];
 
   const [terbuka, setTerbuka] = useState(false);
-  const [riwayat, setRiwayat] = useState<ChatMessage[]>([]);
   const [teks, setTeks] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [tanyaHapus, setTanyaHapus] = useState(false);
 
   const akhir = useRef<HTMLDivElement>(null);
 
@@ -36,7 +47,7 @@ export const ChatWidget = () => {
   // luar area terlihat dan seolah tidak ada jawaban sama sekali.
   useEffect(() => {
     if (riwayat.length > 0) akhir.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [riwayat, kirimAI.isPending]);
+  }, [riwayat.length, kirimAI.isPending]);
 
   const kirim = (isi: string) => {
     const bersih = isi.trim();
@@ -45,20 +56,13 @@ export const ChatWidget = () => {
     setError(null);
     setTeks('');
 
-    const berikutnya: ChatMessage[] = [...riwayat, { role: 'user', content: bersih }];
-    setRiwayat(berikutnya);
-
-    kirimAI.mutate(berikutnya, {
-      onSuccess: (hasil) => {
-        setRiwayat([...berikutnya, { role: 'assistant', content: hasil.reply }]);
-      },
+    kirimAI.mutate(bersih, {
       onError: (e: unknown) => {
         setError(toApiError(e).message);
 
         // Pesan yang gagal dikembalikan ke kolom ketik supaya tidak perlu
-        // diketik ulang. Membiarkannya menggantung di riwayat tanpa jawaban
-        // membuat giliran berikutnya membawa konteks yang timpang.
-        setRiwayat(riwayat);
+        // diketik ulang. Yang menempelkannya sementara ke riwayat sudah dilepas
+        // sendiri oleh onError di service.
         setTeks(bersih);
       },
     });
@@ -85,6 +89,17 @@ export const ChatWidget = () => {
               <span className="t-caption c-tertiary">Seputar kebugaran dan gizi</span>
             </span>
 
+            {riwayat.length > 0 ? (
+              <button
+                type="button"
+                className="chat-close"
+                onClick={() => setTanyaHapus(true)}
+                aria-label="Hapus riwayat percakapan"
+              >
+                <TrashIcon size={17} weight="regular" />
+              </button>
+            ) : null}
+
             <button
               type="button"
               className="chat-close"
@@ -108,7 +123,7 @@ export const ChatWidget = () => {
               </div>
             ) : (
               riwayat.map((m, i) => (
-                <div key={i} className={m.role === 'user' ? 'chat-user' : 'chat-ai'}>
+                <div key={m.id + i} className={m.role === 'USER' ? 'chat-user' : 'chat-ai'}>
                   {m.content}
                 </div>
               ))
@@ -141,6 +156,19 @@ export const ChatWidget = () => {
               <PaperPlaneRightIcon size={17} weight="fill" />
             </button>
           </form>
+          <ConfirmDialog
+            open={tanyaHapus}
+            title="Hapus riwayat percakapan?"
+            message="Seluruh percakapan dengan asisten akan hilang permanen, dan dia tidak lagi ingat apa yang sudah kamu tanyakan."
+            onCancel={() => setTanyaHapus(false)}
+            onConfirm={() => {
+              setTanyaHapus(false);
+              setError(null);
+              hapusRiwayat.mutate(undefined, {
+                onError: (e: unknown) => setError(toApiError(e).message),
+              });
+            }}
+          />
         </section>
       ) : null}
 

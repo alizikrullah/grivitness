@@ -76,7 +76,7 @@ interface SumberOlahraga {
  * Menentukan nama dan kalori berdasarkan sumber olahraganya.
  *
  * Untuk sumber library dan custom, kalorinya dihitung backend dan nilai
- * calories_burned dari client diabaikan — kalau tidak, client bisa mengarang
+ * calories_burned dari client diabaikan, kalau tidak, client bisa mengarang
  * angka kalori yang tidak sesuai dengan durasi dan berat badannya.
  */
 const resolveSumber = async (userId: string, data: CreateWorkoutDto): Promise<SumberOlahraga> => {
@@ -152,6 +152,7 @@ export const create = async (userId: string, data: CreateWorkoutDto): Promise<Wo
     duration_minutes: data.duration_minutes,
     calories_burned: sumber.calories_burned,
     intensity: data.intensity,
+    tracked_by_device: data.tracked_by_device ?? false,
     notes: data.notes ?? null,
     logged_at: data.logged_at ?? todayInJakarta(),
   });
@@ -197,7 +198,7 @@ export const getRange = async (userId: string, range: DateRangeDto): Promise<Wor
  *
  * Ketika durasinya berubah dan user tidak menyebut kalorinya sendiri, kalori
  * diskalakan proporsional dari nilai lama. Cara ini dipilih daripada menghitung
- * ulang dari library karena berlaku untuk ketiga sumber sekaligus — termasuk
+ * ulang dari library karena berlaku untuk ketiga sumber sekaligus, termasuk
  * olahraga yang diinput manual, yang tidak punya nilai per menit untuk dirujuk.
  *
  * Membiarkan durasi berubah tanpa menyentuh kalori akan meninggalkan angka yang
@@ -218,6 +219,7 @@ export const update = async (
   if (data.workout_name !== undefined) perubahan.workout_name = data.workout_name;
   if (data.intensity !== undefined) perubahan.intensity = data.intensity;
   if (data.notes !== undefined) perubahan.notes = data.notes;
+  if (data.tracked_by_device !== undefined) perubahan.tracked_by_device = data.tracked_by_device;
 
   if (data.duration_minutes !== undefined) {
     perubahan.duration_minutes = data.duration_minutes;

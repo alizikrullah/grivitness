@@ -23,7 +23,7 @@ const write = (line: string) => process.stdout.write(`${line}\n`);
 const ok = (line: string) => write(`  \x1b[32mOK\x1b[0m   ${line}`);
 const bad = (line: string) => write(`  \x1b[31mGAGAL\x1b[0m ${line}`);
 
-/** Gambar sintetis. Isinya tidak penting — yang diuji pipeline-nya, bukan akurasi AI. */
+/** Gambar sintetis. Isinya tidak penting, yang diuji pipeline-nya, bukan akurasi AI. */
 const gambarUji = (r: number, g: number, b: number): Promise<Buffer> =>
   sharp({ create: { width: 640, height: 480, channels: 3, background: { r, g, b } } })
     .jpeg()

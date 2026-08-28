@@ -74,7 +74,7 @@ describe('POST /api/auth/register', () => {
 
   /**
    * Register menulis ke tiga collection. Karena Directus tidak punya transaction,
-   * ketiganya harus benar-benar terbentuk — kalau tidak, module streaks dan
+   * ketiganya harus benar-benar terbentuk, kalau tidak, module streaks dan
    * notifications akan menemukan barisnya kosong di kemudian hari.
    */
   it('sekalian membuat baris streaks dan notification_settings', async () => {
@@ -176,8 +176,7 @@ describe('POST /api/auth/refresh', () => {
    *
    * Token yang sudah direvoke tapi dipakai lagi cuma punya satu penjelasan
    * masuk akal: ada salinan token yang bocor. Karena tidak mungkin membedakan
-   * mana yang penyerang dan mana pemiliknya, SEMUA sesi user itu dicabut —
-   * termasuk token baru yang barusan diterbitkan.
+   * mana yang penyerang dan mana pemiliknya, SEMUA sesi user itu dicabut, * termasuk token baru yang barusan diterbitkan.
    */
   it('mencabut seluruh sesi user saat token bekas dipakai lagi', async () => {
     const res = await daftar(testEmail('bocor'));

@@ -30,8 +30,12 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-  width: min(380px, calc(100vw - var(--space-xl) * 2));
-  max-height: min(560px, calc(100vh - 160px));
+  width: min(400px, calc(100vw - var(--space-xl) * 2));
+  /* height, bukan max-height. Dengan max-height saja panelnya menyusut mengikuti
+     isi, dan percakapan yang baru dimulai cuma berisi satu sapaan sehingga
+     panelnya menciut jadi kotak kecil. Tingginya sekarang tetap, dan area pesan
+     yang mengisi sisanya. */
+  height: min(620px, calc(100vh - 140px));
   padding: var(--space-lg);
   border-radius: var(--radius-xl);
   background: var(--surface);
@@ -73,7 +77,7 @@
   /* Menahan panel supaya tidak tumbuh sampai menutupi halaman saat
      percakapannya panjang. */
   flex: 1;
-  min-height: 120px;
+  min-height: 0;
 }
 
 .chat-kosong {

@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { dateString } from '../../utils/query.js';
 
-/** Skala 1-5. Dijamin di sini, bukan di database — Directus tidak punya enum. */
+/** Skala 1-5. Dijamin di sini, bukan di database, Directus tidak punya enum. */
 const skor = (label: string) =>
   z
     .number({ message: `${label} harus berupa angka` })

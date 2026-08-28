@@ -21,7 +21,7 @@ const ISSUER = 'grivitness-api';
 /**
  * @types/jsonwebtoken menyempitkan tipe expiresIn jadi format literal tertentu,
  * sementara nilainya di sini datang dari env sebagai string biasa.
- * Cast ini menjembatani keduanya — nilainya sendiri sudah divalidasi di env.ts.
+ * Cast ini menjembatani keduanya, nilainya sendiri sudah divalidasi di env.ts.
  */
 const asExpiry = (value: string): jwt.SignOptions['expiresIn'] =>
   value as jwt.SignOptions['expiresIn'];
@@ -95,7 +95,7 @@ export const verifyRefreshToken = (token: string): RefreshTokenPayload => {
  * Yang disimpan di database adalah SHA-256 dari refresh token, bukan token mentahnya.
  * Kalau isi database bocor, token di dalamnya tidak bisa langsung dipakai.
  *
- * SHA-256 tanpa salt sudah memadai di sini — berbeda dengan password, refresh token
+ * SHA-256 tanpa salt sudah memadai di sini, berbeda dengan password, refresh token
  * punya entropi tinggi dan acak, jadi tidak rentan serangan kamus.
  */
 export const hashRefreshToken = (token: string): string =>

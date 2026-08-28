@@ -144,7 +144,7 @@ export const create = async (userId: string, data: CreateGoalDto): Promise<GoalW
 /**
  * Menghitung budget kalori ketika user tidak menentukannya sendiri.
  *
- * Hasilnya sudah ditahan tiga pagar keamanan sekaligus — batas bawah kalori
+ * Hasilnya sudah ditahan tiga pagar keamanan sekaligus, batas bawah kalori
  * menurut jenis kelamin, defisit maksimal 25% TDEE, dan laju maksimal per
  * minggu. Target yang terlalu agresif TIDAK menghasilkan anjuran berbahaya;
  * budget-nya ditahan di batas aman dan ketidakcocokannya dilaporkan lewat
@@ -170,8 +170,7 @@ const autoBudget = (m: EnergyProfile, data: CreateGoalDto): number => {
 /**
  * Mengubah goal.
  *
- * Kalau goal ini diaktifkan, goal lain yang sedang aktif harus dinonaktifkan —
- * kalau tidak, aturan "satu goal aktif per user" bocor dan endpoint
+ * Kalau goal ini diaktifkan, goal lain yang sedang aktif harus dinonaktifkan, * kalau tidak, aturan "satu goal aktif per user" bocor dan endpoint
  * GET /api/goals/active jadi tidak menentu mengembalikan yang mana.
  */
 export const update = async (

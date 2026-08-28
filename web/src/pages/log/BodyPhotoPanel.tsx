@@ -3,22 +3,33 @@ import { useState } from 'react';
 
 import { AuthImage } from '@/components/features/AuthImage';
 import { PhotoPicker } from '@/components/features/PhotoPicker';
-import { Button, Card, EmptyState, ErrorNote, Loading, SectionHeader } from '@/components/ui';
+import {
+  Button,
+  Card,
+  DateField,
+  EmptyState,
+  ErrorNote,
+  Loading,
+  SectionHeader,
+} from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { toApiError } from '@/lib/api';
 import {
+  useBodyPhotoDate,
   useBodyPhotoRange,
-  useBodyPhotoToday,
   useCreateBodyPhoto,
   useDeleteBodyPhoto,
 } from '@/services/body-photos.service';
-import { shiftDays, shortDate, todayWIB } from '@/utils/date';
+import { dayPhrase, shiftDays, shortDate, todayWIB } from '@/utils/date';
 import { LogActions } from './LogActions';
 
 export const BodyPhotoPanel = () => {
+  /** Tanggal yang sedang dilihat. Bawaannya hari ini. */
+  const [tanggal, setTanggal] = useState(todayWIB());
+
   const hariIni = todayWIB();
 
-  const today = useBodyPhotoToday();
+  const today = useBodyPhotoDate(tanggal);
   const riwayat = useBodyPhotoRange(shiftDays(hariIni, -89), hariIni);
   const create = useCreateBodyPhoto();
   const hapus = useDeleteBodyPhoto();
@@ -26,6 +37,19 @@ export const BodyPhotoPanel = () => {
   const [depan, setDepan] = useState<File | null>(null);
   const [samping, setSamping] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Foto yang sudah dipilih dilepas saat pindah tanggal, disesuaikan saat
+   * render dan bukan lewat useEffect. Tanpa ini foto untuk hari ini ikut
+   * terbawa dan tersimpan ke tanggal yang salah.
+   */
+  const [tanggalTerakhir, setTanggalTerakhir] = useState(tanggal);
+  if (tanggal !== tanggalTerakhir) {
+    setTanggalTerakhir(tanggal);
+    setDepan(null);
+    setSamping(null);
+    setError(null);
+  }
 
   const simpan = () => {
     setError(null);
@@ -36,7 +60,8 @@ export const BodyPhotoPanel = () => {
     }
 
     create.mutate(
-      { front: depan, side: samping },
+      // Dicatat ke tanggal yang sedang dilihat, bukan selalu ke hari ini.
+      { front: depan, side: samping, logged_at: tanggal },
       {
         onError: (e) => setError(toApiError(e).message),
         onSuccess: () => {
@@ -49,7 +74,9 @@ export const BodyPhotoPanel = () => {
 
   return (
     <>
-      <SectionHeader title="Foto badan" />
+      <SectionHeader title={'Foto badan ' + dayPhrase(tanggal)} />
+
+      <DateField value={tanggal} onChange={setTanggal} />
 
       <Card>
         <div className="stack">
@@ -72,8 +99,8 @@ export const BodyPhotoPanel = () => {
             </span>
           ) : (
             <span className="t-caption c-tertiary">
-              Analisa dua foto memakai kuota AI paling besar. Kalau baru saja memotret makanan,
-              beri jeda semenit dulu.
+              Analisa dua foto memakai kuota AI paling besar. Kalau baru saja memotret makanan, beri
+              jeda semenit dulu.
             </span>
           )}
 
@@ -106,7 +133,8 @@ export const BodyPhotoPanel = () => {
 
               {today.data.ai_analysis?.estimated_body_fat_percent != null ? (
                 <span className="t-caption c-tertiary">
-                  Perkiraan lemak tubuh {today.data.ai_analysis.estimated_body_fat_percent}%. Taksiran kasar dari foto, bukan pengukuran.
+                  Perkiraan lemak tubuh {today.data.ai_analysis.estimated_body_fat_percent}%.
+                  Taksiran kasar dari foto, bukan pengukuran.
                 </span>
               ) : null}
             </div>
@@ -129,7 +157,11 @@ export const BodyPhotoPanel = () => {
           {riwayat.data?.map((foto) => (
             <Card key={foto.id} padding="md">
               <div className="stack-sm">
-                <AuthImage path={foto.front_photo_url} alt={'Foto ' + foto.logged_at} height={200} />
+                <AuthImage
+                  path={foto.front_photo_url}
+                  alt={'Foto ' + foto.logged_at}
+                  height={200}
+                />
                 <div className="row-between">
                   <span className="t-caption c-secondary">{shortDate(foto.logged_at)}</span>
                   <LogActions

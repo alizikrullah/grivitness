@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api, del, get, unwrap } from '@/lib/api';
 import { invalidateAfterLog, qk } from '@/lib/query';
+import { todayWIB } from '@/utils/date';
 import type { BodyPhoto } from '@/types';
 import { asFilePart } from './food.service';
 
@@ -23,14 +24,45 @@ export const useBodyPhotoRange = (from: string, to: string) =>
     queryFn: () => get<BodyPhoto[]>('/api/body-photos', { params: { from, to } }),
   });
 
+/**
+ * Foto badan pada satu tanggal. Hari ini dialihkan ke kunci cache "today"
+ * supaya tidak ada dua salinan data yang sama dengan kunci berbeda.
+ */
+export const useBodyPhotoDate = (date: string) => {
+  const iniHariIni = date === todayWIB();
+
+  return useQuery({
+    queryKey: iniHariIni ? qk.bodyPhotoToday : qk.bodyPhotoDate(date),
+    queryFn: async () => {
+      try {
+        return iniHariIni
+          ? await get<BodyPhoto | null>('/api/body-photos/today')
+          : await get<BodyPhoto | null>('/api/body-photos/day', { params: { date } });
+      } catch {
+        return null;
+      }
+    },
+  });
+};
+
 export const useCreateBodyPhoto = () => {
   const client = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ front, side }: { front: string; side: string }) => {
+    mutationFn: ({
+      front,
+      side,
+      logged_at,
+    }: {
+      front: string;
+      side: string;
+      /** Dikosongkan berarti hari ini. Diisi saat mencatat ke hari lampau. */
+      logged_at?: string;
+    }) => {
       const form = new FormData();
       form.append('front_photo', asFilePart(front));
       form.append('side_photo', asFilePart(side));
+      if (logged_at) form.append('logged_at', logged_at);
 
       return unwrap<BodyPhoto>(
         api.post('/api/body-photos', form, {

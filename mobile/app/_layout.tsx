@@ -1,5 +1,5 @@
 // Diimpor per varian, bukan dari akar paket. Mengimpor dari akar menarik
-// keempat belas varian termasuk delapan italic yang tidak dipakai — sekitar
+// keempat belas varian termasuk delapan italic yang tidak dipakai, sekitar
 // 800KB font mati yang ikut masuk ke bundel aplikasi.
 import { PlusJakartaSans_400Regular } from '@expo-google-fonts/plus-jakarta-sans/400Regular';
 import { PlusJakartaSans_500Medium } from '@expo-google-fonts/plus-jakarta-sans/500Medium';
@@ -69,7 +69,7 @@ const RootNavigator = () => {
 
   useAuthGate(siap);
 
-  // Baru didaftarkan setelah user masuk — permintaan token butuh Authorization,
+  // Baru didaftarkan setelah user masuk, permintaan token butuh Authorization,
   // dan meminta izin notifikasi di layar login akan terasa memaksa.
   usePushToken(status === 'authenticated');
 

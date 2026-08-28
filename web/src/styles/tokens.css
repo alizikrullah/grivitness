@@ -7,8 +7,7 @@
  * hanya untuk mewarnai satu tepi.
  *
  * Radius mengikuti bahasa visual referensi: kartu besar, kontrol sedang, chip
- * dan tombol utama sepenuhnya bulat. Nilai kecil seperti 8px sengaja tidak ada —
- * terlalu kaku untuk tampilan ini.
+ * dan tombol utama sepenuhnya bulat. Nilai kecil seperti 8px sengaja tidak ada, * terlalu kaku untuk tampilan ini.
  */
 :root {
   --bg: #0a0a0b;
@@ -48,7 +47,7 @@
 
   --font: 'Plus Jakarta Sans Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
-  /* Kedalaman dibentuk dari garis tepi tipis, bukan bayangan — di tema segelap
+  /* Kedalaman dibentuk dari garis tepi tipis, bukan bayangan, di tema segelap
      ini bayangan nyaris tidak terlihat. Bayangan hanya untuk elemen melayang. */
   --shadow-float: 0 12px 32px rgba(0, 0, 0, 0.45);
 

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { get, patch, post } from '@/lib/api';
 import { invalidateAfterLog, qk } from '@/lib/query';
+import { todayWIB } from '@/utils/date';
 import type { WeightLog } from '@/types';
 
 export interface WeightInput {
@@ -28,6 +29,30 @@ export const useWeightRange = (from: string, to: string) =>
     queryKey: qk.weightRange(from, to),
     queryFn: () => get<WeightLog[]>('/api/weight', { params: { from, to } }),
   });
+
+/**
+ * Berat badan pada satu tanggal, dipakai layar catat untuk menelusuri hari lampau.
+ *
+ * Untuk hari ini permintaannya dialihkan ke endpoint dan kunci cache "today",
+ * supaya layar catat dan beranda berbagi satu salinan data. Tanpa itu hal yang
+ * sama tersimpan dua kali dengan kunci berbeda, dan salah satunya pasti basi.
+ */
+export const useWeightDate = (date: string) => {
+  const iniHariIni = date === todayWIB();
+
+  return useQuery({
+    queryKey: iniHariIni ? qk.weightToday : qk.weightDate(date),
+    queryFn: async () => {
+      try {
+        return iniHariIni
+          ? await get<WeightLog | null>('/api/weight/today')
+          : await get<WeightLog | null>('/api/weight/day', { params: { date } });
+      } catch {
+        return null;
+      }
+    },
+  });
+};
 
 const segarkan = (client: ReturnType<typeof useQueryClient>) => {
   void client.invalidateQueries({ queryKey: ['weight'] });

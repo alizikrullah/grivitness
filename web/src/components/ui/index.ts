@@ -1,6 +1,8 @@
 export { Button } from './Button';
 export { Card } from './Card';
 export { Chip, ChipGroup } from './Chip';
+export { ConfirmDialog } from './ConfirmDialog';
+export { DateField } from './DateField';
 export { Input } from './Input';
 export { Modal } from './Modal';
 export { Ring } from './Ring';

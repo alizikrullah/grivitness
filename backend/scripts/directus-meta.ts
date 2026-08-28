@@ -2,7 +2,7 @@
  * Bentuk data metadata Directus yang dipakai script schema.
  *
  * Client di script sengaja dibuat tanpa generic DirectusSchema, karena yang
- * disentuh justru endpoint sistem (/collections, /fields, /relations) — bukan
+ * disentuh justru endpoint sistem (/collections, /fields, /relations), bukan
  * collection aplikasi. Akibatnya SDK mengembalikan `any`, yang membuat seluruh
  * pemakaiannya lolos dari pemeriksaan tipe.
  *

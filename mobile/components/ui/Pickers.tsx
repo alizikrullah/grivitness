@@ -23,7 +23,7 @@ interface StepperProps {
  * Pengatur angka: bisa diketik langsung, bisa juga digeser tombol.
  *
  * Dua cara sengaja disediakan berdampingan. Tombol tambah-kurang enak untuk
- * penyesuaian kecil — naik 0,1 kg dari kemarin — tapi menyiksa kalau angkanya
+ * penyesuaian kecil, naik 0,1 kg dari kemarin, tapi menyiksa kalau angkanya
  * jauh, misalnya mengisi 8.500 langkah dari nol. Angkanya karena itu berupa
  * kolom isian sungguhan yang tinggal disentuh lalu diketik.
  */
@@ -60,7 +60,7 @@ export const Stepper = ({
     // papan ketik angka Android memberi koma, bukan titik.
     const bersih = masuk.replace(',', '.').replace(/[^0-9.]/g, '');
 
-    // Titik kedua dan seterusnya dibuang — "82.5.3" bukan angka.
+    // Titik kedua dan seterusnya dibuang, "82.5.3" bukan angka.
     const bagian = bersih.split('.');
     const hasil = bagian.length > 2 ? bagian[0] + '.' + bagian.slice(1).join('') : bersih;
 
@@ -70,7 +70,7 @@ export const Stepper = ({
 
     // Nilainya diteruskan ke atas SEKARANG, tidak menunggu kolom kehilangan
     // fokus. Menunggu blur berarti user yang mengetik angka lalu langsung
-    // menekan tombol simpan akan menyimpan nilai lama — dan kegagalan itu tidak
+    // menekan tombol simpan akan menyimpan nilai lama, dan kegagalan itu tidak
     // terlihat sama sekali, karena permintaannya sendiri berhasil.
     //
     // Batas bawah sengaja belum ditegakkan di sini. Mengetik "82" melewati
@@ -158,7 +158,7 @@ interface DateStripProps {
 /**
  * Pemilih tanggal mendatar untuk beberapa hari terakhir.
  *
- * Tanggal masa depan sengaja tidak ditawarkan — mencatat berat badan besok
+ * Tanggal masa depan sengaja tidak ditawarkan, mencatat berat badan besok
  * tidak masuk akal, dan backend akan menolaknya.
  */
 export const DateStrip = ({ value, onChange, days = 14 }: DateStripProps) => {

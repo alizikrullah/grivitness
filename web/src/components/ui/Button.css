@@ -40,7 +40,7 @@
 .btn-primary {
   background: var(--primary);
   color: var(--white, #fff);
-  /* Bayangan hanya untuk elemen melayang — tombol utama salah satunya. */
+  /* Bayangan hanya untuk elemen melayang, tombol utama salah satunya. */
   box-shadow: 0 8px 20px rgba(242, 51, 63, 0.28);
 }
 

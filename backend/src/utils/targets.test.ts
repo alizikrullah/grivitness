@@ -24,7 +24,7 @@ describe('waterTargetMl', () => {
     expect(waterTargetMl(70, 30, 60)).toBe(waterTargetMl(70, 30) + 500);
   });
 
-  /** Minum berlebihan bukan tidak berbahaya — hiponatremia itu nyata. */
+  /** Minum berlebihan bukan tidak berbahaya, hiponatremia itu nyata. */
   it('menahan di batas atas dan bawah yang masuk akal', () => {
     expect(waterTargetMl(200, 30, 300)).toBeLessThanOrEqual(4000);
     expect(waterTargetMl(30, 30)).toBeGreaterThanOrEqual(1500);
@@ -104,7 +104,7 @@ describe('macroTarget', () => {
     expect(total).toBeLessThan(2100);
   });
 
-  /** Budget sangat ketat bisa habis sebelum karbohidrat — jangan sampai negatif. */
+  /** Budget sangat ketat bisa habis sebelum karbohidrat, jangan sampai negatif. */
   it('tidak pernah menganjurkan karbohidrat negatif', () => {
     expect(macroTarget(900, 120, true).carbs_g).toBeGreaterThanOrEqual(0);
   });

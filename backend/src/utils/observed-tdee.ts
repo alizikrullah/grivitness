@@ -20,8 +20,7 @@ import { round } from './number.js';
  *
  * SOAL CATATAN MAKANAN YANG TIDAK AKURAT
  *
- * Orang secara konsisten mencatat makanan lebih sedikit daripada kenyataan —
- * penelitian menunjukkan kekurangan 20-30%. Itu TIDAK membuat pendekatan ini
+ * Orang secara konsisten mencatat makanan lebih sedikit daripada kenyataan, * penelitian menunjukkan kekurangan 20-30%. Itu TIDAK membuat pendekatan ini
  * sia-sia, tapi juga tidak sepenuhnya saling meniadakan seperti yang mudah
  * diduga. Yang terjadi:
  *
@@ -54,7 +53,7 @@ const MIN_CAKUPAN = 0.7;
 /**
  * Batas kewajaran hasil pengukuran terhadap estimasi rumus.
  *
- * Di luar rentang ini yang jauh lebih mungkin adalah datanya kacau — bukan
+ * Di luar rentang ini yang jauh lebih mungkin adalah datanya kacau, bukan
  * metabolisme yang benar-benar seekstrem itu. Menerima begitu saja akan
  * menghasilkan jatah kalori yang berbahaya.
  */
@@ -74,7 +73,7 @@ const BOBOT_MAKSIMAL = 0.85;
 /** Berapa hari sampai jendela pengamatan dianggap cukup panjang. */
 const HARI_PENUH = 28;
 
-/** Penimbangan per hari yang dianggap ideal — kira-kira dua kali seminggu. */
+/** Penimbangan per hari yang dianggap ideal, kira-kira dua kali seminggu. */
 const TIMBANG_IDEAL_PER_HARI = 2 / 7;
 
 export interface WeightPoint {
@@ -108,13 +107,13 @@ export interface ObservedTdee {
    * Hasil murni rumus, sebelum dikoreksi apa pun.
    *
    * Ikut dikembalikan supaya pemanggil bisa menurunkan rasio koreksinya tanpa
-   * membalik aljabar pencampuran — cara itu pernah gua tulis dan hasilnya
+   * membalik aljabar pencampuran, cara itu pernah gua tulis dan hasilnya
    * berbelit sekaligus rapuh terhadap pembagian nol saat confidence bernilai 1.
    */
   estimated: number;
   /** Hasil murni pengukuran. Null selama datanya belum layak. */
   measured: number | null;
-  /** 0 sampai 1 — seberapa besar bobot pengukuran di dalam `tdee`. */
+  /** 0 sampai 1, seberapa besar bobot pengukuran di dalam `tdee`. */
   confidence: number;
   /** Kenapa pengukuran belum dipakai. Null kalau sudah dipakai. */
   reason: ObservedReason | null;
@@ -202,8 +201,7 @@ const gagal = (
  * Menghitung TDEE terukur, lalu mencampurnya dengan estimasi rumus.
  *
  * Campuran, bukan penggantian. Melompat penuh ke hasil empat belas hari akan
- * membuat jatah kalori user berayun tiap minggu mengikuti fluktuasi air —
- * bobotnya naik perlahan seiring datanya bertambah panjang dan rapat.
+ * membuat jatah kalori user berayun tiap minggu mengikuti fluktuasi air, * bobotnya naik perlahan seiring datanya bertambah panjang dan rapat.
  */
 export const observeTDEE = (input: ObservedInput): ObservedTdee => {
   const laju = lajuPerHari(input.weights);
@@ -224,7 +222,7 @@ export const observeTDEE = (input: ObservedInput): ObservedTdee => {
   const rataAsupan = totalKalori / hariTercatat;
 
   // TDEE = rata asupan - (laju kg/hari x 7700). Laju negatif saat turun, jadi
-  // sukunya menambah — energi yang hilang dari tubuh itu yang ikut dibakar.
+  // sukunya menambah, energi yang hilang dari tubuh itu yang ikut dibakar.
   const terukur = round(rataAsupan - laju * KALORI_PER_KG, 0);
 
   if (
@@ -235,7 +233,7 @@ export const observeTDEE = (input: ObservedInput): ObservedTdee => {
   }
 
   // Tiga penentu keyakinan: panjang jendela, kerapatan penimbangan, dan cakupan
-  // catatan makan. Dikalikan, jadi yang paling lemah menentukan — memang begitu
+  // catatan makan. Dikalikan, jadi yang paling lemah menentukan, memang begitu
   // seharusnya, karena satu saja yang buruk sudah cukup merusak hasilnya.
   const bobotHari = Math.min(input.days / HARI_PENUH, 1);
   const bobotTimbang = Math.min(input.weights.length / (input.days * TIMBANG_IDEAL_PER_HARI), 1);

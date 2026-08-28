@@ -3,18 +3,33 @@ import { useState } from 'react';
 
 import { AuthImage } from '@/components/features/AuthImage';
 import { PhotoPicker } from '@/components/features/PhotoPicker';
-import { Button, Card, ChipGroup, EmptyState, ErrorNote, Input, Loading, Modal, SectionHeader } from '@/components/ui';
+import {
+  Button,
+  Card,
+  ChipGroup,
+  DateField,
+  EmptyState,
+  ErrorNote,
+  Input,
+  Loading,
+  Modal,
+  SectionHeader,
+} from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
 import { MEAL_LABEL, MEAL_OPTIONS } from '@/constants/labels';
 import { toApiError } from '@/lib/api';
-import { useCreateFood, useDeleteFood, useFoodToday, useUpdateFood } from '@/services/food.service';
+import { useCreateFood, useDeleteFood, useFoodDate, useUpdateFood } from '@/services/food.service';
 import type { FoodLog, MealType } from '@/types';
-import { timeWIB } from '@/utils/date';
+import { dayPhrase, timeWIB, todayWIB, wibToISO } from '@/utils/date';
 import { thousands, toNum } from '@/utils/format';
 import { LogActions } from './LogActions';
 
 export const FoodPanel = () => {
-  const today = useFoodToday();
+  /** Tanggal yang sedang dilihat. Bawaannya hari ini. */
+  const [tanggal, setTanggal] = useState(todayWIB());
+  const hariIni = tanggal === todayWIB();
+
+  const today = useFoodDate(tanggal);
   const create = useCreateFood();
   const hapus = useDeleteFood();
 
@@ -33,7 +48,15 @@ export const FoodPanel = () => {
     }
 
     create.mutate(
-      { file, meal_type: jenis, notes: catatan.trim() || undefined },
+      {
+        file,
+        meal_type: jenis,
+        notes: catatan.trim() || undefined,
+        // Saat menelusuri hari lampau, makanan dicatat ke tanggal ITU. Tengah
+        // hari dipakai sebagai jam netral karena jam sesungguhnya sudah tidak
+        // bisa diingat lagi.
+        logged_at: hariIni ? undefined : wibToISO(tanggal, '12:00'),
+      },
       {
         onError: (e) => setError(toApiError(e).message),
         onSuccess: () => {
@@ -48,18 +71,15 @@ export const FoodPanel = () => {
     <>
       <SectionHeader title="Catat makanan" />
 
+      <DateField value={tanggal} onChange={setTanggal} />
+
       <Card>
         <div className="stack">
           <div style={{ maxWidth: 260 }}>
             <PhotoPicker label="Foto makanan" file={file} onPick={setFile} />
           </div>
 
-          <ChipGroup
-            options={MEAL_OPTIONS}
-            value={jenis}
-            onChange={setJenis}
-            labels={MEAL_LABEL}
-          />
+          <ChipGroup options={MEAL_OPTIONS} value={jenis} onChange={setJenis} labels={MEAL_LABEL} />
 
           <Input
             label="Catatan"
@@ -72,7 +92,7 @@ export const FoodPanel = () => {
           {error ? <ErrorNote message={error} /> : null}
 
           {/* Analisa Groq bisa memakan puluhan detik, jadi keadaan memuatnya
-              dijelaskan — bukan cuma tombol berputar tanpa keterangan. */}
+              dijelaskan, bukan cuma tombol berputar tanpa keterangan. */}
           {create.isPending ? (
             <span className="t-caption c-secondary">
               Menganalisa foto… ini bisa sampai satu menit.
@@ -90,7 +110,7 @@ export const FoodPanel = () => {
         </div>
       </Card>
 
-      <SectionHeader title="Makan hari ini" />
+      <SectionHeader title={'Makan ' + dayPhrase(tanggal)} />
 
       {today.isPending ? (
         <Loading />
@@ -104,7 +124,7 @@ export const FoodPanel = () => {
         <>
           <Card padding="md">
             <div className="row-between">
-              <span className="t-caption c-secondary">Total hari ini</span>
+              <span className="t-caption c-secondary">{'Total ' + dayPhrase(tanggal)}</span>
               <span className="t-h3 c-accent">
                 {thousands(today.data?.total_calories ?? 0)} kkal
               </span>
@@ -141,7 +161,30 @@ export const FoodPanel = () => {
                     {Math.round(toNum(log.carbs_g) ?? 0)}g · L {Math.round(toNum(log.fat_g) ?? 0)}g
                   </span>
 
-                  {log.ai_analysis.foods_detected?.length ? (
+                  {/*
+                    Rincian per bahan beserta beratnya. Ini yang membuat angka
+                    kalorinya bisa diperiksa: kalau totalnya terasa meleset,
+                    kelihatan bagian mana yang salah ditaksir, bukan cuma satu
+                    angka besar yang harus dipercaya begitu saja.
+
+                    Kosong pada catatan lama yang dibuat sebelum analisa
+                    diuraikan per bahan; daftar nama lamanya yang dipakai.
+                  */}
+                  {log.ai_analysis.items?.length ? (
+                    <div className="food-rincian">
+                      {log.ai_analysis.items.map((item, i) => (
+                        <div key={item.name + i} className="food-rincian-row">
+                          <span className="t-caption c-secondary food-rincian-nama">
+                            {item.name}
+                          </span>
+                          <span className="t-caption c-tertiary">{thousands(item.grams)} g</span>
+                          <span className="t-caption food-rincian-kkal">
+                            {thousands(item.calories)} kkal
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : log.ai_analysis.foods_detected?.length ? (
                     <span className="t-caption c-tertiary">
                       {log.ai_analysis.foods_detected.join(', ')}
                     </span>
@@ -162,7 +205,7 @@ export const FoodPanel = () => {
  * Mengoreksi hasil AI tanpa memotret ulang.
  *
  * AI sering meleset pada hidangan yang mirip. Tanpa jalur ini, satu-satunya
- * cara membetulkannya adalah menghapus lalu mencatat dari awal — yang berarti
+ * cara membetulkannya adalah menghapus lalu mencatat dari awal, yang berarti
  * satu panggilan AI lagi, dan satu langkah lebih dekat ke batas kuota Groq,
  * hanya untuk memperbaiki satu kata.
  */
@@ -202,6 +245,18 @@ const FoodEditModal = ({ log, onClose }: { log: FoodLog; onClose: () => void }) 
       onClose={onClose}
       footer={<Button label="Simpan" size="lg" full onClick={simpan} loading={update.isPending} />}
     >
+      {/*
+        Fotonya ditampilkan di paling atas, sebelum satu pun kolom isian.
+
+        Yang sedang dikoreksi user adalah taksiran AI ATAS foto ini, jadi
+        fotonya adalah rujukan untuk menilai benar tidaknya angka di bawahnya.
+        Mengoreksi tanpa melihat piringnya berarti menebak dua kali.
+
+        Sekaligus jadi bukti bahwa fotonya memang tersimpan utuh di server,
+        bukan cuma sempat terlihat sekali saat diunggah.
+      */}
+      <AuthImage path={log.photo_url} alt={'Foto ' + MEAL_LABEL[log.meal_type]} height={200} />
+
       <Input
         label="Daftar makanan"
         value={makanan}

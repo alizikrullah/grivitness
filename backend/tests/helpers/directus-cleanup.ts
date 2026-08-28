@@ -43,7 +43,7 @@ export const cleanupTestUsers = async (): Promise<number> => {
       try {
         await directus.request(deleteUser(user.directus_user_id));
       } catch {
-        // Cerminan di directus_users memang bisa tidak ada — pembuatannya
+        // Cerminan di directus_users memang bisa tidak ada, pembuatannya
         // sengaja tidak fatal saat register.
       }
     }

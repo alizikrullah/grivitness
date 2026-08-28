@@ -60,6 +60,34 @@
       }
     },
     {
+      "collection": "chat_messages",
+      "meta": {
+        "accountability": "all",
+        "archive_app_filter": true,
+        "archive_field": null,
+        "archive_value": null,
+        "collapse": "open",
+        "collection": "chat_messages",
+        "color": null,
+        "display_template": null,
+        "group": null,
+        "hidden": false,
+        "icon": "chat",
+        "item_duplication_fields": null,
+        "note": "Riwayat percakapan dengan asisten AI. Satu percakapan berjalan per user, diurutkan menurut created_at.",
+        "preview_url": null,
+        "singleton": false,
+        "sort": null,
+        "sort_field": null,
+        "translations": null,
+        "unarchive_value": null,
+        "versioning": false
+      },
+      "schema": {
+        "name": "chat_messages"
+      }
+    },
+    {
       "collection": "custom_workouts",
       "meta": {
         "accountability": "all",
@@ -85,6 +113,34 @@
       },
       "schema": {
         "name": "custom_workouts"
+      }
+    },
+    {
+      "collection": "device_energy_logs",
+      "meta": {
+        "accountability": "all",
+        "archive_app_filter": true,
+        "archive_field": null,
+        "archive_value": null,
+        "collapse": "open",
+        "collection": "device_energy_logs",
+        "color": null,
+        "display_template": null,
+        "group": null,
+        "hidden": false,
+        "icon": "watch",
+        "item_duplication_fields": null,
+        "note": "Kalori keluar seharian menurut smartwatch user. Satu baris per user per hari. Angka ini MENGGANTIKAN hitungan TDEE hari itu, bukan ditambahkan ke atasnya.",
+        "preview_url": null,
+        "singleton": false,
+        "sort": null,
+        "sort_field": null,
+        "translations": null,
+        "unarchive_value": null,
+        "versioning": false
+      },
+      "schema": {
+        "name": "device_energy_logs"
       }
     },
     {
@@ -500,9 +556,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -986,9 +1040,7 @@
         "required": false,
         "searchable": true,
         "sort": 12,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -1032,9 +1084,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -1210,9 +1260,7 @@
         "required": false,
         "searchable": true,
         "sort": 5,
-        "special": [
-          "file"
-        ],
+        "special": ["file"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -1256,9 +1304,7 @@
         "required": false,
         "searchable": true,
         "sort": 6,
-        "special": [
-          "file"
-        ],
+        "special": ["file"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -1302,9 +1348,7 @@
         "required": false,
         "searchable": true,
         "sort": 7,
-        "special": [
-          "cast-json"
-        ],
+        "special": ["cast-json"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -1436,9 +1480,7 @@
         "required": false,
         "searchable": true,
         "sort": 10,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -1447,6 +1489,237 @@
       "schema": {
         "name": "created_at",
         "table": "body_photos",
+        "data_type": "timestamp with time zone",
+        "default_value": null,
+        "max_length": null,
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "is_nullable": true,
+        "is_unique": false,
+        "is_indexed": false,
+        "is_primary_key": false,
+        "is_generated": false,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "foreign_key_table": null,
+        "foreign_key_column": null
+      }
+    },
+    {
+      "collection": "chat_messages",
+      "field": "id",
+      "type": "uuid",
+      "meta": {
+        "collection": "chat_messages",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "id",
+        "group": null,
+        "hidden": true,
+        "interface": "input",
+        "note": null,
+        "options": null,
+        "readonly": true,
+        "required": false,
+        "searchable": true,
+        "sort": 1,
+        "special": ["uuid"],
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "full"
+      },
+      "schema": {
+        "name": "id",
+        "table": "chat_messages",
+        "data_type": "uuid",
+        "default_value": null,
+        "max_length": null,
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "is_nullable": false,
+        "is_unique": true,
+        "is_indexed": false,
+        "is_primary_key": true,
+        "is_generated": false,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "foreign_key_table": null,
+        "foreign_key_column": null
+      }
+    },
+    {
+      "collection": "chat_messages",
+      "field": "user_id",
+      "type": "uuid",
+      "meta": {
+        "collection": "chat_messages",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "user_id",
+        "group": null,
+        "hidden": false,
+        "interface": "input",
+        "note": "Pemilik data ini",
+        "options": null,
+        "readonly": false,
+        "required": true,
+        "searchable": true,
+        "sort": 2,
+        "special": null,
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "full"
+      },
+      "schema": {
+        "name": "user_id",
+        "table": "chat_messages",
+        "data_type": "uuid",
+        "default_value": null,
+        "max_length": null,
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "is_nullable": false,
+        "is_unique": false,
+        "is_indexed": false,
+        "is_primary_key": false,
+        "is_generated": false,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "foreign_key_table": "users",
+        "foreign_key_column": "id"
+      }
+    },
+    {
+      "collection": "chat_messages",
+      "field": "role",
+      "type": "string",
+      "meta": {
+        "collection": "chat_messages",
+        "conditions": null,
+        "display": "labels",
+        "display_options": null,
+        "field": "role",
+        "group": null,
+        "hidden": false,
+        "interface": "select-dropdown",
+        "note": "USER kalau ditulis user, ASSISTANT kalau balasan model",
+        "options": {
+          "choices": [
+            {
+              "text": "USER",
+              "value": "USER"
+            },
+            {
+              "text": "ASSISTANT",
+              "value": "ASSISTANT"
+            }
+          ]
+        },
+        "readonly": false,
+        "required": true,
+        "searchable": true,
+        "sort": 3,
+        "special": null,
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "full"
+      },
+      "schema": {
+        "name": "role",
+        "table": "chat_messages",
+        "data_type": "character varying",
+        "default_value": null,
+        "max_length": 32,
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "is_nullable": false,
+        "is_unique": false,
+        "is_indexed": false,
+        "is_primary_key": false,
+        "is_generated": false,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "foreign_key_table": null,
+        "foreign_key_column": null
+      }
+    },
+    {
+      "collection": "chat_messages",
+      "field": "content",
+      "type": "text",
+      "meta": {
+        "collection": "chat_messages",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "content",
+        "group": null,
+        "hidden": false,
+        "interface": "input-multiline",
+        "note": "Isi pesan apa adanya. Balasan model sudah dibersihkan tanda pisahnya sebelum disimpan.",
+        "options": null,
+        "readonly": false,
+        "required": true,
+        "searchable": true,
+        "sort": 4,
+        "special": null,
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "full"
+      },
+      "schema": {
+        "name": "content",
+        "table": "chat_messages",
+        "data_type": "text",
+        "default_value": null,
+        "max_length": null,
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "is_nullable": false,
+        "is_unique": false,
+        "is_indexed": false,
+        "is_primary_key": false,
+        "is_generated": false,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "foreign_key_table": null,
+        "foreign_key_column": null
+      }
+    },
+    {
+      "collection": "chat_messages",
+      "field": "created_at",
+      "type": "timestamp",
+      "meta": {
+        "collection": "chat_messages",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "created_at",
+        "group": null,
+        "hidden": false,
+        "interface": "datetime",
+        "note": "Diisi otomatis oleh Directus saat item dibuat",
+        "options": null,
+        "readonly": true,
+        "required": false,
+        "searchable": true,
+        "sort": 5,
+        "special": ["date-created"],
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "full"
+      },
+      "schema": {
+        "name": "created_at",
+        "table": "chat_messages",
         "data_type": "timestamp with time zone",
         "default_value": null,
         "max_length": null,
@@ -1482,9 +1755,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -1771,9 +2042,7 @@
         "required": false,
         "searchable": true,
         "sort": 7,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -1787,6 +2056,446 @@
         "max_length": null,
         "numeric_precision": null,
         "numeric_scale": null,
+        "is_nullable": true,
+        "is_unique": false,
+        "is_indexed": false,
+        "is_primary_key": false,
+        "is_generated": false,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "foreign_key_table": null,
+        "foreign_key_column": null
+      }
+    },
+    {
+      "collection": "device_energy_logs",
+      "field": "id",
+      "type": "uuid",
+      "meta": {
+        "collection": "device_energy_logs",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "id",
+        "group": null,
+        "hidden": true,
+        "interface": "input",
+        "note": null,
+        "options": null,
+        "readonly": true,
+        "required": false,
+        "searchable": true,
+        "sort": 1,
+        "special": ["uuid"],
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "full"
+      },
+      "schema": {
+        "name": "id",
+        "table": "device_energy_logs",
+        "data_type": "uuid",
+        "default_value": null,
+        "max_length": null,
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "is_nullable": false,
+        "is_unique": true,
+        "is_indexed": false,
+        "is_primary_key": true,
+        "is_generated": false,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "foreign_key_table": null,
+        "foreign_key_column": null
+      }
+    },
+    {
+      "collection": "device_energy_logs",
+      "field": "user_id",
+      "type": "uuid",
+      "meta": {
+        "collection": "device_energy_logs",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "user_id",
+        "group": null,
+        "hidden": false,
+        "interface": "input",
+        "note": "Pemilik data ini",
+        "options": null,
+        "readonly": false,
+        "required": true,
+        "searchable": true,
+        "sort": 2,
+        "special": null,
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "full"
+      },
+      "schema": {
+        "name": "user_id",
+        "table": "device_energy_logs",
+        "data_type": "uuid",
+        "default_value": null,
+        "max_length": null,
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "is_nullable": false,
+        "is_unique": false,
+        "is_indexed": false,
+        "is_primary_key": false,
+        "is_generated": false,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "foreign_key_table": "users",
+        "foreign_key_column": "id"
+      }
+    },
+    {
+      "collection": "device_energy_logs",
+      "field": "total_kcal",
+      "type": "integer",
+      "meta": {
+        "collection": "device_energy_logs",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "total_kcal",
+        "group": null,
+        "hidden": false,
+        "interface": "input",
+        "note": "Kalori TOTAL sehari menurut perangkat, sudah termasuk metabolisme istirahat. BUKAN \"active calories\".",
+        "options": null,
+        "readonly": false,
+        "required": true,
+        "searchable": true,
+        "sort": 3,
+        "special": null,
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "full"
+      },
+      "schema": {
+        "name": "total_kcal",
+        "table": "device_energy_logs",
+        "data_type": "integer",
+        "default_value": null,
+        "max_length": null,
+        "numeric_precision": 32,
+        "numeric_scale": 0,
+        "is_nullable": false,
+        "is_unique": false,
+        "is_indexed": false,
+        "is_primary_key": false,
+        "is_generated": false,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "foreign_key_table": null,
+        "foreign_key_column": null
+      }
+    },
+    {
+      "collection": "device_energy_logs",
+      "field": "source",
+      "type": "string",
+      "meta": {
+        "collection": "device_energy_logs",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "source",
+        "group": null,
+        "hidden": false,
+        "interface": "input",
+        "note": "Nama perangkatnya, misalnya \"Galaxy Watch\". Sekadar keterangan.",
+        "options": null,
+        "readonly": false,
+        "required": false,
+        "searchable": true,
+        "sort": 4,
+        "special": null,
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "full"
+      },
+      "schema": {
+        "name": "source",
+        "table": "device_energy_logs",
+        "data_type": "character varying",
+        "default_value": null,
+        "max_length": 64,
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "is_nullable": true,
+        "is_unique": false,
+        "is_indexed": false,
+        "is_primary_key": false,
+        "is_generated": false,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "foreign_key_table": null,
+        "foreign_key_column": null
+      }
+    },
+    {
+      "collection": "device_energy_logs",
+      "field": "notes",
+      "type": "text",
+      "meta": {
+        "collection": "device_energy_logs",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "notes",
+        "group": null,
+        "hidden": false,
+        "interface": "input-multiline",
+        "note": "Catatan bebas dari user",
+        "options": null,
+        "readonly": false,
+        "required": false,
+        "searchable": true,
+        "sort": 5,
+        "special": null,
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "full"
+      },
+      "schema": {
+        "name": "notes",
+        "table": "device_energy_logs",
+        "data_type": "text",
+        "default_value": null,
+        "max_length": null,
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "is_nullable": true,
+        "is_unique": false,
+        "is_indexed": false,
+        "is_primary_key": false,
+        "is_generated": false,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "foreign_key_table": null,
+        "foreign_key_column": null
+      }
+    },
+    {
+      "collection": "device_energy_logs",
+      "field": "logged_at",
+      "type": "date",
+      "meta": {
+        "collection": "device_energy_logs",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "logged_at",
+        "group": null,
+        "hidden": false,
+        "interface": "datetime",
+        "note": "Tanggal log dalam format YYYY-MM-DD",
+        "options": null,
+        "readonly": false,
+        "required": true,
+        "searchable": true,
+        "sort": 6,
+        "special": null,
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "full"
+      },
+      "schema": {
+        "name": "logged_at",
+        "table": "device_energy_logs",
+        "data_type": "date",
+        "default_value": null,
+        "max_length": null,
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "is_nullable": false,
+        "is_unique": false,
+        "is_indexed": false,
+        "is_primary_key": false,
+        "is_generated": false,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "foreign_key_table": null,
+        "foreign_key_column": null
+      }
+    },
+    {
+      "collection": "device_energy_logs",
+      "field": "user_date_key",
+      "type": "string",
+      "meta": {
+        "collection": "device_energy_logs",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "user_date_key",
+        "group": null,
+        "hidden": true,
+        "interface": "input",
+        "note": "Kunci unik \"{user_id}:{YYYY-MM-DD}\". Pengganti composite unique yang tidak didukung Directus. Diisi backend, jangan diedit manual.",
+        "options": null,
+        "readonly": false,
+        "required": true,
+        "searchable": true,
+        "sort": 7,
+        "special": null,
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "full"
+      },
+      "schema": {
+        "name": "user_date_key",
+        "table": "device_energy_logs",
+        "data_type": "character varying",
+        "default_value": null,
+        "max_length": 64,
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "is_nullable": false,
+        "is_unique": true,
+        "is_indexed": false,
+        "is_primary_key": false,
+        "is_generated": false,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "foreign_key_table": null,
+        "foreign_key_column": null
+      }
+    },
+    {
+      "collection": "device_energy_logs",
+      "field": "created_at",
+      "type": "timestamp",
+      "meta": {
+        "collection": "device_energy_logs",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "created_at",
+        "group": null,
+        "hidden": false,
+        "interface": "datetime",
+        "note": "Diisi otomatis oleh Directus saat item dibuat",
+        "options": null,
+        "readonly": true,
+        "required": false,
+        "searchable": true,
+        "sort": 8,
+        "special": ["date-created"],
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "full"
+      },
+      "schema": {
+        "name": "created_at",
+        "table": "device_energy_logs",
+        "data_type": "timestamp with time zone",
+        "default_value": null,
+        "max_length": null,
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "is_nullable": true,
+        "is_unique": false,
+        "is_indexed": false,
+        "is_primary_key": false,
+        "is_generated": false,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "foreign_key_table": null,
+        "foreign_key_column": null
+      }
+    },
+    {
+      "collection": "device_energy_logs",
+      "field": "active_kcal",
+      "type": "integer",
+      "meta": {
+        "collection": "device_energy_logs",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "active_kcal",
+        "group": null,
+        "hidden": false,
+        "interface": "input",
+        "note": "Kalori AKTIF apa adanya dari perangkat, tanpa metabolisme istirahat. Terisi hanya kalau itu yang dimasukkan user. Null berarti user memasukkan angka total langsung.",
+        "options": null,
+        "readonly": false,
+        "required": false,
+        "searchable": true,
+        "sort": 4,
+        "special": null,
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "full"
+      },
+      "schema": {
+        "name": "active_kcal",
+        "table": "device_energy_logs",
+        "data_type": "integer",
+        "default_value": null,
+        "max_length": null,
+        "numeric_precision": 32,
+        "numeric_scale": 0,
+        "is_nullable": true,
+        "is_unique": false,
+        "is_indexed": false,
+        "is_primary_key": false,
+        "is_generated": false,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "foreign_key_table": null,
+        "foreign_key_column": null
+      }
+    },
+    {
+      "collection": "device_energy_logs",
+      "field": "bmr_kcal",
+      "type": "integer",
+      "meta": {
+        "collection": "device_energy_logs",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "bmr_kcal",
+        "group": null,
+        "hidden": false,
+        "interface": "input",
+        "note": "BMR yang ditambahkan ke active_kcal untuk memperoleh total_kcal. Disimpan supaya angka turunannya bisa ditelusuri kembali, bukan dipercaya begitu saja.",
+        "options": null,
+        "readonly": false,
+        "required": false,
+        "searchable": true,
+        "sort": 5,
+        "special": null,
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "full"
+      },
+      "schema": {
+        "name": "bmr_kcal",
+        "table": "device_energy_logs",
+        "data_type": "integer",
+        "default_value": null,
+        "max_length": null,
+        "numeric_precision": 32,
+        "numeric_scale": 0,
         "is_nullable": true,
         "is_unique": false,
         "is_indexed": false,
@@ -1817,9 +2526,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -1951,9 +2658,7 @@
         "required": false,
         "searchable": true,
         "sort": 4,
-        "special": [
-          "file"
-        ],
+        "special": ["file"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -2060,9 +2765,7 @@
         "required": true,
         "searchable": true,
         "sort": 6,
-        "special": [
-          "cast-json"
-        ],
+        "special": ["cast-json"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -2370,9 +3073,7 @@
         "required": false,
         "searchable": true,
         "sort": 13,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -2416,9 +3117,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -2682,9 +3381,7 @@
         "required": false,
         "searchable": true,
         "sort": 7,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -2728,9 +3425,7 @@
         "required": false,
         "searchable": true,
         "sort": 8,
-        "special": [
-          "date-updated"
-        ],
+        "special": ["date-updated"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -2774,9 +3469,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -3084,9 +3777,7 @@
         "required": false,
         "searchable": true,
         "sort": 8,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -3130,9 +3821,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -3616,9 +4305,7 @@
         "required": false,
         "searchable": true,
         "sort": 12,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -3662,9 +4349,7 @@
         "required": false,
         "searchable": true,
         "sort": 13,
-        "special": [
-          "date-updated"
-        ],
+        "special": ["date-updated"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -3708,9 +4393,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -3974,9 +4657,7 @@
         "required": false,
         "searchable": true,
         "sort": 7,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -4020,9 +4701,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -4374,9 +5053,7 @@
         "required": false,
         "searchable": true,
         "sort": 9,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -4420,9 +5097,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -4730,9 +5405,7 @@
         "required": false,
         "searchable": true,
         "sort": 8,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -4776,9 +5449,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -4998,9 +5669,7 @@
         "required": false,
         "searchable": true,
         "sort": 6,
-        "special": [
-          "date-updated"
-        ],
+        "special": ["date-updated"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -5044,9 +5713,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -5348,9 +6015,7 @@
         "required": false,
         "searchable": true,
         "sort": 7,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -5394,9 +6059,7 @@
         "required": false,
         "searchable": true,
         "sort": 8,
-        "special": [
-          "date-updated"
-        ],
+        "special": ["date-updated"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -5440,9 +6103,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -5662,9 +6323,7 @@
         "required": false,
         "searchable": true,
         "sort": 6,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -5708,9 +6367,7 @@
         "required": false,
         "searchable": true,
         "sort": 7,
-        "special": [
-          "date-updated"
-        ],
+        "special": ["date-updated"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -5754,9 +6411,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -5932,9 +6587,7 @@
         "required": false,
         "searchable": true,
         "sort": 5,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -5978,9 +6631,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -6244,9 +6895,7 @@
         "required": false,
         "searchable": true,
         "sort": 7,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -6290,9 +6939,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -6535,9 +7182,7 @@
         "required": false,
         "searchable": true,
         "sort": 6,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -6625,9 +7270,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -7082,9 +7725,7 @@
         "required": false,
         "searchable": true,
         "sort": 11,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -7099,6 +7740,50 @@
         "numeric_precision": null,
         "numeric_scale": null,
         "is_nullable": true,
+        "is_unique": false,
+        "is_indexed": false,
+        "is_primary_key": false,
+        "is_generated": false,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "foreign_key_table": null,
+        "foreign_key_column": null
+      }
+    },
+    {
+      "collection": "workout_logs",
+      "field": "tracked_by_device",
+      "type": "boolean",
+      "meta": {
+        "collection": "workout_logs",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "tracked_by_device",
+        "group": null,
+        "hidden": false,
+        "interface": "boolean",
+        "note": "true kalau sesi ini SUDAH ikut terhitung di angka device_energy_logs hari itu. Dipakai supaya kalorinya tidak dihitung dua kali.",
+        "options": null,
+        "readonly": false,
+        "required": true,
+        "searchable": true,
+        "sort": 9,
+        "special": null,
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "full"
+      },
+      "schema": {
+        "name": "tracked_by_device",
+        "table": "workout_logs",
+        "data_type": "boolean",
+        "default_value": false,
+        "max_length": null,
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "is_nullable": false,
         "is_unique": false,
         "is_indexed": false,
         "is_primary_key": false,
@@ -7235,6 +7920,31 @@
       }
     },
     {
+      "collection": "chat_messages",
+      "field": "user_id",
+      "related_collection": "users",
+      "meta": {
+        "junction_field": null,
+        "many_collection": "chat_messages",
+        "many_field": "user_id",
+        "one_allowed_collections": null,
+        "one_collection": "users",
+        "one_collection_field": null,
+        "one_deselect_action": "nullify",
+        "one_field": "chat_messages",
+        "sort_field": null
+      },
+      "schema": {
+        "table": "chat_messages",
+        "column": "user_id",
+        "foreign_key_table": "users",
+        "foreign_key_column": "id",
+        "constraint_name": "chat_messages_user_id_foreign",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE"
+      }
+    },
+    {
       "collection": "custom_workouts",
       "field": "user_id",
       "related_collection": "users",
@@ -7255,6 +7965,31 @@
         "foreign_key_table": "users",
         "foreign_key_column": "id",
         "constraint_name": "custom_workouts_user_id_foreign",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE"
+      }
+    },
+    {
+      "collection": "device_energy_logs",
+      "field": "user_id",
+      "related_collection": "users",
+      "meta": {
+        "junction_field": null,
+        "many_collection": "device_energy_logs",
+        "many_field": "user_id",
+        "one_allowed_collections": null,
+        "one_collection": "users",
+        "one_collection_field": null,
+        "one_deselect_action": "nullify",
+        "one_field": "device_energy_logs",
+        "sort_field": null
+      },
+      "schema": {
+        "table": "device_energy_logs",
+        "column": "user_id",
+        "foreign_key_table": "users",
+        "foreign_key_column": "id",
+        "constraint_name": "device_energy_logs_user_id_foreign",
         "on_update": "NO ACTION",
         "on_delete": "CASCADE"
       }

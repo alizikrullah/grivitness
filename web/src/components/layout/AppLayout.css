@@ -58,7 +58,7 @@
   color: var(--text-primary);
 }
 
-/* Satu titik merah dominan per layar — di sini menu yang sedang aktif. */
+/* Satu titik merah dominan per layar, di sini menu yang sedang aktif. */
 .sidebar-link-active,
 .sidebar-link-active:hover {
   background: var(--primary);

@@ -8,6 +8,7 @@ import { MeasurementEditSheet } from '@/components/features/MeasurementEditSheet
 import {
   Button,
   Card,
+  DateStrip,
   EmptyState,
   ErrorNote,
   Header,
@@ -24,24 +25,30 @@ import { toApiError } from '@/lib/api';
 import {
   MEASUREMENT_PARTS,
   useDeleteMeasurement,
-  useLatestMeasurement,
+  useMeasurementDate,
   useMeasurementRange,
   useSaveMeasurement,
   type MeasurementInput,
   type MeasurementKey,
 } from '@/services/measurements.service';
 import type { BodyMeasurement } from '@/types';
-import { longDate, shiftDays, todayWIB } from '@/utils/date';
+import { dayPhrase, longDate, shiftDays, todayWIB } from '@/utils/date';
 import { toNum } from '@/utils/format';
 
 export default function MeasurementsScreen() {
   const router = useRouter();
 
+  /**
+   * Tanggal yang sedang dilihat. Bawaannya hari ini, tapi user bisa mundur
+   * untuk membaca dan melengkapi pengukuran hari-hari sebelumnya.
+   */
+  const [dipilih, setDipilih] = useState(todayWIB());
+
   const hariIni = todayWIB();
 
-  const latest = useLatestMeasurement();
-  // Setahun ke belakang. Ukuran badan dicatat jarang — sebulan terakhir saja
-  // sering hanya berisi satu baris, dan riwayat sependek itu tidak ada gunanya.
+  const latest = useMeasurementDate(dipilih);
+  // Setahun ke belakang. Ukuran badan dicatat jarang, sebulan terakhir saja
+  // sering hanya berisi satu baris dan riwayat sependek itu tidak ada gunanya.
   const riwayat = useMeasurementRange(shiftDays(hariIni, -365), hariIni);
   const saveMeasurement = useSaveMeasurement();
   const deleteMeasurement = useDeleteMeasurement();
@@ -50,7 +57,19 @@ export default function MeasurementsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [diedit, setDiedit] = useState<BodyMeasurement | null>(null);
 
-  const sudahHariIni = latest.data?.logged_at === hariIni;
+  /**
+   * Isian dikosongkan saat pindah tanggal, disetel ulang saat render dan bukan
+   * lewat useEffect. Tanpa ini angka yang barusan diketik untuk hari ini ikut
+   * terbawa ke tanggal lain dan tersimpan ke hari yang salah.
+   */
+  const [tanggalTerakhir, setTanggalTerakhir] = useState(dipilih);
+  if (dipilih !== tanggalTerakhir) {
+    setTanggalTerakhir(dipilih);
+    setNilai({});
+    setError(null);
+  }
+
+  const sudahHariIni = latest.data?.logged_at === dipilih;
 
   const ubah = (key: MeasurementKey, teks: string) =>
     setNilai((sebelum) => ({ ...sebelum, [key]: teks }));
@@ -84,7 +103,8 @@ export default function MeasurementsScreen() {
     // Satu baris per hari. Mencatat ulang di hari yang sama berarti memperbarui
     // baris yang ada, bukan membuat baris baru yang akan ditolak backend.
     saveMeasurement.mutate(
-      { id: sudahHariIni ? latest.data?.id : undefined, ...body },
+      // Dicatat ke tanggal yang sedang dilihat, bukan selalu ke hari ini.
+      { id: sudahHariIni ? latest.data?.id : undefined, ...body, logged_at: dipilih },
       {
         onSuccess: () => router.back(),
         onError: (e) => setError(toApiError(e).message),
@@ -100,8 +120,12 @@ export default function MeasurementsScreen() {
       <Screen>
         <Header
           title="Ukuran badan"
-          subtitle={sudahHariIni ? 'Sudah dicatat hari ini' : 'Isi yang kamu ukur saja'}
+          subtitle={
+            sudahHariIni ? 'Sudah dicatat ' + dayPhrase(dipilih) : 'Isi yang kamu ukur saja'
+          }
         />
+
+        <DateStrip value={dipilih} onChange={setDipilih} />
 
         <Card variant="outline" padding="md">
           <View style={styles.hint}>

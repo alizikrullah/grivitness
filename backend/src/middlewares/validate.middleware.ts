@@ -7,7 +7,7 @@ import { AppError } from '../utils/api-error.js';
  * Middleware validasi request memakai Zod.
  *
  * Hasil parse MENGGANTIKAN nilai aslinya, jadi controller selalu menerima data
- * yang sudah bertipe benar — string "82.5" dari form sudah jadi number 82.5,
+ * yang sudah bertipe benar, string "82.5" dari form sudah jadi number 82.5,
  * dan field yang tidak dikenal sudah dibuang.
  */
 
@@ -39,7 +39,7 @@ export const validateBody = (schema: ZodType): RequestHandler => {
 
 /**
  * Di Express 5 `req.query` hanya bisa dibaca, tidak bisa ditimpa seperti req.body.
- * Karena itu hasil parse disimpan di `res.locals.query` — controller mengambilnya
+ * Karena itu hasil parse disimpan di `res.locals.query`, controller mengambilnya
  * dari sana lewat helper getValidatedQuery().
  */
 export const validateQuery = (schema: ZodType): RequestHandler => {

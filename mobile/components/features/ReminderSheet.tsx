@@ -34,7 +34,7 @@ interface ReminderSheetProps {
 /**
  * Mengatur kapan satu pengingat berbunyi.
  *
- * Minum diatur sebagai jarak antar pengingat, bukan jam tetap — tidak ada yang
+ * Minum diatur sebagai jarak antar pengingat, bukan jam tetap, tidak ada yang
  * mau menentukan tujuh jam minum satu per satu. Sisanya jam tetap harian.
  */
 export const ReminderSheet = ({ kind, settings, onClose }: ReminderSheetProps) => {

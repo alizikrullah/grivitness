@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api, del, get, patch, unwrap } from '@/lib/api';
 import { invalidateAfterLog, qk } from '@/lib/query';
+import { todayWIB } from '@/utils/date';
 import type { FoodDay, FoodLog, MealType } from '@/types';
 
 export interface FoodInput {
@@ -15,6 +16,8 @@ export interface FoodInput {
   file: File;
   meal_type: MealType;
   notes?: string;
+  /** Timestamp ISO. Dikosongkan berarti sekarang. Diisi saat mencatat ke hari lampau. */
+  logged_at?: string;
   /** Koreksi manual atas hasil AI. Dikosongkan berarti angka AI yang dipakai. */
   total_calories?: number;
   protein_g?: number;
@@ -25,18 +28,28 @@ export interface FoodInput {
 export const useFoodToday = () =>
   useQuery({ queryKey: qk.foodToday, queryFn: () => get<FoodDay>('/api/food/today') });
 
-export const useFoodDate = (date: string) =>
-  useQuery({
-    queryKey: qk.foodDate(date),
-    queryFn: () => get<FoodDay>('/api/food', { params: { date } }),
+/**
+ * Makanan pada satu tanggal. Hari ini dialihkan ke endpoint dan kunci cache
+ * "today" supaya layar catat dan beranda berbagi satu salinan data.
+ */
+export const useFoodDate = (date: string) => {
+  const iniHariIni = date === todayWIB();
+
+  return useQuery({
+    queryKey: iniHariIni ? qk.foodToday : qk.foodDate(date),
+    queryFn: () =>
+      iniHariIni
+        ? get<FoodDay>('/api/food/today')
+        : get<FoodDay>('/api/food', { params: { date } }),
   });
+};
 
 /**
  * Header untuk unggahan multipart.
  *
  * Content-Type sengaja dikosongkan, BUKAN diisi 'multipart/form-data'. Instance
  * axios di sini memasang 'application/json' sebagai bawaan, jadi tetap harus
- * ditimpa — tapi menimpanya dengan 'multipart/form-data' polos justru merusak
+ * ditimpa, tapi menimpanya dengan 'multipart/form-data' polos justru merusak
  * permintaannya: nilai itu wajib disertai parameter `boundary` yang cuma bisa
  * dibuat oleh browser. Dengan undefined, browser mengisinya sendiri, lengkap.
  */
@@ -79,7 +92,7 @@ export interface FoodEditInput {
  * Mengoreksi log makanan tanpa memotret ulang.
  *
  * Analisa AI sering meleset pada hidangan yang mirip, dan tanpa jalur ini satu
- * satunya cara membetulkannya adalah menghapus lalu mencatat dari awal — yang
+ * satunya cara membetulkannya adalah menghapus lalu mencatat dari awal, yang
  * berarti satu panggilan AI lagi hanya untuk memperbaiki satu kata.
  */
 export const useUpdateFood = () => {

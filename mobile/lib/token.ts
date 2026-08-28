@@ -28,7 +28,7 @@ export const readTokens = async (): Promise<TokenPair | null> => {
     SecureStore.getItemAsync(REFRESH_KEY),
   ]);
 
-  // Satu token tanpa pasangannya tidak ada gunanya — access tanpa refresh akan
+  // Satu token tanpa pasangannya tidak ada gunanya, access tanpa refresh akan
   // mati dalam 15 menit tanpa bisa diperpanjang.
   if (!access || !refresh) return null;
 

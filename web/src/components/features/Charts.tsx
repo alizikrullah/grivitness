@@ -18,7 +18,7 @@ import { fontFamily, fontSize } from '@/constants/theme';
  * Chart untuk web memakai Recharts, sementara mobile menggambar SVG sendiri.
  *
  * Perbedaan yang disengaja. Di mobile, Victory Native mewajibkan
- * @shopify/react-native-skia — dependency native besar yang memberatkan build
+ * @shopify/react-native-skia, dependency native besar yang memberatkan build
  * EAS demi dua bentuk chart. Di web tidak ada biaya seperti itu: Recharts murni
  * JavaScript, dan yang didapat sebagai gantinya adalah tooltip, sumbu responsif,
  * dan penanganan data kosong yang tidak perlu ditulis ulang.
@@ -79,7 +79,7 @@ export const TrendChart = ({
       <Tooltip
         contentStyle={TOOLTIP_STYLE}
         labelStyle={{ color: colors.textSecondary }}
-        // Recharts memberi nilai bertipe lebar — bisa undefined, bahkan array
+        // Recharts memberi nilai bertipe lebar, bisa undefined, bahkan array
         // untuk chart bertumpuk. Hari tanpa penimbangan memang tidak punya
         // angka, jadi ditangani di sini alih-alih dipaksa dengan cast yang akan
         // menampilkan "undefined kg" di layar.

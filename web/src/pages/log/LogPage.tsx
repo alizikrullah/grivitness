@@ -8,12 +8,14 @@ import {
   RulerIcon,
   ScalesIcon,
   SmileyIcon,
+  WatchIcon,
 } from '@phosphor-icons/react';
 import type { ComponentType } from 'react';
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
 
 import { colors, metricColors } from '@/constants/colors';
 import { BodyPhotoPanel } from './BodyPhotoPanel';
+import { DeviceEnergyPanel } from './DeviceEnergyPanel';
 import { FoodPanel } from './FoodPanel';
 import { MeasurementsPanel } from './MeasurementsPanel';
 import { MoodPanel } from './MoodPanel';
@@ -33,15 +35,64 @@ interface JenisCatat {
 }
 
 const JENIS: JenisCatat[] = [
-  { slug: 'weight', label: 'Berat', icon: ScalesIcon, color: metricColors.weight, Panel: WeightPanel },
-  { slug: 'food', label: 'Makan', icon: ForkKnifeIcon, color: metricColors.calories, Panel: FoodPanel },
-  { slug: 'workout', label: 'Olahraga', icon: BarbellIcon, color: metricColors.workout, Panel: WorkoutPanel },
-  { slug: 'steps', label: 'Langkah', icon: FootprintsIcon, color: metricColors.steps, Panel: StepsPanel },
+  {
+    slug: 'weight',
+    label: 'Berat',
+    icon: ScalesIcon,
+    color: metricColors.weight,
+    Panel: WeightPanel,
+  },
+  {
+    slug: 'food',
+    label: 'Makan',
+    icon: ForkKnifeIcon,
+    color: metricColors.calories,
+    Panel: FoodPanel,
+  },
+  {
+    slug: 'workout',
+    label: 'Olahraga',
+    icon: BarbellIcon,
+    color: metricColors.workout,
+    Panel: WorkoutPanel,
+  },
+  {
+    slug: 'steps',
+    label: 'Langkah',
+    icon: FootprintsIcon,
+    color: metricColors.steps,
+    Panel: StepsPanel,
+  },
+  {
+    slug: 'device-energy',
+    label: 'Kalori jam',
+    icon: WatchIcon,
+    color: metricColors.device,
+    Panel: DeviceEnergyPanel,
+  },
   { slug: 'water', label: 'Minum', icon: DropIcon, color: metricColors.water, Panel: WaterPanel },
-  { slug: 'sleep', label: 'Tidur', icon: MoonStarsIcon, color: metricColors.sleep, Panel: SleepPanel },
-  { slug: 'measurements', label: 'Ukuran', icon: RulerIcon, color: metricColors.measurements, Panel: MeasurementsPanel },
+  {
+    slug: 'sleep',
+    label: 'Tidur',
+    icon: MoonStarsIcon,
+    color: metricColors.sleep,
+    Panel: SleepPanel,
+  },
+  {
+    slug: 'measurements',
+    label: 'Ukuran',
+    icon: RulerIcon,
+    color: metricColors.measurements,
+    Panel: MeasurementsPanel,
+  },
   { slug: 'mood', label: 'Mood', icon: SmileyIcon, color: metricColors.mood, Panel: MoodPanel },
-  { slug: 'body-photo', label: 'Foto', icon: CameraIcon, color: metricColors.weight, Panel: BodyPhotoPanel },
+  {
+    slug: 'body-photo',
+    label: 'Foto',
+    icon: CameraIcon,
+    color: metricColors.weight,
+    Panel: BodyPhotoPanel,
+  },
 ];
 
 /**
@@ -49,7 +100,7 @@ const JENIS: JenisCatat[] = [
  *
  * Berbeda dari mobile yang memberi satu layar penuh per jenis. Di layar lebar,
  * memaksa user bolak-balik ke halaman hub setiap ganti jenis catatan itu
- * membuang ruang yang justru berlimpah — di sini keduanya muat berdampingan.
+ * membuang ruang yang justru berlimpah, di sini keduanya muat berdampingan.
  */
 export const LogPage = () => (
   <div className="log">

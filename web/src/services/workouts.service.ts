@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { del, get, patch, post } from '@/lib/api';
 import { invalidateAfterLog, qk } from '@/lib/query';
+import { todayWIB } from '@/utils/date';
 import type {
   CustomWorkout,
   WorkoutCategory,
@@ -15,7 +16,7 @@ import type {
  * Sumber olahraga menentukan siapa yang menghitung kalorinya.
  *
  * Kalau dipilih dari library atau custom workout, backend yang menghitung dari
- * durasi dan berat badan user — nilai calories_burned yang dikirim client akan
+ * durasi dan berat badan user, nilai calories_burned yang dikirim client akan
  * diabaikan. Hanya input manual yang wajib menyertakan nama dan kalorinya.
  */
 export interface WorkoutInput {
@@ -25,6 +26,13 @@ export interface WorkoutInput {
   duration_minutes: number;
   calories_burned?: number;
   intensity: WorkoutIntensity;
+  /**
+   * true kalau sesi ini sudah ikut terhitung di angka smartwatch hari itu.
+   *
+   * Menentukan apakah kalorinya boleh ditambahkan di atas angka perangkat.
+   * Jalan santai sambil memakai jam sudah masuk di sana; berenang belum.
+   */
+  tracked_by_device?: boolean;
   notes?: string;
   logged_at?: string;
 }
@@ -37,6 +45,25 @@ export const useWorkoutsRange = (from: string, to: string) =>
     queryKey: qk.workoutsRange(from, to),
     queryFn: () => get<WorkoutLog[]>('/api/workouts', { params: { from, to } }),
   });
+
+/**
+ * Olahraga pada satu tanggal, dipakai layar catat untuk menelusuri hari lampau.
+ *
+ * Untuk hari ini permintaannya dialihkan ke endpoint dan kunci cache "today",
+ * supaya layar catat dan beranda berbagi satu salinan data. Tanpa itu hal yang
+ * sama tersimpan dua kali dengan kunci berbeda, dan salah satunya pasti basi.
+ */
+export const useWorkoutsDate = (date: string) => {
+  const iniHariIni = date === todayWIB();
+
+  return useQuery({
+    queryKey: iniHariIni ? qk.workoutsToday : qk.workoutsDate(date),
+    queryFn: () =>
+      iniHariIni
+        ? get<WorkoutDay>('/api/workouts/today')
+        : get<WorkoutDay>('/api/workouts/day', { params: { date } }),
+  });
+};
 
 export const useWorkoutLibrary = (category?: WorkoutCategory, search?: string) =>
   useQuery({
@@ -107,6 +134,7 @@ export interface WorkoutEditInput {
   duration_minutes?: number;
   calories_burned?: number;
   intensity?: WorkoutIntensity;
+  tracked_by_device?: boolean;
   notes?: string | null;
 }
 

@@ -48,7 +48,7 @@ export const uploadWebP = async (
  *
  * CLAUDE.md section 5 mewajibkan file dihapus dari Directus SEBELUM record-nya
  * dihapus dari database. Kalau urutannya dibalik dan penghapusan file gagal,
- * tidak ada lagi yang menyimpan id-nya — file itu jadi yatim selamanya tanpa
+ * tidak ada lagi yang menyimpan id-nya, file itu jadi yatim selamanya tanpa
  * jejak.
  */
 export const removeFile = async (fileId: string): Promise<void> => {
@@ -59,7 +59,7 @@ export const removeFile = async (fileId: string): Promise<void> => {
  * Menghapus file tanpa pernah melempar error.
  *
  * Dipakai sebagai langkah pembatalan di unitOfWork. Saat rollback sedang
- * berjalan, sudah ada error lain yang sedang ditangani — kegagalan pembersihan
+ * berjalan, sudah ada error lain yang sedang ditangani, kegagalan pembersihan
  * tidak boleh menutupi error aslinya. Cukup dicatat supaya bisa dibereskan
  * manual.
  */

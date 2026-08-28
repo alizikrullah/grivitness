@@ -3,7 +3,7 @@ import type { ActivityLevel, Gender, MealType, WorkoutCategory, WorkoutIntensity
 /**
  * Terjemahan enum backend ke bahasa yang dibaca user.
  *
- * Nilai enum tetap dikirim ke API dalam bentuk aslinya — yang berubah hanya
+ * Nilai enum tetap dikirim ke API dalam bentuk aslinya, yang berubah hanya
  * tampilannya. Menerjemahkan nilai sebelum dikirim akan ditolak Zod di backend.
  */
 export const GENDER_LABEL: Record<Gender, string> = {
@@ -21,7 +21,7 @@ export const GENDER_LABEL: Record<Gender, string> = {
  *
  * Label lama ("Olahraga sedang 3-5 hari seminggu") jadi jebakan setelah
  * perubahan itu: user memilihnya karena rajin olahraga, lalu olahraganya
- * dihitung LAGI dari log — jam yang sama dibayar dua kali, tepat di pintu masuk
+ * dihitung LAGI dari log, jam yang sama dibayar dua kali, tepat di pintu masuk
  * datanya. Karena itu pertanyaannya diganti jadi contoh pekerjaan, yang juga
  * jauh lebih bisa dijawab jujur; hampir semua orang menaksir keaktifannya
  * terlalu tinggi, dan satu tingkat meleset menggeser TDEE ratusan kalori.

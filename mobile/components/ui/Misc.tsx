@@ -123,7 +123,7 @@ export const Loading = ({ style }: { style?: ViewStyle }) => (
 /**
  * Pesan kesalahan yang bisa ditindaklanjuti.
  *
- * Sengaja menampilkan pesan dari backend apa adanya — pesannya sudah berbahasa
+ * Sengaja menampilkan pesan dari backend apa adanya, pesannya sudah berbahasa
  * Indonesia dan menjelaskan persoalannya. Menggantinya dengan teks umum seperti
  * "Terjadi kesalahan" justru membuang keterangan yang berguna.
  */

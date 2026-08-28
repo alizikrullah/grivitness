@@ -18,7 +18,7 @@ import type { CreateBodyPhotoDto } from './body-photos.validation.js';
  *
  * Seluruhnya dibungkus unitOfWork dan setiap file didaftarkan ke onRollback
  * segera setelah upload-nya berhasil. Kalau AI gagal atau pembuatan record
- * ditolak, kedua file ikut dihapus — tidak ada yang tertinggal di storage.
+ * ditolak, kedua file ikut dihapus, tidak ada yang tertinggal di storage.
  */
 export const create = async (
   userId: string,
@@ -70,10 +70,13 @@ export const create = async (
   return log;
 };
 
-export const getToday = async (userId: string): Promise<BodyPhotoRecord | null> =>
+export const getByDate = async (userId: string, date: string): Promise<BodyPhotoRecord | null> =>
   forUser(userId).findOne('body_photos', {
-    filter: { logged_at: { _eq: todayInJakarta() } },
+    filter: { logged_at: { _eq: date } },
   });
+
+export const getToday = async (userId: string): Promise<BodyPhotoRecord | null> =>
+  getByDate(userId, todayInJakarta());
 
 export const getRange = async (userId: string, range: DateRangeDto): Promise<BodyPhotoRecord[]> =>
   forUser(userId).list('body_photos', {
@@ -87,7 +90,7 @@ export const getRange = async (userId: string, range: DateRangeDto): Promise<Bod
  *
  * File dihapus dari Directus lebih dulu, baru record-nya, sesuai CLAUDE.md
  * section 5. Dipakai versi "safely" karena hasil akhir yang diinginkan user
- * adalah record itu hilang — file yang gagal dihapus dicatat di log untuk
+ * adalah record itu hilang, file yang gagal dihapus dicatat di log untuk
  * dibersihkan manual, bukan menggagalkan permintaannya.
  */
 export const remove = async (userId: string, logId: string): Promise<void> => {

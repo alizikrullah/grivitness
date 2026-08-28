@@ -5,7 +5,7 @@
     "rootDir": "./src",
     "outDir": "./dist"
   },
-  // scripts/ dan berkas test sengaja tidak ikut di-build — keduanya alat
+  // scripts/ dan berkas test sengaja tidak ikut di-build, keduanya alat
   // development, bukan bagian dari artefak production
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "scripts", "tests", "**/*.test.ts"]

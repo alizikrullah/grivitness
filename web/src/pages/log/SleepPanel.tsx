@@ -1,16 +1,31 @@
 import { MoonStarsIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
 
-import { Button, Card, EmptyState, ErrorNote, Input, Loading, SectionHeader } from '@/components/ui';
+import {
+  Button,
+  Card,
+  DateField,
+  EmptyState,
+  ErrorNote,
+  Input,
+  Loading,
+  SectionHeader,
+} from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
 import { toApiError } from '@/lib/api';
-import { useCreateSleep, useDeleteSleep, useSleepToday } from '@/services/sleep.service';
-import { shiftDays, timeWIB, todayWIB, wibToISO } from '@/utils/date';
+import { useCreateSleep, useDeleteSleep, useSleepDate } from '@/services/sleep.service';
+import { dayPhrase, shiftDays, timeWIB, todayWIB, wibToISO } from '@/utils/date';
 import { duration } from '@/utils/format';
 import { LogActions } from './LogActions';
 
 export const SleepPanel = () => {
-  const today = useSleepToday();
+  /**
+   * Tanggal yang sedang dilihat, yaitu tanggal BANGUN. Backend mengelompokkan
+   * tidur menurut hari bangunnya.
+   */
+  const [tanggal, setTanggal] = useState(todayWIB());
+
+  const today = useSleepDate(tanggal);
   const create = useCreateSleep();
   const hapus = useDeleteSleep();
 
@@ -22,19 +37,21 @@ export const SleepPanel = () => {
   const simpan = () => {
     setError(null);
 
-    const hariIni = todayWIB();
-
     /**
      * Tidur hampir selalu melewati tengah malam. Kalau jam mulai lebih besar
-     * daripada jam bangun, artinya tidurnya dimulai KEMARIN — tanpa penyesuaian
-     * ini durasinya jadi negatif dan backend menolaknya.
+     * daripada jam bangun, artinya tidurnya dimulai SEHARI SEBELUMNYA; tanpa
+     * penyesuaian ini durasinya jadi negatif dan backend menolaknya.
+     *
+     * Dihitung terhadap tanggal yang sedang dilihat, bukan terhadap hari ini,
+     * supaya tidur yang dicatat sambil menelusuri hari lampau jatuh ke hari
+     * yang benar.
      */
-    const tanggalMulai = mulai > bangun ? shiftDays(hariIni, -1) : hariIni;
+    const tanggalMulai = mulai > bangun ? shiftDays(tanggal, -1) : tanggal;
 
     create.mutate(
       {
         sleep_start: wibToISO(tanggalMulai, mulai),
-        sleep_end: wibToISO(hariIni, bangun),
+        sleep_end: wibToISO(tanggal, bangun),
         quality_score: kualitas,
       },
       { onError: (e) => setError(toApiError(e).message) },
@@ -47,6 +64,8 @@ export const SleepPanel = () => {
   return (
     <>
       <SectionHeader title="Catat tidur" />
+
+      <DateField value={tanggal} onChange={setTanggal} label="Tanggal bangun" />
 
       <Card>
         <div className="stack">
@@ -88,7 +107,7 @@ export const SleepPanel = () => {
         </div>
       </Card>
 
-      <SectionHeader title="Tidur hari ini" />
+      <SectionHeader title={'Tidur ' + dayPhrase(tanggal)} />
 
       {today.isPending ? (
         <Loading />

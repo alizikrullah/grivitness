@@ -44,14 +44,13 @@ export const Screen = ({
   /**
    * Mengembalikan guliran ke atas setiap kali layar DITINGGALKAN.
    *
-   * Layar tab tidak pernah dilepas dari memori setelah pertama kali dibuka —
-   * itu memang disengaja React Navigation supaya pindah tab terasa instan.
+   * Layar tab tidak pernah dilepas dari memori setelah pertama kali dibuka, * itu memang disengaja React Navigation supaya pindah tab terasa instan.
    * Efek sampingnya ScrollView-nya ikut hidup terus lengkap dengan posisi
    * gulirannya, jadi user yang kembali ke Beranda mendarat di tengah halaman.
    *
    * Sengaja saat ditinggalkan, bukan saat dimasuki. Kalau digulirkan saat
    * dimasuki, posisi lama sempat terlihat sepersekian detik sebelum melompat
-   * ke atas — terbaca seperti aplikasi tersentak. Saat ditinggalkan, layarnya
+   * ke atas, terbaca seperti aplikasi tersentak. Saat ditinggalkan, layarnya
    * sudah tertutup transisi dan lompatannya tidak pernah terlihat.
    */
   useFocusEffect(
@@ -65,7 +64,7 @@ export const Screen = ({
   /**
    * Jarak atas dihitung dari safe area DITAMBAH ruang nafas sendiri.
    *
-   * Safe area hanya menjamin isi tidak tertutup notch atau status bar — ia
+   * Safe area hanya menjamin isi tidak tertutup notch atau status bar, ia
    * berhenti persis di batas itu, sehingga judul halaman menempel ke tepi
    * layar dan terasa sesak. Tambahan di bawah ini yang memberi jarak.
    */

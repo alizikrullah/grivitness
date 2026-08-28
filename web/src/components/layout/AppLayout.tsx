@@ -11,6 +11,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 
 import logoMark from '@/assets/logo-mark.png';
 import { ChatWidget } from '@/components/features/ChatWidget';
+import { ConfirmDialog } from '@/components/ui';
 import { useAuthStore } from '@/stores/auth.store';
 import { greeting, longDate, todayWIB } from '@/utils/date';
 import { initials } from '@/utils/format';
@@ -28,7 +29,7 @@ const MENU = [
  *
  * Berbeda dari mobile yang memakai tab bar melayang di bawah. Layar desktop
  * punya ruang horizontal berlimpah dan ruang vertikal yang justru terbatas,
- * jadi navigasi ditaruh di sisi — meniru tab bar di bawah akan membuang tinggi
+ * jadi navigasi ditaruh di sisi, meniru tab bar di bawah akan membuang tinggi
  * layar yang paling dibutuhkan isi.
  */
 export const AppLayout = () => {
@@ -37,10 +38,10 @@ export const AppLayout = () => {
   const logout = useAuthStore((s) => s.logout);
 
   const [menuTerbuka, setMenuTerbuka] = useState(false);
+  const [tanyaKeluar, setTanyaKeluar] = useState(false);
 
   const keluar = () => {
-    if (!confirm('Keluar dari akun? Kamu perlu masuk lagi untuk melihat catatanmu.')) return;
-
+    setTanyaKeluar(false);
     void logout().then(() => navigate('/login'));
   };
 
@@ -82,7 +83,7 @@ export const AppLayout = () => {
             </span>
           </div>
 
-          <button type="button" onClick={keluar} className="sidebar-logout">
+          <button type="button" onClick={() => setTanyaKeluar(true)} className="sidebar-logout">
             <SignOutIcon size={18} />
             <span className="t-caption">Keluar</span>
           </button>
@@ -123,6 +124,15 @@ export const AppLayout = () => {
         kolom isi yang bisa menggulung.
       */}
       <ChatWidget />
+
+      <ConfirmDialog
+        open={tanyaKeluar}
+        title="Keluar dari akun?"
+        message="Kamu perlu masuk lagi untuk melihat catatanmu."
+        confirmLabel="Keluar"
+        onCancel={() => setTanyaKeluar(false)}
+        onConfirm={keluar}
+      />
     </div>
   );
 };

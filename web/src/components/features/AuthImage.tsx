@@ -17,19 +17,19 @@ interface AuthImageProps {
  * Gambar dari endpoint yang butuh header Authorization.
  *
  * Ini masalah khas web yang tidak ada di mobile. Berkas di Directus bersifat
- * privat, jadi backend menyajikannya lewat proxy ber-autentikasi — tanpa header
+ * privat, jadi backend menyajikannya lewat proxy ber-autentikasi, tanpa header
  * itu, permintaannya dibalas 401. Tag <img> tidak bisa membawa header apa pun,
  * jadi gambarnya diambil lewat fetch lalu ditukar jadi object URL.
  *
  * Object URL WAJIB dilepas saat komponen dibongkar. Kalau tidak, setiap foto
- * yang pernah dibuka menetap di memori sampai tab ditutup — dan di halaman
+ * yang pernah dibuka menetap di memori sampai tab ditutup, dan di halaman
  * riwayat yang penuh foto badan, itu menumpuk cepat.
  */
 export const AuthImage = ({ path, alt, height = 220, className }: AuthImageProps) => {
   /**
    * Ketiganya disimpan sebagai SATU state supaya jalur yang sedang dimuat
    * selalu menyatu dengan hasilnya. Kalau dipisah, gambar lama masih terpasang
-   * sepersekian detik ketika `path` berganti — dan di halaman riwayat foto
+   * sepersekian detik ketika `path` berganti, dan di halaman riwayat foto
    * badan, itu berarti foto hari lain sempat tampil di bawah tanggal yang salah.
    */
   const [state, setState] = useState<{ path: string | null; src: string | null; gagal: boolean }>({
@@ -38,7 +38,7 @@ export const AuthImage = ({ path, alt, height = 220, className }: AuthImageProps
     gagal: false,
   });
 
-  // Disesuaikan saat render, bukan lewat setState di dalam effect — effect akan
+  // Disesuaikan saat render, bukan lewat setState di dalam effect, effect akan
   // menambah satu render lagi setiap kali jalurnya berubah.
   if (state.path !== (path ?? null)) {
     setState({ path: path ?? null, src: null, gagal: false });

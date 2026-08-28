@@ -50,10 +50,13 @@ export const create = async (userId: string, data: CreateWeightDto): Promise<Wei
   return log;
 };
 
-export const getToday = async (userId: string): Promise<WeightLogRecord | null> =>
+export const getByDate = async (userId: string, date: string): Promise<WeightLogRecord | null> =>
   forUser(userId).findOne('weight_logs', {
-    filter: { logged_at: { _eq: todayInJakarta() } },
+    filter: { logged_at: { _eq: date } },
   });
+
+export const getToday = async (userId: string): Promise<WeightLogRecord | null> =>
+  getByDate(userId, todayInJakarta());
 
 export const getRange = async (
   userId: string,

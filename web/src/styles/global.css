@@ -178,6 +178,15 @@ svg {
   gap: var(--space-md);
 }
 
+/* Seperti .row, tapi isinya dirapatkan ke atas. Dipakai saat ikon berdampingan
+   dengan paragraf yang membungkus: dengan align-items center, ikonnya melayang
+   di tengah tinggi teks dan terlihat tidak terhubung dengan baris pertamanya. */
+.row-start {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+}
+
 .row-between {
   display: flex;
   align-items: center;

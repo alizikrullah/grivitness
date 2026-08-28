@@ -6,7 +6,7 @@ config();
 /**
  * Semua environment variable divalidasi di satu tempat dan di-parse saat modul ini
  * pertama kali di-import. Kalau ada yang kurang atau salah format, proses langsung
- * berhenti dengan pesan jelas — bukan meledak di tengah request nanti.
+ * berhenti dengan pesan jelas, bukan meledak di tengah request nanti.
  */
 const EnvSchema = z.object({
   // --- Server ---
@@ -65,7 +65,7 @@ if (!parsed.success) {
     .map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`)
     .join('\n');
 
-  // Sengaja pakai process.stderr, bukan logger — logger sendiri butuh env,
+  // Sengaja pakai process.stderr, bukan logger, logger sendiri butuh env,
   // jadi belum tentu tersedia saat kegagalan ini terjadi.
   process.stderr.write(`\nKonfigurasi environment tidak valid:\n${details}\n\n`);
   process.exit(1);

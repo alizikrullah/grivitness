@@ -5,7 +5,7 @@ import { AppError } from '../../utils/api-error.js';
 /**
  * Penyajian file milik user.
  *
- * File di Directus storage bersifat PRIVAT — role publik tidak punya izin baca,
+ * File di Directus storage bersifat PRIVAT, role publik tidak punya izin baca,
  * jadi URL /assets/{id} membalas 403 bagi siapa pun yang tidak memegang admin
  * token. Itu memang yang diinginkan: foto badan tidak boleh bisa dibuka siapa
  * saja yang kebetulan tahu URL-nya.
@@ -22,7 +22,7 @@ export const fileUrl = (fileId: string): string => `/api/files/${fileId}`;
  * Memastikan file ini benar-benar dirujuk oleh salah satu catatan milik user.
  *
  * Tanpa pemeriksaan ini, siapa pun yang punya akun bisa membuka file user lain
- * hanya dengan menebak id — dan endpoint ini akan dengan patuh menyajikannya
+ * hanya dengan menebak id, dan endpoint ini akan dengan patuh menyajikannya
  * memakai admin token.
  */
 const assertFileOwned = async (userId: string, fileId: string): Promise<void> => {
@@ -39,7 +39,7 @@ const assertFileOwned = async (userId: string, fileId: string): Promise<void> =>
   ]);
 
   if (food + body === 0) {
-    // NOT_FOUND, bukan FORBIDDEN — membalas "tidak boleh" justru memberi tahu
+    // NOT_FOUND, bukan FORBIDDEN, membalas "tidak boleh" justru memberi tahu
     // bahwa file itu ada dan milik orang lain.
     throw AppError.notFound('File tidak ditemukan');
   }

@@ -1,28 +1,53 @@
 import { RulerIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
 
-import { Button, Card, EmptyState, ErrorNote, Input, Loading, SectionHeader } from '@/components/ui';
+import {
+  Button,
+  Card,
+  DateField,
+  EmptyState,
+  ErrorNote,
+  Input,
+  Loading,
+  SectionHeader,
+} from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
 import { toApiError } from '@/lib/api';
 import {
   MEASUREMENT_PARTS,
   type MeasurementKey,
   useDeleteMeasurement,
-  useLatestMeasurement,
+  useMeasurementDate,
   useSaveMeasurement,
 } from '@/services/measurements.service';
-import { shortDate } from '@/utils/date';
+import { dayPhrase, shortDate, todayWIB } from '@/utils/date';
 import { toNum } from '@/utils/format';
 import { LogActions } from './LogActions';
 
 export const MeasurementsPanel = () => {
-  const latest = useLatestMeasurement();
+  /** Tanggal yang sedang dilihat. Bawaannya hari ini. */
+  const [tanggal, setTanggal] = useState(todayWIB());
+
+  const latest = useMeasurementDate(tanggal);
   const save = useSaveMeasurement();
   const hapus = useDeleteMeasurement();
 
   const [nilai, setNilai] = useState<Partial<Record<MeasurementKey, string>>>({});
   const [error, setError] = useState<string | null>(null);
   const [pesan, setPesan] = useState<string | null>(null);
+
+  /**
+   * Angka yang sedang diketik dilepas saat pindah tanggal, disesuaikan saat
+   * render dan bukan lewat useEffect. Tanpa ini, ukuran yang barusan diketik
+   * untuk hari ini ikut terbawa dan tersimpan ke tanggal yang salah.
+   */
+  const [tanggalTerakhir, setTanggalTerakhir] = useState(tanggal);
+  if (tanggal !== tanggalTerakhir) {
+    setTanggalTerakhir(tanggal);
+    setNilai({});
+    setError(null);
+    setPesan(null);
+  }
 
   const ubah = (key: MeasurementKey, teks: string) =>
     setNilai((lama) => ({ ...lama, [key]: teks.replace(',', '.').replace(/[^0-9.]/g, '') }));
@@ -49,18 +74,29 @@ export const MeasurementsPanel = () => {
       return;
     }
 
-    save.mutate(body, {
-      onError: (e) => setError(toApiError(e).message),
-      onSuccess: () => {
-        setPesan('Ukuran badan tersimpan');
-        setNilai({});
+    save.mutate(
+      {
+        // Satu baris per hari, jadi mencatat ulang pada tanggal yang sama harus
+        // memperbarui baris yang ada, bukan menambah baris baru.
+        id: latest.data?.logged_at === tanggal ? latest.data.id : undefined,
+        ...body,
+        logged_at: tanggal,
       },
-    });
+      {
+        onError: (e) => setError(toApiError(e).message),
+        onSuccess: () => {
+          setPesan('Ukuran badan tersimpan');
+          setNilai({});
+        },
+      },
+    );
   };
 
   return (
     <>
       <SectionHeader title="Ukuran badan" />
+
+      <DateField value={tanggal} onChange={setTanggal} />
 
       <Card>
         <div className="stack">
@@ -85,14 +121,14 @@ export const MeasurementsPanel = () => {
         </div>
       </Card>
 
-      <SectionHeader title="Terakhir tercatat" />
+      <SectionHeader title={'Tercatat ' + dayPhrase(tanggal)} />
 
       {latest.isPending ? (
         <Loading />
       ) : !latest.data ? (
         <EmptyState
           icon={<RulerIcon size={28} color={colors.textTertiary} weight="duotone" />}
-          title="Belum ada ukuran badan"
+          title="Belum ada ukuran badan di tanggal ini"
           message="Ukuran pinggang sering turun lebih dulu daripada angka timbangan."
         />
       ) : (

@@ -2,7 +2,7 @@
  * Token desain dalam bentuk TypeScript.
  *
  * Sebagian besar styling memakai custom property CSS di styles/tokens.css.
- * Yang di sini dipakai ketika nilainya harus masuk ke JavaScript — misalnya
+ * Yang di sini dipakai ketika nilainya harus masuk ke JavaScript, misalnya
  * dikirim ke Recharts sebagai prop, atau dipakai menghitung ukuran SVG.
  */
 

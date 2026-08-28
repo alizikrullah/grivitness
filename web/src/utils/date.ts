@@ -76,7 +76,7 @@ export const shortDate = (date: string): string => {
   return d.getUTCDate() + ' ' + (BULAN_PENDEK[d.getUTCMonth()] ?? '');
 };
 
-/** "Sabtu, 23 Agustus 2026" — dipakai di header halaman. */
+/** "Sabtu, 23 Agustus 2026", dipakai di header halaman. */
 export const longDate = (date: string): string => {
   const d = parseDateOnly(date);
   const hari = HARI_PANJANG[d.getUTCDay()] ?? '';
@@ -103,9 +103,19 @@ export const greeting = (): string => {
 export const isToday = (date: string): boolean => date === todayWIB();
 
 /**
+ * Keterangan tanggal untuk judul bagian di layar catat: "hari ini" atau
+ * "23 Agu".
+ *
+ * Dipakai supaya judulnya mengikuti tanggal yang sedang dilihat. Judul yang
+ * selalu berbunyi "hari ini" padahal yang tampil catatan minggu lalu membuat
+ * user salah membaca datanya sendiri.
+ */
+export const dayPhrase = (date: string): string => (isToday(date) ? 'hari ini' : shortDate(date));
+
+/**
  * Menggabungkan tanggal WIB dengan jam menjadi timestamp ISO UTC.
  *
- * Dipakai layar yang mengirim `logged_at` bertipe timestamp — user memilih jam
+ * Dipakai layar yang mengirim `logged_at` bertipe timestamp, user memilih jam
  * menurut WIB, tapi backend menerimanya dalam UTC.
  */
 export const wibToISO = (date: string, time: string): string =>

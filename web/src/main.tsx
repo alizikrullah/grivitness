@@ -12,7 +12,7 @@ import './styles/global.css';
 const root = document.getElementById('root');
 
 // Melempar, bukan diam. Kalau elemennya hilang, halaman akan kosong tanpa
-// petunjuk apa pun di konsol — dan itu jauh lebih lama ditelusuri.
+// petunjuk apa pun di konsol, dan itu jauh lebih lama ditelusuri.
 if (!root) throw new Error('Elemen #root tidak ditemukan di index.html');
 
 createRoot(root).render(

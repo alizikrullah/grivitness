@@ -5,13 +5,13 @@ import { round } from './number.js';
  * Target harian yang DITURUNKAN dari tubuh dan tujuan user, bukan angka tetap.
  *
  * Sebelumnya minum 2500ml, tidur 8 jam, dan langkah 10.000 ditulis langsung di
- * layar mobile — sama untuk semua orang, dan tidak satu pun punya sumber. Yang
+ * layar mobile, sama untuk semua orang, dan tidak satu pun punya sumber. Yang
  * 10.000 langkah bahkan asalnya nama produk pedometer Jepang tahun 1965
  * (manpo-kei, harfiahnya "meteran 10.000 langkah"), bukan penelitian.
  *
  * SUMBER
- *   Air        ESPEN/DGEM — 30-40 ml per kg berat badan per hari untuk dewasa.
- *              ACSM — tambahan cairan selama dan sesudah berolahraga.
+ *   Air        ESPEN/DGEM, 30-40 ml per kg berat badan per hari untuk dewasa.
+ *              ACSM, tambahan cairan selama dan sesudah berolahraga.
  *   Tidur      Hirshkowitz M dkk. "National Sleep Foundation's sleep time duration
  *              recommendations: methodology and results summary." Sleep Health
  *              2015;1(1):40-43.
@@ -22,7 +22,7 @@ import { round } from './number.js';
  *              gains in muscle mass and strength." Br J Sports Med 2018;52(6):376-384.
  *              Helms ER dkk. "A systematic review of dietary protein during caloric
  *              restriction." Int J Sport Nutr Exerc Metab 2014;24(2):127-138.
- *   Makro      IOM Dietary Reference Intakes — AMDR: lemak 20-35%, karbohidrat
+ *   Makro      IOM Dietary Reference Intakes, AMDR: lemak 20-35%, karbohidrat
  *              45-65%, protein 10-35% dari total energi.
  */
 
@@ -38,7 +38,7 @@ const USIA_LANSIA = 55;
 /** Tambahan cairan per jam olahraga, mengganti yang hilang lewat keringat. */
 const ML_PER_JAM_OLAHRAGA = 500;
 
-/** Batas atas. Minum berlebihan bukan tidak berbahaya — hiponatremia itu nyata. */
+/** Batas atas. Minum berlebihan bukan tidak berbahaya, hiponatremia itu nyata. */
 const AIR_MAKSIMAL_ML = 4000;
 const AIR_MINIMAL_ML = 1500;
 
@@ -75,7 +75,7 @@ export interface SleepTarget {
  * National Sleep Foundation memang merekomendasikan 7-9 jam untuk dewasa, dan
  * 7-8 jam untuk 65 tahun ke atas. Buktinya berbentuk pita, jadi menampilkannya
  * sebagai "8 jam tepat" memalsukan ketelitian yang tidak dimiliki penelitiannya.
- * Memaksa personalisasi di sini juga akan mengarang — usia nyaris tidak
+ * Memaksa personalisasi di sini juga akan mengarang, usia nyaris tidak
  * menggeser rentangnya untuk dewasa.
  */
 export const sleepTarget = (age: number): SleepTarget => ({
@@ -110,11 +110,11 @@ export interface StepTarget {
  * Dua lapis, dan pemisahan itu disengaja. Lapis pertama murni kesehatan dan
  * berlaku walau user tidak punya target berat badan. Lapis kedua muncul hanya
  * ketika target beratnya tidak bisa dicapai dari makanan saja tanpa menembus
- * batas aman — defisit yang tidak boleh datang dari piring masih boleh datang
+ * batas aman, defisit yang tidak boleh datang dari piring masih boleh datang
  * dari kaki.
  *
  * Hasilnya angka yang bisa dijelaskan: "8.000 untuk kesehatan, 3.200 sisanya
- * untuk targetmu" — bukan satu angka bulat yang tidak bisa dipertanggungjawabkan.
+ * untuk targetmu", bukan satu angka bulat yang tidak bisa dipertanggungjawabkan.
  */
 export const stepTarget = (age: number, extraForGoal = 0): StepTarget => {
   const dasar = age >= USIA_LANGKAH_LANSIA ? LANGKAH_DASAR_LANSIA : LANGKAH_DASAR_MUDA;
@@ -161,8 +161,7 @@ export interface MacroTarget {
  *
  * Protein didahulukan karena dialah yang menentukan apakah berat yang hilang itu
  * lemak atau otot. Menurunkan berat badan itu mudah; menurunkannya tanpa ikut
- * kehilangan otot yang justru menjaga metabolisme tetap tinggi, itu yang sulit —
- * dan protein adalah pengungkit utamanya.
+ * kehilangan otot yang justru menjaga metabolisme tetap tinggi, itu yang sulit, * dan protein adalah pengungkit utamanya.
  *
  * Lemak menyusul karena punya batas bawah fisiologis yang tidak boleh ditembus.
  * Karbohidrat dapat sisanya karena dia satu-satunya yang tidak esensial.

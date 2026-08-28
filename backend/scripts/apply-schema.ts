@@ -3,7 +3,7 @@
  *
  * Jalankan: npm run schema:apply
  *
- * Script ini idempotent — aman dijalankan berulang kali. Yang sudah ada dilewati,
+ * Script ini idempotent, aman dijalankan berulang kali. Yang sudah ada dilewati,
  * yang belum ada dibuat. Script ini TIDAK pernah menghapus collection atau field,
  * jadi tidak bisa merusak data yang sudah masuk.
  *
@@ -106,7 +106,7 @@ const toFieldPayload = (def: FieldDef, sort: number): FieldPayload => {
     hidden: def.hidden ?? false,
     readonly: def.readonly ?? false,
     // Field readonly diisi otomatis (uuid, date-created), jadi jangan ditandai wajib
-    // di form admin panel — nanti malah tidak bisa disimpan.
+    // di form admin panel, nanti malah tidak bisa disimpan.
     required: !(def.nullable ?? false) && !def.readonly && !def.primaryKey,
     sort,
   };
@@ -122,11 +122,11 @@ const toFieldPayload = (def: FieldDef, sort: number): FieldPayload => {
 };
 
 // ============================================================
-// TAHAP 1 — COLLECTION
+// TAHAP 1, COLLECTION
 // ============================================================
 
 const applyCollections = async (existing: Set<string>): Promise<number> => {
-  heading('Tahap 1/3 — Collection');
+  heading('Tahap 1/3, Collection');
   let created = 0;
 
   for (const def of collections) {
@@ -158,11 +158,11 @@ const applyCollections = async (existing: Set<string>): Promise<number> => {
 };
 
 // ============================================================
-// TAHAP 2 — FIELD
+// TAHAP 2, FIELD
 // ============================================================
 
 const applyFields = async (): Promise<number> => {
-  heading('Tahap 2/3 — Field');
+  heading('Tahap 2/3, Field');
   let created = 0;
 
   for (const def of collections) {
@@ -172,7 +172,7 @@ const applyFields = async (): Promise<number> => {
     const pending = def.fields.filter((f) => !f.primaryKey && !existing.has(f.field));
 
     if (pending.length === 0) {
-      skip(`${def.collection} — semua field sudah ada`);
+      skip(`${def.collection}, semua field sudah ada`);
       continue;
     }
 
@@ -183,20 +183,20 @@ const applyFields = async (): Promise<number> => {
       created += 1;
     }
 
-    ok(`${def.collection} — ${pending.length} field ditambahkan`);
+    ok(`${def.collection}, ${pending.length} field ditambahkan`);
   }
 
   return created;
 };
 
 // ============================================================
-// TAHAP 3 — RELASI
+// TAHAP 3, RELASI
 // ============================================================
 
 const relationKey = (collection: string, field: string) => `${collection}.${field}`;
 
 const applyRelations = async (): Promise<number> => {
-  heading('Tahap 3/3 — Relasi');
+  heading('Tahap 3/3, Relasi');
 
   const current = (await client.request(readRelations())) as LiveRelation[];
   const existing = new Set(current.map((r) => relationKey(r.collection ?? '', r.field ?? '')));

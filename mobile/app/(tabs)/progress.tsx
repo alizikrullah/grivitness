@@ -157,7 +157,7 @@ export default function ProgressScreen() {
             {/* Ditampilkan sebagai TOTAL, bukan rata-rata. Rata-rata dihitung
                 backend dengan membagi jumlah hari kalender, jadi 600 kkal yang
                 dicatat sehari terbaca 86 kkal di pekan yang baru berjalan satu
-                hari — angka yang benar secara aritmetika tapi menyesatkan. */}
+                hari, angka yang benar secara aritmetika tapi menyesatkan. */}
             <MetricTile
               icon={<FireIcon size={16} color={metricColors.calories} weight="fill" />}
               label="Kalori masuk"
@@ -198,7 +198,7 @@ export default function ProgressScreen() {
               color={metricColors.water}
             />
             {/* Backend menghitungnya dari jumlah baris weight_logs, jadi yang
-                terhitung khusus hari saat berat badan ditimbang — bukan hari
+                terhitung khusus hari saat berat badan ditimbang, bukan hari
                 dengan pencatatan apa pun. Labelnya menyebutkan itu apa adanya. */}
             <MetricTile
               icon={<ScalesIcon size={16} color={colors.textSecondary} weight="fill" />}

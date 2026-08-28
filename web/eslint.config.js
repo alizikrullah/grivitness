@@ -51,7 +51,7 @@ export default tseslint.config(
    * Aturan bertipe dimatikan untuk berkas .js.
    *
    * recommendedTypeChecked berlaku ke SEMUA berkas, termasuk eslint.config.js
-   * itu sendiri — padahal berkas itu bukan bagian dari program TypeScript, jadi
+   * itu sendiri, padahal berkas itu bukan bagian dari program TypeScript, jadi
    * tidak punya informasi tipe untuk dibaca. Tanpa pengecualian ini ESLint
    * berhenti dengan error sebelum satu berkas pun sempat diperiksa.
    */

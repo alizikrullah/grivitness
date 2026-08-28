@@ -25,7 +25,7 @@ export const UpdateMeSchema = z
   })
   // Email sengaja TIDAK bisa diubah di sini. Mengubah email berarti menyentuh
   // identitas login dan cerminan di directus_users sekaligus, jadi butuh alur
-  // tersendiri dengan verifikasi — bukan sekadar PATCH biasa.
+  // tersendiri dengan verifikasi, bukan sekadar PATCH biasa.
   .refine((data) => Object.keys(data).length > 0, {
     message: 'Tidak ada field yang diubah',
   });

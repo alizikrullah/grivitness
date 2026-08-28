@@ -36,7 +36,7 @@ export const CreateSleepSchema = z
  * Koreksi sesi tidur.
  *
  * Pemeriksaan urutan dan panjang durasi tidak bisa dilakukan di sini seperti
- * pada CreateSleepSchema — kalau hanya salah satu jam yang dikirim, pasangannya
+ * pada CreateSleepSchema, kalau hanya salah satu jam yang dikirim, pasangannya
  * baru diketahui setelah baris lamanya dibaca. Karena itu pemeriksaan itu
  * dipindah ke service, yang punya kedua nilainya.
  */

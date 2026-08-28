@@ -24,7 +24,7 @@ export const api: AxiosInstance = axios.create({
  *
  * Backend selalu membalas { success: false, error: { code, message } } dengan
  * pesan berbahasa Indonesia yang layak ditampilkan. Yang perlu dijaga adalah
- * kasus di luar itu — jaringan mati, server tak terjangkau — yang tidak punya
+ * kasus di luar itu, jaringan mati, server tak terjangkau, yang tidak punya
  * amplop sama sekali dan kalau dibiarkan akan muncul sebagai "Network Error".
  */
 export class ApiError extends Error {
@@ -95,8 +95,7 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
  * Satu-satunya proses refresh yang boleh berjalan.
  *
  * Ini bukan sekadar optimasi. Backend merotasi refresh token setiap kali
- * dipakai dan menganggap pemakaian token lama sebagai indikasi pencurian —
- * seluruh sesi user langsung dicabut. Kalau tiga request kedaluwarsa bersamaan
+ * dipakai dan menganggap pemakaian token lama sebagai indikasi pencurian, * seluruh sesi user langsung dicabut. Kalau tiga request kedaluwarsa bersamaan
  * lalu masing-masing menukar refresh token yang sama, dua di antaranya memakai
  * token yang sudah dirotasi dan user akan tertendang keluar.
  *
@@ -189,11 +188,11 @@ export const fileUrl = (path: string): string => (path.startsWith('http') ? path
  *
  * Ini masalah khas web yang tidak ada di mobile. Berkas di Directus bersifat
  * privat, jadi backend menyajikannya lewat proxy ber-autentikasi di
- * /api/files/:id — setiap permintaan gambar WAJIB membawa header Authorization.
+ * /api/files/:id, setiap permintaan gambar WAJIB membawa header Authorization.
  *
  * Tag <img> tidak bisa membawa header apa pun. Jadi gambarnya diambil lewat
  * fetch, dijadikan blob, lalu ditukar jadi object URL. Pemanggil WAJIB
- * memanggil URL.revokeObjectURL saat selesai — kalau tidak, setiap foto yang
+ * memanggil URL.revokeObjectURL saat selesai, kalau tidak, setiap foto yang
  * pernah dibuka akan menetap di memori sampai tab ditutup.
  *
  * Menaruh token di query string sempat dipertimbangkan dan ditolak: token akan

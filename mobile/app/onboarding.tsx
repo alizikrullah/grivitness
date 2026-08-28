@@ -29,7 +29,7 @@ import type { ActivityLevel, Gender } from '@/types';
 
 /**
  * Batas usia yang diterima backend: 10 sampai 120 tahun. Ditegakkan juga di
- * kalender supaya tanggal yang mustahil tidak bisa dipilih sejak awal — lebih
+ * kalender supaya tanggal yang mustahil tidak bisa dipilih sejak awal, lebih
  * baik daripada menolaknya setelah user menekan simpan.
  */
 const geserTahun = (tahun: number): Date => {
@@ -46,7 +46,7 @@ const LAHIR_BAWAAN = geserTahun(25);
  * Pengisian dan penyuntingan profil.
  *
  * Layar yang sama dipakai untuk keduanya. Kalau profil sudah ada, isinya
- * dimuat lebih dulu dan permintaannya menjadi PATCH — memisahkannya jadi dua
+ * dimuat lebih dulu dan permintaannya menjadi PATCH, memisahkannya jadi dua
  * layar hanya akan menduplikasi form yang persis sama.
  */
 export default function OnboardingScreen() {
@@ -169,12 +169,12 @@ export default function OnboardingScreen() {
           {/*
             Pertanyaannya sengaja soal pekerjaan, bukan seberapa sering olahraga.
             Olahraga, langkah, dan tidur sudah dihitung terpisah dari data yang
-            kamu catat — kalau ditanyakan lagi di sini, jam yang sama dihitung
+            kamu catat, kalau ditanyakan lagi di sini, jam yang sama dihitung
             dua kali dan targetmu jadi terlalu longgar.
           */}
           <Text variant="caption" tone="tertiary" style={styles.levelHint}>
-            Olahraga tidak perlu dihitung di sini, karena sudah diambil dari catatan
-            olahraga, langkah, dan tidurmu.
+            Olahraga tidak perlu dihitung di sini, karena sudah diambil dari catatan olahraga,
+            langkah, dan tidurmu.
           </Text>
 
           {ACTIVITY_OPTIONS.map((level) => {

@@ -3,7 +3,7 @@ import { pino } from 'pino';
 import { env, isProduction } from '../config/env.js';
 
 /**
- * Logger tunggal aplikasi. CLAUDE.md section 15 melarang console.log — pakai ini.
+ * Logger tunggal aplikasi. CLAUDE.md section 15 melarang console.log, pakai ini.
  *
  * Development: output berwarna dan mudah dibaca lewat pino-pretty.
  * Production : JSON satu baris per entri, siap dibaca agregator log di Coolify.

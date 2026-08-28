@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { del, get, patch, post } from '@/lib/api';
 import { invalidateAfterLog, qk } from '@/lib/query';
+import { todayWIB } from '@/utils/date';
 import type { StepLog } from '@/types';
 
 export const useStepsToday = () =>
@@ -22,6 +23,30 @@ export const useStepsRange = (from: string, to: string) =>
     queryFn: () => get<StepLog[]>('/api/steps', { params: { from, to } }),
   });
 
+/**
+ * Langkah pada satu tanggal, dipakai layar catat untuk menelusuri hari lampau.
+ *
+ * Untuk hari ini permintaannya dialihkan ke endpoint dan kunci cache "today",
+ * supaya layar catat dan beranda berbagi satu salinan data. Tanpa itu hal yang
+ * sama tersimpan dua kali dengan kunci berbeda, dan salah satunya pasti basi.
+ */
+export const useStepsDate = (date: string) => {
+  const iniHariIni = date === todayWIB();
+
+  return useQuery({
+    queryKey: iniHariIni ? qk.stepsToday : qk.stepsDate(date),
+    queryFn: async () => {
+      try {
+        return iniHariIni
+          ? await get<StepLog | null>('/api/steps/today')
+          : await get<StepLog | null>('/api/steps/day', { params: { date } });
+      } catch {
+        return null;
+      }
+    },
+  });
+};
+
 const segarkan = (client: ReturnType<typeof useQueryClient>) => {
   void client.invalidateQueries({ queryKey: ['steps'] });
   invalidateAfterLog(client);
@@ -32,7 +57,7 @@ export const useSaveSteps = () => {
 
   /**
    * Satu baris langkah per hari, jadi mencatat ulang di hari yang sama harus
-   * memperbarui — bukan membuat baris baru yang akan ditolak DUPLICATE_ENTRY.
+   * memperbarui, bukan membuat baris baru yang akan ditolak DUPLICATE_ENTRY.
    * Id log hari ini dikirim pemanggil kalau memang sudah ada.
    */
   return useMutation({

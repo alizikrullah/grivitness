@@ -6,7 +6,7 @@ import { Alert } from 'react-native';
  * Mengambil foto dari kamera atau galeri.
  *
  * Kualitas ditahan di 0.85 dan bukan 1. Backend tetap mengonversinya ke WebP
- * kualitas 100, jadi selisih detailnya tidak sampai ke penyimpanan — yang
+ * kualitas 100, jadi selisih detailnya tidak sampai ke penyimpanan, yang
  * berkurang cuma ukuran unggahan, dan itu langsung terasa di koneksi seluler.
  */
 const OPSI: ImagePicker.ImagePickerOptions = {

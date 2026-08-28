@@ -67,7 +67,7 @@ export const recordActivity = async (userId: string): Promise<StreakRecord | nul
 /**
  * Versi recordActivity yang tidak pernah melempar error.
  *
- * Dipanggil dari service pencatatan log. Streak itu fitur sekunder — kalau
+ * Dipanggil dari service pencatatan log. Streak itu fitur sekunder, kalau
  * pembaruannya gagal, log yang sudah tersimpan TIDAK boleh ikut dianggap gagal
  * dan membuat user mengira catatannya hilang. Kegagalannya cukup dicatat di log.
  */

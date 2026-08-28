@@ -7,6 +7,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import {
   Card,
+  DateStrip,
   EmptyState,
   ErrorNote,
   Header,
@@ -20,16 +21,23 @@ import { colors, metricColors } from '@/constants/colors';
 import { radius, spacing, typography } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
 import { useDailySummary } from '@/services/misc.service';
-import { useAddWater, useDeleteWater, useWaterToday } from '@/services/water.service';
+import { useAddWater, useDeleteWater, useWaterDate } from '@/services/water.service';
 import type { WaterLog } from '@/types';
-import { timeWIB, todayWIB } from '@/utils/date';
+import { dayPhrase, timeWIB, todayWIB, wibToISO } from '@/utils/date';
 import { ratio, volume } from '@/utils/format';
 
 /** Takaran yang paling sering dipakai, supaya mencatat cukup satu ketukan. */
 const TAKARAN = [150, 250, 500, 750];
 
 export default function WaterScreen() {
-  const today = useWaterToday();
+  /**
+   * Tanggal yang sedang dilihat. Bawaannya hari ini, tapi user bisa mundur
+   * untuk membaca dan melengkapi catatan hari-hari sebelumnya.
+   */
+  const [tanggal, setTanggal] = useState(todayWIB());
+  const hariIni = tanggal === todayWIB();
+
+  const today = useWaterDate(tanggal);
   const addWater = useAddWater();
   const deleteWater = useDeleteWater();
 
@@ -39,19 +47,29 @@ export default function WaterScreen() {
   const total = today.data?.total_ml ?? 0;
 
   /**
-   * Target minum diturunkan backend dari berat badan dan usia — 35 ml per kg
+   * Target minum diturunkan backend dari berat badan dan usia, 35 ml per kg
    * untuk dewasa, lebih rendah untuk usia lanjut, plus tambahan sesuai lama
    * olahraga hari itu.
    *
    * Angka tetap 2500ml yang dulu ada di sini memaksa orang bertubuh kecil minum
    * berlebihan, sementara yang bertubuh besar merasa sudah cukup padahal belum.
    */
-  const targetMl = useDailySummary(todayWIB()).data?.targets.water_ml ?? 0;
+  const targetMl = useDailySummary(tanggal).data?.targets.water_ml ?? 0;
 
   const tambah = (ml: number) => {
     setError(null);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    addWater.mutate({ amount_ml: ml }, { onError: (e) => setError(toApiError(e).message) });
+
+    addWater.mutate(
+      {
+        amount_ml: ml,
+        // Saat menelusuri hari lampau, tegukan dicatat ke tanggal ITU, bukan ke
+        // hari ini. Tengah hari dipakai sebagai jam netral karena jam
+        // sesungguhnya sudah tidak bisa diingat lagi.
+        logged_at: hariIni ? undefined : wibToISO(tanggal, '12:00'),
+      },
+      { onError: (e) => setError(toApiError(e).message) },
+    );
   };
 
   const hapus = (id: string) => {
@@ -63,6 +81,8 @@ export default function WaterScreen() {
     <>
       <Screen refreshing={today.isRefetching} onRefresh={() => void today.refetch()}>
         <Header title="Minum air" subtitle="Boleh dicatat berkali-kali sehari" />
+
+        <DateStrip value={tanggal} onChange={setTanggal} />
 
         {today.isPending ? (
           <Loading />
@@ -109,12 +129,12 @@ export default function WaterScreen() {
 
             {error ? <ErrorNote message={error} /> : null}
 
-            <SectionHeader title="Catatan hari ini" />
+            <SectionHeader title={'Catatan ' + dayPhrase(tanggal)} />
 
             {(today.data?.logs.length ?? 0) === 0 ? (
               <EmptyState
                 icon={<DropIcon size={30} color={colors.textTertiary} weight="duotone" />}
-                title="Belum minum apa-apa"
+                title="Belum ada catatan minum"
                 message="Ketuk salah satu takaran di atas untuk mencatat."
               />
             ) : (

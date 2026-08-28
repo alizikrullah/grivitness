@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { dateString } from '../../utils/query.js';
 
 /**
- * Semua ukuran nullable — user boleh mengisi sebagian saja, misalnya cuma
+ * Semua ukuran nullable, user boleh mengisi sebagian saja, misalnya cuma
  * pinggang. Nilai dikonversi ke string karena Directus menyimpan decimal
  * sebagai string.
  */

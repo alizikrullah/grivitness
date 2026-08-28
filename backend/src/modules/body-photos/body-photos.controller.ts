@@ -3,7 +3,7 @@ import type { Request, Response } from 'express';
 import { getValidatedParams, getValidatedQuery } from '../../middlewares/validate.middleware.js';
 import { getAuthUser } from '../../types/index.js';
 import { AppError } from '../../utils/api-error.js';
-import type { DateRangeDto, UuidParamDto } from '../../utils/query.js';
+import type { DateRangeDto, SingleDateDto, UuidParamDto } from '../../utils/query.js';
 import { sendSuccess } from '../../utils/response.js';
 import * as bodyPhotosService from './body-photos.service.js';
 import type { CreateBodyPhotoDto } from './body-photos.validation.js';
@@ -20,7 +20,7 @@ export const create = async (req: Request, res: Response): Promise<void> => {
   const side = files?.side_photo?.[0];
 
   // Keduanya wajib, tidak boleh salah satu. Analisa AI membandingkan tampak
-  // depan dan samping — dengan satu foto saja hasilnya tidak sebanding dengan
+  // depan dan samping, dengan satu foto saja hasilnya tidak sebanding dengan
   // catatan lain, dan barisnya sudah terlanjur memakai jatah hari itu.
   if (!front || !side) {
     throw AppError.badRequest(
@@ -41,6 +41,19 @@ export const create = async (req: Request, res: Response): Promise<void> => {
 export const getToday = async (req: Request, res: Response): Promise<void> => {
   const user = getAuthUser(req);
   sendSuccess(res, await bodyPhotosService.getToday(user.id));
+};
+
+/**
+ * Data satu tanggal, dipakai layar catat untuk menelusuri hari-hari lampau.
+ *
+ * Tanpa ini layar catat hanya bisa menampilkan hari ini, dan riwayat yang
+ * sudah tersimpan tidak pernah bisa dibaca ulang dari aplikasi.
+ */
+export const getDay = async (req: Request, res: Response): Promise<void> => {
+  const user = getAuthUser(req);
+  const { date } = getValidatedQuery<SingleDateDto>(res);
+
+  sendSuccess(res, await bodyPhotosService.getByDate(user.id, date));
 };
 
 export const getRange = async (req: Request, res: Response): Promise<void> => {

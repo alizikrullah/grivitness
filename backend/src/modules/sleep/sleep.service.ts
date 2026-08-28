@@ -7,7 +7,7 @@ import { recordActivitySafely } from '../streaks/streaks.service.js';
 import type { CreateSleepDto, UpdateSleepDto } from './sleep.validation.js';
 
 /**
- * Sengaja TIDAK ada aturan satu baris per hari — user bisa tidur siang juga.
+ * Sengaja TIDAK ada aturan satu baris per hari, user bisa tidur siang juga.
  * Di summary harian, durasinya dijumlahkan.
  */
 
@@ -20,7 +20,7 @@ import type { CreateSleepDto, UpdateSleepDto } from './sleep.validation.js';
  * Ini mengikuti cara orang membicarakan tidurnya: bangun pagi ini lalu membuka
  * aplikasi, yang dicari adalah "tidur saya semalam" di bawah hari ini. Dengan
  * pengelompokan menurut waktu mulai, catatan itu jatuh ke kemarin dan layar
- * "Tidur hari ini" tampak kosong padahal datanya sudah tersimpan — persis
+ * "Tidur hari ini" tampak kosong padahal datanya sudah tersimpan, persis
  * seperti gagal menyimpan.
  *
  * Tidur siang tidak terpengaruh: mulai dan bangunnya di hari yang sama.
@@ -64,7 +64,7 @@ export const create = async (userId: string, data: CreateSleepDto): Promise<Slee
 /**
  * Mengubah sesi tidur yang sudah tercatat.
  *
- * Durasi dan logged_at TIDAK diterima dari client — keduanya diturunkan ulang
+ * Durasi dan logged_at TIDAK diterima dari client, keduanya diturunkan ulang
  * dari pasangan waktu yang berlaku setelah perubahan. Kalau client boleh
  * mengirimnya sendiri, satu koreksi jam saja bisa meninggalkan durasi yang
  * tidak lagi cocok dengan waktunya.

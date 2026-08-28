@@ -12,7 +12,7 @@ const server = app.listen(env.PORT, () => {
 });
 
 /**
- * Graceful shutdown. Coolify mengirim SIGTERM saat deploy ulang — tanpa ini,
+ * Graceful shutdown. Coolify mengirim SIGTERM saat deploy ulang, tanpa ini,
  * request yang sedang berjalan akan terputus di tengah jalan.
  */
 const shutdown = (signal: string): void => {

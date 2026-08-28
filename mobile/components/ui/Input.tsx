@@ -105,7 +105,7 @@ export const Input = ({
         ) : null}
       </View>
 
-      {/* Pesan error menggantikan hint, bukan menumpuk di bawahnya — dua baris
+      {/* Pesan error menggantikan hint, bukan menumpuk di bawahnya, dua baris
           keterangan sekaligus membuat form terlihat penuh dan sulit dibaca. */}
       {error ? (
         <Text variant="caption" tone="accent">

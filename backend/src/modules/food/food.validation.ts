@@ -4,7 +4,7 @@ import { MEAL_TYPE } from '../../constants/enums.js';
 import { dateString } from '../../utils/query.js';
 
 /**
- * Request-nya multipart, jadi seluruh field datang sebagai string — termasuk
+ * Request-nya multipart, jadi seluruh field datang sebagai string, termasuk
  * angka. Karena itu dipakai z.coerce, bukan z.number seperti di endpoint JSON.
  */
 export const CreateFoodSchema = z.object({
@@ -17,7 +17,7 @@ export const CreateFoodSchema = z.object({
 
   /**
    * Nilai gizi hasil analisa AI boleh ditimpa manual oleh user. AI mengestimasi
-   * dari foto dan bisa meleset jauh — user yang tahu isi piringnya berhak
+   * dari foto dan bisa meleset jauh, user yang tahu isi piringnya berhak
    * mengoreksi. Kalau dikosongkan, hasil AI yang dipakai.
    */
   total_calories: z.coerce.number().int().min(0).max(20_000).optional(),
@@ -33,8 +33,8 @@ export const FoodDateSchema = z.object({
 /**
  * Koreksi manual atas hasil analisa AI.
  *
- * Berbeda dari CreateFoodSchema, request ini JSON biasa — fotonya tidak ikut
- * dikirim ulang — jadi angkanya memakai z.number(), bukan z.coerce.
+ * Berbeda dari CreateFoodSchema, request ini JSON biasa, fotonya tidak ikut
+ * dikirim ulang, jadi angkanya memakai z.number(), bukan z.coerce.
  *
  * `foods_detected` ikut bisa diubah karena di situlah kekeliruan AI paling
  * terasa: salah menyebut nama hidangan. Membiarkan user cuma menghapus lalu

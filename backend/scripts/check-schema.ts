@@ -105,7 +105,7 @@ const main = async (): Promise<void> => {
       }
     }
 
-    // Field yang ada di Directus tapi tidak ada di kode — biasanya sisa
+    // Field yang ada di Directus tapi tidak ada di kode, biasanya sisa
     // pengeditan lewat UI, atau alias relasi kebalikan yang memang dibuat Directus.
     const namaDidefinisikan = new Set(def.fields.map((f) => f.field));
     for (const actual of liveFields) {

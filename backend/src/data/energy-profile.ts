@@ -60,7 +60,7 @@ export const loadEnergyProfile = async (userId: string): Promise<EnergyProfile> 
     }),
     // Diambil barisnya lalu dijumlahkan di sini, bukan lewat agregasi Directus,
     // karena yang dibutuhkan adalah total PER HARI dan REST API-nya tidak punya
-    // group by. Enam minggu catatan makan itu ratusan baris — murah.
+    // group by. Enam minggu catatan makan itu ratusan baris, murah.
     repo.list('food_logs', {
       filter: timestampRangeFilter(range),
       fields: ['logged_at', 'total_calories'],

@@ -63,7 +63,7 @@ export interface UnitOfWork {
   ): Promise<ItemOf<C>>;
 
   /**
-   * Mendaftarkan pembatalan manual untuk hal di luar database — paling sering
+   * Mendaftarkan pembatalan manual untuk hal di luar database, paling sering
    * file yang sudah terlanjur diupload ke Directus storage.
    *
    * ```ts
@@ -150,8 +150,7 @@ export const unitOfWork = async <T>(work: (tx: UnitOfWork) => Promise<T>): Promi
 };
 
 /**
- * Membatalkan dalam urutan terbalik supaya anak dihapus sebelum induknya —
- * kalau induk dihapus duluan, foreign key bisa menolak atau justru ikut
+ * Membatalkan dalam urutan terbalik supaya anak dihapus sebelum induknya, * kalau induk dihapus duluan, foreign key bisa menolak atau justru ikut
  * meng-cascade hal yang tidak diinginkan.
  *
  * Setiap langkah dibungkus try sendiri: satu pembatalan yang gagal tidak boleh

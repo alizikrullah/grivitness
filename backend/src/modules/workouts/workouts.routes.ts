@@ -6,7 +6,7 @@ import {
   validateParams,
   validateQuery,
 } from '../../middlewares/validate.middleware.js';
-import { DateRangeSchema, UuidParamSchema } from '../../utils/query.js';
+import { DateRangeSchema, SingleDateSchema, UuidParamSchema } from '../../utils/query.js';
 import * as workoutsController from './workouts.controller.js';
 import {
   CreateCustomWorkoutSchema,
@@ -28,6 +28,7 @@ router.post('/custom', validateBody(CreateCustomWorkoutSchema), workoutsControll
 router.delete('/custom/:id', validateParams(UuidParamSchema), workoutsController.removeCustom);
 
 router.get('/today', workoutsController.getToday);
+router.get('/day', validateQuery(SingleDateSchema), workoutsController.getDay);
 
 router.get('/', validateQuery(DateRangeSchema), workoutsController.getRange);
 router.post('/', validateBody(CreateWorkoutSchema), workoutsController.create);

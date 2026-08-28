@@ -16,7 +16,7 @@ export const useMe = () =>
   useQuery({ queryKey: qk.me, queryFn: () => get<PublicUser>('/api/users/me') });
 
 /**
- * Profil boleh belum ada — user baru daftar belum mengisinya. Backend membalas
+ * Profil boleh belum ada, user baru daftar belum mengisinya. Backend membalas
  * 404 dalam keadaan itu, dan itu bukan kesalahan yang perlu ditampilkan.
  */
 export const useProfile = () =>

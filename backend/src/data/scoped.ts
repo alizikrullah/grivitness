@@ -13,7 +13,7 @@ import type { UnitOfWork } from './unit-of-work.js';
  *
  * Backend memakai admin token, jadi Directus TIDAK menyaring apa pun untuk kita.
  * Satu query yang lupa `filter: { user_id: { _eq: userId } }` berarti data user
- * lain ikut terbaca — kebocoran data antar pengguna.
+ * lain ikut terbaca, kebocoran data antar pengguna.
  *
  * Menjaganya lewat disiplin dan komentar terbukti rapuh. Modul apa pun yang
  * menyentuh data milik user WAJIB lewat sini, karena di sini filter `user_id`
@@ -32,7 +32,7 @@ import type { UnitOfWork } from './unit-of-work.js';
  */
 
 /**
- * Daftar collection milik user diturunkan otomatis dari definisi schema — setiap
+ * Daftar collection milik user diturunkan otomatis dari definisi schema, setiap
  * collection yang punya kolom `user_id` masuk ke sana. Lihat scripts/generate-types.ts.
  *
  * Tipe inilah yang membuat repo.list('workout_library') ditolak TypeScript:
@@ -42,7 +42,7 @@ export type { UserOwnedCollection };
 
 type ItemOf<C extends UserOwnedCollection> = DirectusSchema[C][number];
 
-/** Data untuk membuat item baru. `user_id` sengaja dibuang — repo yang mengisinya. */
+/** Data untuk membuat item baru. `user_id` sengaja dibuang, repo yang mengisinya. */
 export type CreateData<C extends UserOwnedCollection> = Partial<Omit<ItemOf<C>, 'id' | 'user_id'>>;
 
 /** Data untuk mengubah item. `user_id` dibuang supaya kepemilikan tidak bisa dipindah. */
@@ -64,7 +64,7 @@ type UntypedPayload = Parameters<typeof createItem>[1];
 /**
  * Saat dipanggil dari pembungkus generik, SDK meruntuhkan tipe balikannya jadi
  * objek serba `never`, sehingga tidak bisa dicast langsung ke tipe sebenarnya.
- * Helper ini yang menjembatani, dan dipakai HANYA di berkas ini — service tetap
+ * Helper ini yang menjembatani, dan dipakai HANYA di berkas ini, service tetap
  * menerima tipe yang benar dari DirectusSchema.
  */
 const asTyped = <T>(value: unknown): T => value as T;
@@ -73,7 +73,7 @@ const asTyped = <T>(value: unknown): T => value as T;
  * Menggabungkan filter milik pemanggil dengan filter kepemilikan.
  *
  * Memakai _and, bukan menyebar objeknya, supaya filter dari pemanggil tidak
- * mungkin menimpa syarat user_id — sekalipun dia mengirim { user_id: ... }
+ * mungkin menimpa syarat user_id, sekalipun dia mengirim { user_id: ... }
  * sendiri, syarat kepemilikan tetap ikut diperiksa.
  */
 const scopeFilter = (userId: string, filter?: Record<string, unknown>): Record<string, unknown> => {

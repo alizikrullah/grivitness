@@ -9,6 +9,12 @@ const router: Router = Router();
 
 router.use(authMiddleware);
 
+router.get('/', chatController.history);
 router.post('/', validateBody(ChatSchema), chatController.send);
+
+// Mengosongkan SELURUH percakapan, bukan satu pesan. Panel chat cuma punya satu
+// percakapan berjalan, jadi menghapus per pesan akan meninggalkan tanya tanpa
+// jawab yang membuat konteks giliran berikutnya timpang.
+router.delete('/', chatController.clear);
 
 export default router;
