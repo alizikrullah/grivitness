@@ -8,7 +8,9 @@
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "backgroundColor": "#0A0A0B",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "my.id.grivilabs.grivitness",
@@ -39,13 +41,15 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "GriviTness memakai kamera untuk memotret makanan dan progres badan kamu."
+          "cameraPermission": "GriviTness memakai kamera untuk memotret makanan dan progres badan kamu.",
+          "recordAudioAndroid": false
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "GriviTness membaca galeri agar kamu bisa memilih foto makanan atau progres badan."
+          "photosPermission": "GriviTness membaca galeri agar kamu bisa memilih foto makanan atau progres badan.",
+          "microphonePermission": false
         }
       ],
       [
@@ -65,6 +69,13 @@
     "icon": "./assets/icon.png",
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "3b989144-03dc-41c5-9d00-905e10467169"
+      }
+    },
+    "owner": "grivilabs-dev"
   }
 }
