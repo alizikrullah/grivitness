@@ -26,7 +26,8 @@ import { duration, initials, kg, thousands, volume } from '@/utils/format';
  * Pembagian yang aman terhadap target yang belum ada.
  *
  * Target sekarang datang dari backend, diturunkan dari berat, tinggi, usia, dan
- * target berat badan user. Sebelumnya ditulis di sini sebagai angka tetap, * 10.000 langkah, 2500ml, 8 jam, yang sama untuk semua orang dan tidak satu pun
+ * target berat badan user. Sebelumnya ditulis di sini sebagai angka tetap, 10.000
+ * langkah, 2500ml, 8 jam, yang sama untuk semua orang dan tidak satu pun
  * punya sumber. Yang 10.000 langkah bahkan asalnya nama produk pedometer Jepang
  * tahun 1965, bukan penelitian.
  */

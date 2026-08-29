@@ -170,7 +170,8 @@ const autoBudget = (m: EnergyProfile, data: CreateGoalDto): number => {
 /**
  * Mengubah goal.
  *
- * Kalau goal ini diaktifkan, goal lain yang sedang aktif harus dinonaktifkan, * kalau tidak, aturan "satu goal aktif per user" bocor dan endpoint
+ * Kalau goal ini diaktifkan, goal lain yang sedang aktif harus dinonaktifkan, kalau
+ * tidak, aturan "satu goal aktif per user" bocor dan endpoint
  * GET /api/goals/active jadi tidak menentu mengembalikan yang mana.
  */
 export const update = async (

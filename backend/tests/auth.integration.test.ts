@@ -176,7 +176,8 @@ describe('POST /api/auth/refresh', () => {
    *
    * Token yang sudah direvoke tapi dipakai lagi cuma punya satu penjelasan
    * masuk akal: ada salinan token yang bocor. Karena tidak mungkin membedakan
-   * mana yang penyerang dan mana pemiliknya, SEMUA sesi user itu dicabut, * termasuk token baru yang barusan diterbitkan.
+   * mana yang penyerang dan mana pemiliknya, SEMUA sesi user itu dicabut, termasuk
+   * token baru yang barusan diterbitkan.
    */
   it('mencabut seluruh sesi user saat token bekas dipakai lagi', async () => {
     const res = await daftar(testEmail('bocor'));

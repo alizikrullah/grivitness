@@ -19,7 +19,8 @@ interface SleepEditSheetProps {
 /**
  * Mengoreksi sesi tidur yang sudah tercatat.
  *
- * Tanggal acuan diambil dari waktu BANGUN sesi ini, bukan dari hari ini, * mengedit catatan kemarin tidak boleh diam-diam memindahkannya ke hari ini.
+ * Tanggal acuan diambil dari waktu BANGUN sesi ini, bukan dari hari ini, mengedit
+ * catatan kemarin tidak boleh diam-diam memindahkannya ke hari ini.
  */
 export const SleepEditSheet = ({ log, onClose }: SleepEditSheetProps) => {
   const update = useUpdateSleep();

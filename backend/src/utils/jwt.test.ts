@@ -41,7 +41,8 @@ describe('access token', () => {
 
   /**
    * Access token dan refresh token memakai secret berbeda. Kalau tertukar,
-   * refresh token yang umurnya 7 hari bisa dipakai sebagai access token, * artinya token curian jadi berlaku jauh lebih lama dari yang dirancang.
+   * refresh token yang umurnya 7 hari bisa dipakai sebagai access token, artinya token
+   * curian jadi berlaku jauh lebih lama dari yang dirancang.
    */
   it('menolak refresh token yang dipakai sebagai access token', () => {
     const { token } = signRefreshToken(USER_ID);

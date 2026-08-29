@@ -16,7 +16,8 @@ interface AuthPageProps {
 /**
  * Satu komponen untuk masuk dan daftar.
  *
- * Keduanya berbagi tata letak, validasi, dan penanganan error yang sama persis, * memisahkannya jadi dua berkas berarti dua salinan yang harus dijaga selaras,
+ * Keduanya berbagi tata letak, validasi, dan penanganan error yang sama persis,
+ * memisahkannya jadi dua berkas berarti dua salinan yang harus dijaga selaras,
  * dan yang terlewat akan tampak sebagai dua halaman yang anehnya berbeda.
  */
 export const AuthPage = ({ mode }: AuthPageProps) => {

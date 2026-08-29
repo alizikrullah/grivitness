@@ -20,7 +20,8 @@ import { round } from './number.js';
  *
  * SOAL CATATAN MAKANAN YANG TIDAK AKURAT
  *
- * Orang secara konsisten mencatat makanan lebih sedikit daripada kenyataan, * penelitian menunjukkan kekurangan 20-30%. Itu TIDAK membuat pendekatan ini
+ * Orang secara konsisten mencatat makanan lebih sedikit daripada kenyataan, penelitian
+ * menunjukkan kekurangan 20-30%. Itu TIDAK membuat pendekatan ini
  * sia-sia, tapi juga tidak sepenuhnya saling meniadakan seperti yang mudah
  * diduga. Yang terjadi:
  *
@@ -201,7 +202,8 @@ const gagal = (
  * Menghitung TDEE terukur, lalu mencampurnya dengan estimasi rumus.
  *
  * Campuran, bukan penggantian. Melompat penuh ke hasil empat belas hari akan
- * membuat jatah kalori user berayun tiap minggu mengikuti fluktuasi air, * bobotnya naik perlahan seiring datanya bertambah panjang dan rapat.
+ * membuat jatah kalori user berayun tiap minggu mengikuti fluktuasi air, bobotnya naik
+ * perlahan seiring datanya bertambah panjang dan rapat.
  */
 export const observeTDEE = (input: ObservedInput): ObservedTdee => {
   const laju = lajuPerHari(input.weights);

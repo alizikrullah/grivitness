@@ -35,6 +35,7 @@ export const todayInJakarta = (): string => FORMATTER.format(new Date());
  * Tanggal WIB dari sebuah timestamp.
  *
  * Dibutuhkan untuk mengelompokkan kolom bertipe timestamp per hari di sisi Node.
- * Memotong sepuluh karakter pertama dari string ISO akan memberi tanggal UTC, * yang untuk WIB berarti apa pun sebelum jam tujuh pagi jatuh ke hari kemarin.
+ * Memotong sepuluh karakter pertama dari string ISO akan memberi tanggal UTC, yang
+ * untuk WIB berarti apa pun sebelum jam tujuh pagi jatuh ke hari kemarin.
  */
 export const jakartaDate = (timestamp: string): string => FORMATTER.format(new Date(timestamp));
