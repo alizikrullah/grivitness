@@ -40,7 +40,8 @@ export const useFoodDate = (date: string) => {
 /**
  * Nama berkas dari uri kamera atau galeri.
  *
- * Multer memakai nama ini apa adanya, dan Sharp di backend membaca isinya, * bukan ekstensinya, jadi salah tebak ekstensi tidak merusak apa pun. Yang
+ * Multer memakai nama ini apa adanya, dan Sharp di backend membaca isinya, bukan
+ * ekstensinya, jadi salah tebak ekstensi tidak merusak apa pun. Yang
  * penting namanya ada, karena beberapa server menolak bagian tanpa filename.
  */
 const namaBerkas = (uri: string): string => {

@@ -211,7 +211,8 @@ export interface TdeeBreakdown {
   /**
    * PAL sesungguhnya: TDEE dibagi BMR.
    *
-   * Sengaja dihitung dari hasil akhir, bukan diambil dari restingPartitionPAL, * yang itu cuma potongan istirahatnya dan angkanya selalu lebih rendah.
+   * Sengaja dihitung dari hasil akhir, bukan diambil dari restingPartitionPAL, yang itu
+   * cuma potongan istirahatnya dan angkanya selalu lebih rendah.
    * Menampilkan angka setengah jadi dengan nama "PAL" akan menyesatkan siapa pun
    * yang membandingkannya dengan pita FAO/WHO.
    */

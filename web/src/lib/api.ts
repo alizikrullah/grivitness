@@ -95,7 +95,8 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
  * Satu-satunya proses refresh yang boleh berjalan.
  *
  * Ini bukan sekadar optimasi. Backend merotasi refresh token setiap kali
- * dipakai dan menganggap pemakaian token lama sebagai indikasi pencurian, * seluruh sesi user langsung dicabut. Kalau tiga request kedaluwarsa bersamaan
+ * dipakai dan menganggap pemakaian token lama sebagai indikasi pencurian, seluruh sesi
+ * user langsung dicabut. Kalau tiga request kedaluwarsa bersamaan
  * lalu masing-masing menukar refresh token yang sama, dua di antaranya memakai
  * token yang sudah dirotasi dan user akan tertendang keluar.
  *

@@ -161,7 +161,8 @@ export interface MacroTarget {
  *
  * Protein didahulukan karena dialah yang menentukan apakah berat yang hilang itu
  * lemak atau otot. Menurunkan berat badan itu mudah; menurunkannya tanpa ikut
- * kehilangan otot yang justru menjaga metabolisme tetap tinggi, itu yang sulit, * dan protein adalah pengungkit utamanya.
+ * kehilangan otot yang justru menjaga metabolisme tetap tinggi, itu yang sulit, dan
+ * protein adalah pengungkit utamanya.
  *
  * Lemak menyusul karena punya batas bawah fisiologis yang tidak boleh ditembus.
  * Karbohidrat dapat sisanya karena dia satu-satunya yang tidak esensial.

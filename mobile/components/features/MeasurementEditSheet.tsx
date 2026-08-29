@@ -20,7 +20,8 @@ interface MeasurementEditSheetProps {
 /**
  * Mengoreksi satu pengukuran yang sudah tercatat.
  *
- * Bagian yang dikosongkan diperlakukan sebagai "tidak diukur", bukan nol, * lingkar badan nol tidak berarti apa-apa, dan backend memang mengizinkan
+ * Bagian yang dikosongkan diperlakukan sebagai "tidak diukur", bukan nol, lingkar badan
+ * nol tidak berarti apa-apa, dan backend memang mengizinkan
  * kolomnya kosong.
  */
 export const MeasurementEditSheet = ({ log, onClose }: MeasurementEditSheetProps) => {

@@ -21,7 +21,8 @@ import { logger } from '../../utils/logger.js';
 import type { LoginDto, RegisterDto } from './auth.validation.js';
 
 /**
- * Cost factor bcrypt. 12 memakan waktu sekitar 250ms per hash di hardware biasa, * cukup lambat untuk melumpuhkan serangan brute force, masih cukup cepat untuk login.
+ * Cost factor bcrypt. 12 memakan waktu sekitar 250ms per hash di hardware biasa, cukup
+ * lambat untuk melumpuhkan serangan brute force, masih cukup cepat untuk login.
  */
 const BCRYPT_ROUNDS = 12;
 

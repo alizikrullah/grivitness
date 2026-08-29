@@ -227,7 +227,8 @@ describe('netKcalPerMinuteAt70', () => {
   /**
    * Selalu di bawah nilai KOTOR-nya, dan selisihnya persis satu MET.
    *
-   * Perhatikan bahwa hasilnya TIDAK selalu di bawah angka MET mentahnya, * di atas 5.44 MET justru melampauinya, karena pengali 1.225 tumbuh lebih
+   * Perhatikan bahwa hasilnya TIDAK selalu di bawah angka MET mentahnya, di atas 5.44
+   * MET justru melampauinya, karena pengali 1.225 tumbuh lebih
    * cepat daripada pengurangan satu MET. Itu juga berarti nilai library yang
    * lama (MET disalin mentah) tidak salah ke satu arah saja: olahraga ringan
    * dulu kelebihan, olahraga berat kekurangan.

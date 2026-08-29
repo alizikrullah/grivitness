@@ -22,7 +22,8 @@ export interface PublicUser {
 /**
  * Profil ditambah nilai turunan yang dihitung backend.
  *
- * bmr dan tdee bernilai null selama user belum pernah mencatat berat badan, * rumus Mifflin-St Jeor butuh berat, dan menebaknya akan menghasilkan angka
+ * bmr dan tdee bernilai null selama user belum pernah mencatat berat badan, rumus
+ * Mifflin-St Jeor butuh berat, dan menebaknya akan menghasilkan angka
  * yang terlihat resmi padahal karangan.
  */
 export interface ProfileWithDerived {

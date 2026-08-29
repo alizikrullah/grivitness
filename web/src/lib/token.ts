@@ -3,7 +3,8 @@
  *
  * PERBEDAAN PENTING DARI MOBILE, dan ini kompromi yang sadar.
  *
- * Mobile memakai expo-secure-store yang menaruh token di Keychain/Keystore, * terenkripsi dan tidak terbaca oleh proses lain. Browser tidak punya padanan
+ * Mobile memakai expo-secure-store yang menaruh token di Keychain/Keystore, terenkripsi
+ * dan tidak terbaca oleh proses lain. Browser tidak punya padanan
  * itu. Yang tersedia cuma localStorage/sessionStorage, dan keduanya bisa dibaca
  * oleh JavaScript mana pun yang berhasil berjalan di halaman ini. Artinya satu
  * celah XSS sudah cukup untuk mencuri sesi.

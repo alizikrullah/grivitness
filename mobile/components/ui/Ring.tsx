@@ -24,7 +24,8 @@ interface RingProps {
  * Cincin progres berbasis SVG.
  *
  * Dibuat sendiri alih-alih memakai pustaka chart karena bentuk yang diminta
- * referensi, cincin dengan celah, ujung membulat, dan isi bebas di tengah, * justru lebih ribet dipaksakan lewat pustaka daripada digambar langsung.
+ * referensi, cincin dengan celah, ujung membulat, dan isi bebas di tengah, justru lebih
+ * ribet dipaksakan lewat pustaka daripada digambar langsung.
  */
 export const Ring = ({
   progress,
