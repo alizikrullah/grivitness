@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { LogActions } from '@/components/features/LogActions';
 import { BatteryChargingIcon, SmileyIcon } from 'phosphor-react-native';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import {
   BarChart,
@@ -110,104 +110,98 @@ export default function MoodScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <Screen>
-        <Header
-          title="Mood & energi"
-          subtitle={today.data ? 'Sudah dicatat ' + dayPhrase(dipilih) : 'Satu catatan per hari'}
-          action={
-            logHariIni ? (
-              <LogActions
-                row
-                onDelete={() =>
-                  deleteMood.mutate(logHariIni.id, {
-                    // Form dibuka ulang sebagai kosong setelah dihapus. Tanpa ini,
-                    // nilai yang barusan dihapus masih terpampang di layar.
-                    onSuccess: () => {
-                      setMood(null);
-                      setEnergi(null);
-                      setCatatan('');
-                      setTerisi(false);
-                    },
-                  })
-                }
-                deleteMessage={'Catatan mood ' + dayPhrase(dipilih) + ' akan dihapus.'}
+    <Screen>
+      <Header
+        title="Mood & energi"
+        subtitle={today.data ? 'Sudah dicatat ' + dayPhrase(dipilih) : 'Satu catatan per hari'}
+        action={
+          logHariIni ? (
+            <LogActions
+              row
+              onDelete={() =>
+                deleteMood.mutate(logHariIni.id, {
+                  // Form dibuka ulang sebagai kosong setelah dihapus. Tanpa ini,
+                  // nilai yang barusan dihapus masih terpampang di layar.
+                  onSuccess: () => {
+                    setMood(null);
+                    setEnergi(null);
+                    setCatatan('');
+                    setTerisi(false);
+                  },
+                })
+              }
+              deleteMessage={'Catatan mood ' + dayPhrase(dipilih) + ' akan dihapus.'}
+            />
+          ) : undefined
+        }
+      />
+
+      <DateStrip value={dipilih} onChange={setDipilih} />
+
+      {today.isPending ? (
+        <Loading />
+      ) : (
+        <>
+          <Card>
+            <View style={styles.block}>
+              <View style={styles.blockHead}>
+                <SmileyIcon size={20} color={metricColors.mood} weight="duotone" />
+                <Text variant="label">Bagaimana perasaan kamu?</Text>
+              </View>
+              <ScoreSelector
+                value={mood}
+                onChange={setMood}
+                kind="mood"
+                color={metricColors.mood}
               />
-            ) : undefined
-          }
-        />
+            </View>
+          </Card>
 
-        <DateStrip value={dipilih} onChange={setDipilih} />
-
-        {today.isPending ? (
-          <Loading />
-        ) : (
-          <>
-            <Card>
-              <View style={styles.block}>
-                <View style={styles.blockHead}>
-                  <SmileyIcon size={20} color={metricColors.mood} weight="duotone" />
-                  <Text variant="label">Bagaimana perasaan kamu?</Text>
-                </View>
-                <ScoreSelector
-                  value={mood}
-                  onChange={setMood}
-                  kind="mood"
-                  color={metricColors.mood}
-                />
+          <Card>
+            <View style={styles.block}>
+              <View style={styles.blockHead}>
+                <BatteryChargingIcon size={20} color={colors.success} weight="duotone" />
+                <Text variant="label">Seberapa berenergi?</Text>
               </View>
-            </Card>
+              <ScoreSelector
+                value={energi}
+                onChange={setEnergi}
+                kind="energy"
+                color={colors.success}
+              />
+            </View>
+          </Card>
 
-            <Card>
-              <View style={styles.block}>
-                <View style={styles.blockHead}>
-                  <BatteryChargingIcon size={20} color={colors.success} weight="duotone" />
-                  <Text variant="label">Seberapa berenergi?</Text>
-                </View>
-                <ScoreSelector
-                  value={energi}
-                  onChange={setEnergi}
-                  kind="energy"
-                  color={colors.success}
-                />
-              </View>
-            </Card>
+          <Input
+            label="Catatan"
+            value={catatan}
+            onChangeText={setCatatan}
+            placeholder="Opsional. Apa yang memengaruhi mood kamu hari ini?"
+            multiline
+            maxLength={1000}
+            autoCapitalize="sentences"
+          />
 
-            <Input
-              label="Catatan"
-              value={catatan}
-              onChangeText={setCatatan}
-              placeholder="Opsional. Apa yang memengaruhi mood kamu hari ini?"
-              multiline
-              maxLength={1000}
-              autoCapitalize="sentences"
-            />
+          {error ? <ErrorNote message={error} /> : null}
 
-            {error ? <ErrorNote message={error} /> : null}
+          <Button
+            label={today.data ? 'Perbarui catatan' : 'Simpan catatan'}
+            onPress={simpan}
+            loading={saveMood.isPending}
+            size="lg"
+          />
 
-            <Button
-              label={today.data ? 'Perbarui catatan' : 'Simpan catatan'}
-              onPress={simpan}
-              loading={saveMood.isPending}
-              size="lg"
-            />
-
-            <SectionHeader title="Mood 7 hari terakhir" />
-            <Card>
-              <BarChart data={batang} color={metricColors.mood} height={110} />
-            </Card>
-          </>
-        )}
-      </Screen>
-    </KeyboardAvoidingView>
+          <SectionHeader title="Mood 7 hari terakhir" />
+          <Card>
+            <BarChart data={batang} color={metricColors.mood} height={110} />
+          </Card>
+        </>
+      )}
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.background },
   block: { gap: spacing.lg },
   blockHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
 });

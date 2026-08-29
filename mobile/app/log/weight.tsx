@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import {
   Button,
@@ -17,7 +17,7 @@ import {
   Text,
   type LinePoint,
 } from '@/components/ui';
-import { colors, metricColors } from '@/constants/colors';
+import { metricColors } from '@/constants/colors';
 import { spacing } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
 import {
@@ -121,85 +121,79 @@ export default function WeightScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <Screen>
-        <Header
-          title="Berat badan"
-          subtitle={(sudahAda ? 'Sudah dicatat ' : 'Belum dicatat ') + dayPhrase(tanggal)}
-        />
+    <Screen>
+      <Header
+        title="Berat badan"
+        subtitle={(sudahAda ? 'Sudah dicatat ' : 'Belum dicatat ') + dayPhrase(tanggal)}
+      />
 
-        <DateStrip value={tanggal} onChange={setTanggal} />
+      <DateStrip value={tanggal} onChange={setTanggal} />
 
-        {memuat ? (
-          <Loading />
-        ) : (
-          <>
-            <Card>
-              <View style={styles.stepperCard}>
-                <Text variant="overline" tone="tertiary" align="center">
-                  {'Berat ' + dayPhrase(tanggal)}
+      {memuat ? (
+        <Loading />
+      ) : (
+        <>
+          <Card>
+            <View style={styles.stepperCard}>
+              <Text variant="overline" tone="tertiary" align="center">
+                {'Berat ' + dayPhrase(tanggal)}
+              </Text>
+
+              <Stepper
+                value={nilai}
+                onChange={setBerat}
+                step={0.1}
+                decimals={1}
+                min={20}
+                max={400}
+                suffix="kg"
+              />
+
+              {selisih !== null ? (
+                <Text
+                  variant="caption"
+                  align="center"
+                  tone={selisih <= 0 ? 'success' : 'secondary'}
+                >
+                  {signed(selisih)} kg dibanding 30 hari lalu
                 </Text>
+              ) : null}
+            </View>
+          </Card>
 
-                <Stepper
-                  value={nilai}
-                  onChange={setBerat}
-                  step={0.1}
-                  decimals={1}
-                  min={20}
-                  max={400}
-                  suffix="kg"
-                />
+          <Input
+            label="Catatan"
+            value={catatan}
+            onChangeText={setCatatan}
+            placeholder="Opsional. Misalnya: setelah puasa semalam"
+            multiline
+            maxLength={1000}
+            autoCapitalize="sentences"
+          />
 
-                {selisih !== null ? (
-                  <Text
-                    variant="caption"
-                    align="center"
-                    tone={selisih <= 0 ? 'success' : 'secondary'}
-                  >
-                    {signed(selisih)} kg dibanding 30 hari lalu
-                  </Text>
-                ) : null}
-              </View>
-            </Card>
+          {error ? <ErrorNote message={error} /> : null}
 
-            <Input
-              label="Catatan"
-              value={catatan}
-              onChangeText={setCatatan}
-              placeholder="Opsional. Misalnya: setelah puasa semalam"
-              multiline
-              maxLength={1000}
-              autoCapitalize="sentences"
-            />
+          <Button
+            label={sudahAda ? 'Perbarui berat' : 'Simpan berat'}
+            onPress={simpan}
+            loading={createWeight.isPending || updateWeight.isPending}
+            size="lg"
+          />
 
-            {error ? <ErrorNote message={error} /> : null}
-
-            <Button
-              label={sudahAda ? 'Perbarui berat' : 'Simpan berat'}
-              onPress={simpan}
-              loading={createWeight.isPending || updateWeight.isPending}
-              size="lg"
-            />
-
-            {titik.length > 0 ? (
-              <>
-                <SectionHeader title="30 hari terakhir" />
-                <Card>
-                  <LineChart data={titik} color={metricColors.weight} />
-                </Card>
-              </>
-            ) : null}
-          </>
-        )}
-      </Screen>
-    </KeyboardAvoidingView>
+          {titik.length > 0 ? (
+            <>
+              <SectionHeader title="30 hari terakhir" />
+              <Card>
+                <LineChart data={titik} color={metricColors.weight} />
+              </Card>
+            </>
+          ) : null}
+        </>
+      )}
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.background },
   stepperCard: { gap: spacing.lg },
 });

@@ -2,7 +2,7 @@ import { BarbellIcon, CaretRightIcon, MagnifyingGlassIcon } from 'phosphor-react
 import { LogActions } from '@/components/features/LogActions';
 import { WorkoutEditSheet } from '@/components/features/WorkoutEditSheet';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import {
   Button,
@@ -139,10 +139,7 @@ export default function WorkoutScreen() {
   const perkiraanKalori = pilihan ? Math.round(pilihan.perMenit * menit) : null;
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <>
       <Screen>
         <Header title="Olahraga" subtitle="Boleh lebih dari satu sesi per hari" />
 
@@ -332,7 +329,7 @@ export default function WorkoutScreen() {
       {diedit ? (
         <WorkoutEditSheet key={diedit.id} log={diedit} onClose={() => setDiedit(null)} />
       ) : null}
-    </KeyboardAvoidingView>
+    </>
   );
 }
 
@@ -411,7 +408,6 @@ const WorkoutPicker = ({
 };
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.background },
   picker: {
     flexDirection: 'row',
     alignItems: 'center',

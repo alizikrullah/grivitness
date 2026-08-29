@@ -1,6 +1,10 @@
 import { useFocusEffect } from 'expo-router';
 import { type ReactNode, useCallback, useRef } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
+import { RefreshControl, StyleSheet, View, type ViewStyle } from 'react-native';
+import {
+  KeyboardAwareScrollView,
+  type KeyboardAwareScrollViewRef,
+} from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors } from '@/constants/colors';
@@ -39,12 +43,13 @@ export const Screen = ({
   contentStyle,
 }: ScreenProps) => {
   const insets = useSafeAreaInsets();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
 
   /**
    * Mengembalikan guliran ke atas setiap kali layar DITINGGALKAN.
    *
-   * Layar tab tidak pernah dilepas dari memori setelah pertama kali dibuka, * itu memang disengaja React Navigation supaya pindah tab terasa instan.
+   * Layar tab tidak pernah dilepas dari memori setelah pertama kali dibuka, itu memang
+   * disengaja React Navigation supaya pindah tab terasa instan.
    * Efek sampingnya ScrollView-nya ikut hidup terus lengkap dengan posisi
    * gulirannya, jadi user yang kembali ke Beranda mendarat di tengah halaman.
    *
@@ -81,13 +86,32 @@ export const Screen = ({
     );
   }
 
+  /*
+    KeyboardAwareScrollView, bukan ScrollView biasa.
+
+    Semua layar catat memakai komponen ini, jadi penanganan keyboard cukup
+    diurus sekali di sini dan berlaku di mana-mana. Kalau ditangani per layar,
+    satu layar yang terlewat sudah cukup membuat isian tertutup keyboard.
+
+    Sebelumnya tiap layar membungkus dirinya dengan KeyboardAvoidingView
+    ber-behavior undefined di Android, yang artinya TIDAK melakukan apa pun.
+    Yang menyelamatkan selama ini perilaku bawaan Android yang menyusutkan
+    jendela, dan itu berhenti bekerja sejak edge-to-edge jadi bawaan di SDK 57:
+    sistem menganggap aplikasi mengurus insetnya sendiri.
+  */
   return (
-    <ScrollView
+    <KeyboardAwareScrollView
       ref={scrollRef}
       style={[styles.root, style]}
       contentContainerStyle={[styles.content, padding, contentStyle]}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
+      /*
+        Jarak nafas antara isian yang sedang difokus dan tepi atas keyboard.
+        Tanpa ini isiannya menempel persis di batas keyboard dan terasa sesak,
+        apalagi kalau ada pesan bantuan di bawah kolomnya.
+      */
+      bottomOffset={spacing.xxl}
       refreshControl={
         onRefresh ? (
           <RefreshControl
@@ -101,7 +125,7 @@ export const Screen = ({
       }
     >
       {children}
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 };
 

@@ -1,6 +1,6 @@
 import { ForkKnifeIcon, SparkleIcon } from 'phosphor-react-native';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { FoodEditSheet } from '@/components/features/FoodEditSheet';
 import { LogActions } from '@/components/features/LogActions';
@@ -96,10 +96,7 @@ export default function FoodScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <>
       <Screen>
         <Header title="Makanan" subtitle="Foto piringnya, AI yang memperkirakan gizinya" />
 
@@ -289,12 +286,11 @@ export default function FoodScreen() {
       {diedit ? (
         <FoodEditSheet key={diedit.id} log={diedit} onClose={() => setDiedit(null)} />
       ) : null}
-    </KeyboardAvoidingView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.background },
   photoRow: { flexDirection: 'row' },
   group: { gap: spacing.md },
   analyzing: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
