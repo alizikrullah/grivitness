@@ -1,6 +1,6 @@
 import { InfoIcon, WatchIcon } from 'phosphor-react-native';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { LogActions } from '@/components/features/LogActions';
 import {
@@ -166,206 +166,200 @@ export default function DeviceEnergyScreen() {
   const selisih = rumus !== null && hari.data ? hari.data.total_kcal - rumus : null;
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <Screen>
-        <Header
-          title="Kalori smartwatch"
-          subtitle={hari.data ? 'Sudah dicatat ' + dayPhrase(tanggal) : 'Satu angka per hari'}
-          action={
-            hari.data ? (
-              <LogActions
-                row
-                onDelete={hapus}
-                deleteMessage={
-                  'Kalori perangkat ' +
-                  dayPhrase(tanggal) +
-                  ' akan dihapus, dan hitungannya kembali memakai rumus.'
-                }
-              />
-            ) : undefined
-          }
-        />
+    <Screen>
+      <Header
+        title="Kalori smartwatch"
+        subtitle={hari.data ? 'Sudah dicatat ' + dayPhrase(tanggal) : 'Satu angka per hari'}
+        action={
+          hari.data ? (
+            <LogActions
+              row
+              onDelete={hapus}
+              deleteMessage={
+                'Kalori perangkat ' +
+                dayPhrase(tanggal) +
+                ' akan dihapus, dan hitungannya kembali memakai rumus.'
+              }
+            />
+          ) : undefined
+        }
+      />
 
-        <DateStrip value={tanggal} onChange={setTanggal} />
+      <DateStrip value={tanggal} onChange={setTanggal} />
 
-        {/*
+      {/*
           Jam tangan tidak semuanya menampilkan angka yang sama. Sebagian punya
           keduanya, sebagian HANYA kalori aktif. Menanyakannya di depan lebih
           baik daripada menolak angkanya belakangan dengan pesan error.
         */}
-        <Card variant="outline" padding="md">
-          <View style={styles.hint}>
-            <InfoIcon size={20} color={colors.warning} weight="duotone" />
-            <Text variant="caption" tone="secondary" style={styles.hintText}>
-              Kalori total sudah termasuk yang terbakar saat kamu diam; kalori aktif belum. Pilih
-              yang sesuai dengan angka di jam tanganmu, dan sisanya dihitung di sini.
-            </Text>
-          </View>
-        </Card>
+      <Card variant="outline" padding="md">
+        <View style={styles.hint}>
+          <InfoIcon size={20} color={colors.warning} weight="duotone" />
+          <Text variant="caption" tone="secondary" style={styles.hintText}>
+            Kalori total sudah termasuk yang terbakar saat kamu diam; kalori aktif belum. Pilih yang
+            sesuai dengan angka di jam tanganmu, dan sisanya dihitung di sini.
+          </Text>
+        </View>
+      </Card>
 
-        {hari.isPending ? (
-          <Loading />
-        ) : (
-          <>
-            <Card>
-              <View style={styles.card}>
-                <View style={styles.iconRow}>
-                  <WatchIcon size={26} color={metricColors.device} weight="duotone" />
-                  <Text variant="overline" tone="tertiary">
-                    {'Kalori keluar ' + dayPhrase(tanggal)}
-                  </Text>
-                </View>
+      {hari.isPending ? (
+        <Loading />
+      ) : (
+        <>
+          <Card>
+            <View style={styles.card}>
+              <View style={styles.iconRow}>
+                <WatchIcon size={26} color={metricColors.device} weight="duotone" />
+                <Text variant="overline" tone="tertiary">
+                  {'Kalori keluar ' + dayPhrase(tanggal)}
+                </Text>
+              </View>
 
-                <View style={styles.group}>
-                  <Text variant="label" tone="secondary">
-                    Jam tanganmu menampilkan yang mana?
-                  </Text>
-                  <ChipGroup
-                    options={JENIS}
-                    value={jenis}
-                    onChange={setJenis}
-                    labels={JENIS_LABEL}
-                    wrap
-                  />
-                </View>
-
-                <Input
-                  label={pakaiAktif ? 'Kalori aktif hari ini' : 'Kalori total hari ini'}
-                  value={kalori}
-                  onChangeText={setKalori}
-                  placeholder={pakaiAktif ? '620' : '2340'}
-                  keyboardType="number-pad"
-                  suffix="kkal"
-                  hint={
-                    pakaiAktif
-                      ? 'Catat sebelum tidur, supaya seharian penuh sudah terhitung.'
-                      : undefined
-                  }
+              <View style={styles.group}>
+                <Text variant="label" tone="secondary">
+                  Jam tanganmu menampilkan yang mana?
+                </Text>
+                <ChipGroup
+                  options={JENIS}
+                  value={jenis}
+                  onChange={setJenis}
+                  labels={JENIS_LABEL}
+                  wrap
                 />
+              </View>
 
-                {/*
+              <Input
+                label={pakaiAktif ? 'Kalori aktif hari ini' : 'Kalori total hari ini'}
+                value={kalori}
+                onChangeText={setKalori}
+                placeholder={pakaiAktif ? '620' : '2340'}
+                keyboardType="number-pad"
+                suffix="kkal"
+                hint={
+                  pakaiAktif
+                    ? 'Catat sebelum tidur, supaya seharian penuh sudah terhitung.'
+                    : undefined
+                }
+              />
+
+              {/*
                   Penjumlahannya diperlihatkan, bukan terjadi diam-diam di
                   backend. User harus bisa melihat angka mana yang dia berikan
                   dan angka mana yang ditambahkan aplikasi.
                 */}
-                {pakaiAktif && angkaValid ? (
-                  bmr === null ? (
-                    <Text variant="caption" tone="warning">
-                      Metabolisme istirahatmu belum bisa dihitung. Lengkapi profil dan catat berat
-                      badanmu dulu.
+              {pakaiAktif && angkaValid ? (
+                bmr === null ? (
+                  <Text variant="caption" tone="warning">
+                    Metabolisme istirahatmu belum bisa dihitung. Lengkapi profil dan catat berat
+                    badanmu dulu.
+                  </Text>
+                ) : (
+                  <View style={styles.hitungan}>
+                    <Row
+                      label="Metabolisme istirahat (BMR)"
+                      value={thousands(Math.round(bmr)) + ' kkal'}
+                    />
+                    <Row label="Kalori aktif dari jam" value={thousands(angka) + ' kkal'} />
+                    <Row
+                      label="Total yang tersimpan"
+                      value={thousands(totalSetelahnya ?? 0) + ' kkal'}
+                      tone="accent"
+                    />
+                    <Text variant="caption" tone="tertiary">
+                      BMR itu taksiran dari tinggi, berat, usia, dan jenis kelaminmu, bukan
+                      pengukuran. Angka aslinya tetap disimpan supaya bisa ditelusuri.
                     </Text>
-                  ) : (
-                    <View style={styles.hitungan}>
-                      <Row
-                        label="Metabolisme istirahat (BMR)"
-                        value={thousands(Math.round(bmr)) + ' kkal'}
-                      />
-                      <Row label="Kalori aktif dari jam" value={thousands(angka) + ' kkal'} />
-                      <Row
-                        label="Total yang tersimpan"
-                        value={thousands(totalSetelahnya ?? 0) + ' kkal'}
-                        tone="accent"
-                      />
-                      <Text variant="caption" tone="tertiary">
-                        BMR itu taksiran dari tinggi, berat, usia, dan jenis kelaminmu, bukan
-                        pengukuran. Angka aslinya tetap disimpan supaya bisa ditelusuri.
-                      </Text>
-                    </View>
-                  )
-                ) : null}
+                  </View>
+                )
+              ) : null}
 
-                <Input
-                  label="Perangkat"
-                  value={perangkat}
-                  onChangeText={setPerangkat}
-                  placeholder="Opsional. Misalnya: Galaxy Watch"
-                  autoCapitalize="words"
-                  maxLength={64}
-                />
-              </View>
-            </Card>
+              <Input
+                label="Perangkat"
+                value={perangkat}
+                onChangeText={setPerangkat}
+                placeholder="Opsional. Misalnya: Galaxy Watch"
+                autoCapitalize="words"
+                maxLength={64}
+              />
+            </View>
+          </Card>
 
-            {/*
+          {/*
               Perbandingan dengan rumus. Ini alasan fitur ini berguna melampaui
               sekadar mengganti satu angka: begitu terlihat seberapa jauh
               keduanya berbeda, user bisa menilai sendiri seberapa layak jam
               tangannya dipercaya.
             */}
-            {rumus !== null ? (
-              <Card padding="md">
-                <View style={styles.banding}>
-                  <Row label="Hitungan rumus aplikasi" value={thousands(rumus) + ' kkal'} />
+          {rumus !== null ? (
+            <Card padding="md">
+              <View style={styles.banding}>
+                <Row label="Hitungan rumus aplikasi" value={thousands(rumus) + ' kkal'} />
 
-                  {hari.data ? (
-                    <>
-                      <Row
-                        label="Menurut jam tanganmu"
-                        value={thousands(hari.data.total_kcal) + ' kkal'}
-                        tone="accent"
-                      />
+                {hari.data ? (
+                  <>
+                    <Row
+                      label="Menurut jam tanganmu"
+                      value={thousands(hari.data.total_kcal) + ' kkal'}
+                      tone="accent"
+                    />
 
-                      {selisih !== null ? (
-                        <Text variant="caption" tone="tertiary">
-                          {selisih === 0
-                            ? 'Keduanya persis sama.'
-                            : 'Jam tanganmu ' +
-                              (selisih > 0 ? 'lebih tinggi ' : 'lebih rendah ') +
-                              thousands(Math.abs(selisih)) +
-                              ' kkal. Perangkat pergelangan memang dikenal kurang akurat menaksir kalori, jadi selisih sebesar ini wajar dan belum tentu rumusnya yang salah.'}
-                        </Text>
-                      ) : null}
-                    </>
-                  ) : (
-                    <Text variant="caption" tone="tertiary">
-                      Simpan angka jam tanganmu untuk membandingkannya dengan hitungan ini.
-                    </Text>
-                  )}
-                </View>
-              </Card>
-            ) : null}
-
-            {error ? <ErrorNote message={error} /> : null}
-            {pesan ? (
-              <Text variant="caption" tone="success" align="center">
-                {pesan}
-              </Text>
-            ) : null}
-
-            <Button
-              label={hari.data ? 'Perbarui angka' : 'Simpan angka'}
-              onPress={simpan}
-              loading={simpanKalori.isPending}
-              disabled={!angkaValid}
-              size="lg"
-            />
-
-            <Card variant="outline" padding="md">
-              <Text variant="caption" tone="tertiary">
-                Angka ini menggantikan hitungan kalori keluar hari itu, bukan ditambahkan. Jam
-                tanganmu sudah memuat jalan kaki dan kegiatan sehari-hari, jadi menjumlahkan
-                keduanya berarti menghitung waktu yang sama dua kali. Olahraga yang kamu tandai
-                tidak terekam jam tetap ditambahkan di atasnya.
-              </Text>
+                    {selisih !== null ? (
+                      <Text variant="caption" tone="tertiary">
+                        {selisih === 0
+                          ? 'Keduanya persis sama.'
+                          : 'Jam tanganmu ' +
+                            (selisih > 0 ? 'lebih tinggi ' : 'lebih rendah ') +
+                            thousands(Math.abs(selisih)) +
+                            ' kkal. Perangkat pergelangan memang dikenal kurang akurat menaksir kalori, jadi selisih sebesar ini wajar dan belum tentu rumusnya yang salah.'}
+                      </Text>
+                    ) : null}
+                  </>
+                ) : (
+                  <Text variant="caption" tone="tertiary">
+                    Simpan angka jam tanganmu untuk membandingkannya dengan hitungan ini.
+                  </Text>
+                )}
+              </View>
             </Card>
+          ) : null}
 
-            <Card variant="outline" padding="md">
-              <Text variant="caption" tone="tertiary">
-                Jatah kalori harianmu tidak ikut berubah. Jatah itu memang sengaja stabil supaya
-                kamu tahu berapa yang boleh dimakan sejak pagi, bukan baru setelah harinya berakhir.
-              </Text>
-            </Card>
-          </>
-        )}
-      </Screen>
-    </KeyboardAvoidingView>
+          {error ? <ErrorNote message={error} /> : null}
+          {pesan ? (
+            <Text variant="caption" tone="success" align="center">
+              {pesan}
+            </Text>
+          ) : null}
+
+          <Button
+            label={hari.data ? 'Perbarui angka' : 'Simpan angka'}
+            onPress={simpan}
+            loading={simpanKalori.isPending}
+            disabled={!angkaValid}
+            size="lg"
+          />
+
+          <Card variant="outline" padding="md">
+            <Text variant="caption" tone="tertiary">
+              Angka ini menggantikan hitungan kalori keluar hari itu, bukan ditambahkan. Jam
+              tanganmu sudah memuat jalan kaki dan kegiatan sehari-hari, jadi menjumlahkan keduanya
+              berarti menghitung waktu yang sama dua kali. Olahraga yang kamu tandai tidak terekam
+              jam tetap ditambahkan di atasnya.
+            </Text>
+          </Card>
+
+          <Card variant="outline" padding="md">
+            <Text variant="caption" tone="tertiary">
+              Jatah kalori harianmu tidak ikut berubah. Jatah itu memang sengaja stabil supaya kamu
+              tahu berapa yang boleh dimakan sejak pagi, bukan baru setelah harinya berakhir.
+            </Text>
+          </Card>
+        </>
+      )}
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.background },
   card: { gap: spacing.lg },
   group: { gap: spacing.md },
   iconRow: { alignItems: 'center', gap: spacing.sm },

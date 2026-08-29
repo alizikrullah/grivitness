@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { RulerIcon } from 'phosphor-react-native';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { LogActions } from '@/components/features/LogActions';
 import { MeasurementEditSheet } from '@/components/features/MeasurementEditSheet';
@@ -113,10 +113,7 @@ export default function MeasurementsScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <>
       <Screen>
         <Header
           title="Ukuran badan"
@@ -217,12 +214,11 @@ export default function MeasurementsScreen() {
       {diedit ? (
         <MeasurementEditSheet key={diedit.id} log={diedit} onClose={() => setDiedit(null)} />
       ) : null}
-    </KeyboardAvoidingView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.background },
   hint: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
   hintText: { flex: 1 },
   logRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },

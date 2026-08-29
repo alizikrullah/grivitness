@@ -13,6 +13,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { colors } from '@/constants/colors';
@@ -99,10 +100,17 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
       <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <StatusBar style="light" />
-          <RootNavigator />
-        </QueryClientProvider>
+        {/*
+          KeyboardProvider wajib membungkus seluruh aplikasi, karena dialah yang
+          memasang pengamat keyboard di sisi native. Tanpa ini, KeyboardAwareScrollView
+          di Screen.tsx tidak menerima kabar apa pun saat keyboard muncul.
+        */}
+        <KeyboardProvider>
+          <QueryClientProvider client={queryClient}>
+            <StatusBar style="light" />
+            <RootNavigator />
+          </QueryClientProvider>
+        </KeyboardProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

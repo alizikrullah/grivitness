@@ -2,7 +2,7 @@ import { MoonStarsIcon, SunHorizonIcon } from 'phosphor-react-native';
 import { LogActions } from '@/components/features/LogActions';
 import { SleepEditSheet } from '@/components/features/SleepEditSheet';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import {
   Button,
@@ -110,10 +110,7 @@ export default function SleepScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <>
       <Screen>
         <Header title="Tidur" subtitle="Boleh lebih dari satu sesi, termasuk tidur siang" />
 
@@ -229,12 +226,11 @@ export default function SleepScreen() {
       {diedit ? (
         <SleepEditSheet key={diedit.id} log={diedit} onClose={() => setDiedit(null)} />
       ) : null}
-    </KeyboardAvoidingView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.background },
   card: { gap: spacing.xl },
   times: { flexDirection: 'row', gap: spacing.md },
   timeField: { flex: 1, gap: spacing.sm },

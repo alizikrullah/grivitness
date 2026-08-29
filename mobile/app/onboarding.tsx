@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import {
   Button,
@@ -117,115 +117,109 @@ export default function OnboardingScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <Screen>
-        <Header title={sudahAda ? 'Ubah profil' : 'Lengkapi profil'} />
+    <Screen>
+      <Header title={sudahAda ? 'Ubah profil' : 'Lengkapi profil'} />
 
-        <Text variant="body" tone="secondary">
-          Angka-angka ini dipakai menghitung kebutuhan kalori harian kamu dengan rumus Mifflin-St
-          Jeor.
+      <Text variant="body" tone="secondary">
+        Angka-angka ini dipakai menghitung kebutuhan kalori harian kamu dengan rumus Mifflin-St
+        Jeor.
+      </Text>
+
+      <Input
+        label="Tinggi badan"
+        value={tinggi}
+        onChangeText={setTinggi}
+        placeholder="170"
+        keyboardType="number-pad"
+        suffix="cm"
+      />
+
+      <DateField
+        label="Tanggal lahir"
+        value={lahir}
+        onChange={setLahir}
+        hint="Dipakai menghitung usia untuk rumus BMR"
+        minimumDate={LAHIR_PALING_LAMA}
+        maximumDate={LAHIR_PALING_BARU}
+        defaultDate={LAHIR_BAWAAN}
+      />
+
+      <View style={styles.group}>
+        <Text variant="label" tone="secondary">
+          Jenis kelamin
+        </Text>
+        <ChipGroup
+          options={GENDER_OPTIONS}
+          value={gender}
+          onChange={setGender}
+          labels={GENDER_LABEL}
+          wrap
+        />
+      </View>
+
+      <View style={styles.group}>
+        <Text variant="label" tone="secondary">
+          Pekerjaan sehari-hari
         </Text>
 
-        <Input
-          label="Tinggi badan"
-          value={tinggi}
-          onChangeText={setTinggi}
-          placeholder="170"
-          keyboardType="number-pad"
-          suffix="cm"
-        />
-
-        <DateField
-          label="Tanggal lahir"
-          value={lahir}
-          onChange={setLahir}
-          hint="Dipakai menghitung usia untuk rumus BMR"
-          minimumDate={LAHIR_PALING_LAMA}
-          maximumDate={LAHIR_PALING_BARU}
-          defaultDate={LAHIR_BAWAAN}
-        />
-
-        <View style={styles.group}>
-          <Text variant="label" tone="secondary">
-            Jenis kelamin
-          </Text>
-          <ChipGroup
-            options={GENDER_OPTIONS}
-            value={gender}
-            onChange={setGender}
-            labels={GENDER_LABEL}
-            wrap
-          />
-        </View>
-
-        <View style={styles.group}>
-          <Text variant="label" tone="secondary">
-            Pekerjaan sehari-hari
-          </Text>
-
-          {/*
+        {/*
             Pertanyaannya sengaja soal pekerjaan, bukan seberapa sering olahraga.
             Olahraga, langkah, dan tidur sudah dihitung terpisah dari data yang
             kamu catat, kalau ditanyakan lagi di sini, jam yang sama dihitung
             dua kali dan targetmu jadi terlalu longgar.
           */}
-          <Text variant="caption" tone="tertiary" style={styles.levelHint}>
-            Olahraga tidak perlu dihitung di sini, karena sudah diambil dari catatan olahraga,
-            langkah, dan tidurmu.
-          </Text>
+        <Text variant="caption" tone="tertiary" style={styles.levelHint}>
+          Olahraga tidak perlu dihitung di sini, karena sudah diambil dari catatan olahraga,
+          langkah, dan tidurmu.
+        </Text>
 
-          {ACTIVITY_OPTIONS.map((level) => {
-            const aktif = aktivitas === level;
+        {ACTIVITY_OPTIONS.map((level) => {
+          const aktif = aktivitas === level;
 
-            return (
-              <Pressable
-                key={level}
-                onPress={() => setAktivitas(level)}
-                style={({ pressed }) => [
-                  styles.level,
-                  aktif && styles.levelActive,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <View style={styles.levelText}>
-                  <Text variant="label" tone={aktif ? 'accent' : 'primary'}>
-                    {ACTIVITY_LABEL[level]}
-                  </Text>
-                  <Text variant="caption" tone="secondary">
-                    {ACTIVITY_HINT[level]}
-                  </Text>
-                </View>
+          return (
+            <Pressable
+              key={level}
+              onPress={() => setAktivitas(level)}
+              style={({ pressed }) => [
+                styles.level,
+                aktif && styles.levelActive,
+                pressed && styles.pressed,
+              ]}
+            >
+              <View style={styles.levelText}>
+                <Text variant="label" tone={aktif ? 'accent' : 'primary'}>
+                  {ACTIVITY_LABEL[level]}
+                </Text>
+                <Text variant="caption" tone="secondary">
+                  {ACTIVITY_HINT[level]}
+                </Text>
+              </View>
 
-                <View style={[styles.radio, aktif && styles.radioActive]} />
-              </Pressable>
-            );
-          })}
-        </View>
+              <View style={[styles.radio, aktif && styles.radioActive]} />
+            </Pressable>
+          );
+        })}
+      </View>
 
-        {error ? <ErrorNote message={error} /> : null}
+      {error ? <ErrorNote message={error} /> : null}
 
-        <Card variant="outline" padding="md">
-          <Text variant="caption" tone="tertiary">
-            Kebutuhan kalori baru bisa dihitung setelah kamu mencatat berat badan minimal satu kali.
-          </Text>
-        </Card>
+      <Card variant="outline" padding="md">
+        <Text variant="caption" tone="tertiary">
+          Kebutuhan kalori baru bisa dihitung setelah kamu mencatat berat badan minimal satu kali.
+        </Text>
+      </Card>
 
-        <Button
-          label={sudahAda ? 'Simpan perubahan' : 'Simpan profil'}
-          onPress={simpan}
-          loading={simpanProfil.isPending}
-          size="lg"
-        />
-      </Screen>
-    </KeyboardAvoidingView>
+      <Button
+        label={sudahAda ? 'Simpan perubahan' : 'Simpan profil'}
+        onPress={simpan}
+        loading={simpanProfil.isPending}
+        size="lg"
+      />
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.background },
   group: { gap: spacing.md },
   level: {
     flexDirection: 'row',

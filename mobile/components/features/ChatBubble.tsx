@@ -8,9 +8,7 @@ import {
 } from 'phosphor-react-native';
 import { useEffect, useRef, useState } from 'react';
 import {
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,6 +16,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ConfirmDialog, ErrorNote, Text } from '@/components/ui';
@@ -131,7 +130,16 @@ export const ChatBubble = () => {
         onRequestClose={() => setTerbuka(false)}
       >
         <View style={styles.scrim}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          {/*
+            KeyboardAvoidingView milik keyboard-controller, bukan bawaan React
+            Native. Yang bawaan memakai behavior undefined di Android, artinya
+            tidak melakukan apa pun, dan panel chat tertimpa keyboard begitu
+            kolom ketiknya difokus.
+
+            Panel ini Modal, bukan Screen, jadi tidak ikut tertolong oleh
+            KeyboardAwareScrollView yang dipasang di Screen.tsx.
+          */}
+          <KeyboardAvoidingView behavior="padding">
             <View
               style={[
                 styles.sheet,
