@@ -162,7 +162,16 @@ const styles = StyleSheet.create({
   warnText: { flex: 1, gap: spacing.xs },
   // Teks di dalam baris WAJIB diberi flex. Tanpa itu React Native membiarkannya
   // memanjang melewati tepi kartu alih-alih membungkus ke baris berikutnya.
-  steps: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.xs },
+  // Anjuran langkah dijauhkan dari paragraf di atasnya. Keduanya sama-sama teks
+  // kecil berwarna redup, jadi dengan jarak sekadar gap bawaan warnText keduanya
+  // terbaca sebagai satu blok, padahal yang ini saran tindakan, bukan lanjutan
+  // penjelasan.
+  steps: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+  },
   stepsIcon: { marginTop: 1 },
   stepsText: { flex: 1 },
 });
