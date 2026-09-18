@@ -1,6 +1,7 @@
 import { deleteFile, uploadFiles } from '@directus/sdk';
 
 import { directus } from '../config/directus.js';
+import { env } from '../config/env.js';
 
 import { fileUrl } from '../modules/files/files.service.js';
 import { AppError } from './api-error.js';
@@ -72,4 +73,25 @@ export const removeFileSafely = async (fileId: string): Promise<void> => {
       'Gagal menghapus file dari Directus, ada file yatim yang perlu dibersihkan manual',
     );
   }
+};
+
+/**
+ * Mengunduh isi berkas dari storage sebagai Buffer.
+ *
+ * Dipakai saat berkas yang SUDAH tersimpan perlu dikirim ulang ke model,
+ * misalnya membandingkan foto badan dua tanggal. Tidak memeriksa kepemilikan:
+ * pemanggil wajib memastikan berkasnya milik user yang meminta, biasanya
+ * karena id-nya diambil dari baris yang sudah lewat forUser().
+ */
+export const downloadFile = async (fileId: string): Promise<Buffer> => {
+  const response = await fetch(`${env.DIRECTUS_URL}/assets/${fileId}`, {
+    headers: { Authorization: `Bearer ${env.DIRECTUS_ADMIN_TOKEN}` },
+  });
+
+  if (!response.ok) {
+    if (response.status === 404) throw AppError.notFound('File tidak ada di storage');
+    throw AppError.upstream('Gagal mengambil file dari storage');
+  }
+
+  return Buffer.from(await response.arrayBuffer());
 };

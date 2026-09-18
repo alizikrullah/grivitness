@@ -9,7 +9,7 @@ import {
 } from '../../middlewares/validate.middleware.js';
 import { DateRangeSchema, SingleDateSchema, UuidParamSchema } from '../../utils/query.js';
 import * as bodyPhotosController from './body-photos.controller.js';
-import { CreateBodyPhotoSchema } from './body-photos.validation.js';
+import { ComparePhotosSchema, CreateBodyPhotoSchema } from './body-photos.validation.js';
 
 const router: Router = Router();
 
@@ -18,6 +18,13 @@ router.use(authMiddleware);
 router.get('/today', bodyPhotosController.getToday);
 router.get('/day', validateQuery(SingleDateSchema), bodyPhotosController.getDay);
 router.get('/', validateQuery(DateRangeSchema), bodyPhotosController.getRange);
+
+// Perbandingan dua tanggal. GET-nya deterministik dan murah (foto + pinggang
+// berdampingan); POST-nya memanggil model dengan empat gambar, jadi hanya
+// dipicu tombol, bukan tiap layar dibuka.
+router.get('/compare', validateQuery(ComparePhotosSchema), bodyPhotosController.getComparison);
+router.post('/compare', validateBody(ComparePhotosSchema), bodyPhotosController.compare);
+router.get('/comparisons', bodyPhotosController.listComparisons);
 
 router.post(
   '/',

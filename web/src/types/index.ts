@@ -208,15 +208,14 @@ export interface MoodLog {
   created_at: string | null;
 }
 
+/**
+ * Cuma lingkar pinggang. Dari semua lingkar, hanya ini yang punya bukti kuat
+ * dan hanya ini yang berguna saat timbangan macet. Diukur 2-4 minggu sekali
+ * bersama foto badan, bukan harian.
+ */
 export interface BodyMeasurement {
   id: string;
-  waist_cm: DecimalString | null;
-  hips_cm: DecimalString | null;
-  chest_cm: DecimalString | null;
-  left_arm_cm: DecimalString | null;
-  right_arm_cm: DecimalString | null;
-  left_thigh_cm: DecimalString | null;
-  right_thigh_cm: DecimalString | null;
+  waist_cm: DecimalString;
   logged_at: DateString;
   created_at: string | null;
 }
@@ -291,11 +290,44 @@ export interface FoodDay {
   logs: FoodLog[];
 }
 
+/** Kesan model atas foto badan satu tanggal. Kalimat, tanpa angka apa pun. */
 export interface BodyAnalysis {
   posture_notes?: string;
   visible_changes?: string;
-  estimated_body_fat_percent?: number | null;
   recommendations?: string[];
+}
+
+/**
+ * Arah perubahan menurut model saat membandingkan dua tanggal. Label untuk
+ * pendapat, bukan ukuran; tidak pernah masuk hitungan.
+ */
+export type BodyDirection = 'LEANER' | 'SAME' | 'FULLER' | 'UNCLEAR';
+
+/** Pendapat AI yang tersimpan untuk satu pasangan tanggal. */
+export interface BodyComparison {
+  id: string;
+  from_date: DateString;
+  to_date: DateString;
+  direction: BodyDirection;
+  opinion: string;
+  /** Lingkar pinggang kedua tanggal saat pendapat dibuat, untuk riwayat. */
+  waist_from_cm: DecimalString | null;
+  waist_to_cm: DecimalString | null;
+  created_at: string | null;
+}
+
+/** Satu sisi perbandingan: foto hari itu dan lingkar pinggangnya. */
+export interface BodyComparisonSide {
+  date: DateString;
+  photo: BodyPhoto | null;
+  waist_cm: DecimalString | null;
+}
+
+/** Tampilan dua tanggal berdampingan, plus pendapat AI kalau pernah diminta. */
+export interface BodyComparisonView {
+  from: BodyComparisonSide;
+  to: BodyComparisonSide;
+  comparison: BodyComparison | null;
 }
 
 export interface BodyPhoto {

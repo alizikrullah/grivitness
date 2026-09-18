@@ -49,6 +49,16 @@ export type MealType = (typeof MEAL_TYPE)[number];
 export const FOOD_UNIT = ['g', 'ml'] as const;
 export type FoodUnit = (typeof FOOD_UNIT)[number];
 
+/**
+ * Arah perubahan badan menurut model saat membandingkan foto dua tanggal.
+ *
+ * Ini LABEL untuk pendapat, bukan pengukuran. Tidak pernah dipakai di hitungan
+ * mana pun, dan sengaja tidak ada persen atau angka apa pun di sampingnya.
+ * Angka yang bisa dipercaya untuk hal ini adalah lingkar pinggang dari pita.
+ */
+export const BODY_DIRECTION = ['LEANER', 'SAME', 'FULLER', 'UNCLEAR'] as const;
+export type BodyDirection = (typeof BODY_DIRECTION)[number];
+
 export const WORKOUT_INTENSITY = ['LOW', 'MEDIUM', 'HIGH'] as const;
 export type WorkoutIntensity = (typeof WORKOUT_INTENSITY)[number];
 

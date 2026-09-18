@@ -21,6 +21,7 @@
 
 import {
   ACTIVITY_LEVEL,
+  BODY_DIRECTION,
   CALORIE_SOURCE,
   CHAT_ROLE,
   GENDER,
@@ -571,19 +572,62 @@ export const collections: CollectionDef[] = [
     collection: 'body_measurements',
     typeName: 'BodyMeasurementRecord',
     icon: 'straighten',
-    note: 'Ukuran lingkar badan. Semua kolom nullable karena user boleh isi sebagian saja.',
+    note: 'Lingkar pinggang, diukur 2-4 minggu sekali bersama foto badan. Satu baris per user per hari.',
     fields: [
       pk(),
       userFk('body_measurements'),
-      decimalField('waist_cm', 5, 2, { nullable: true }),
-      decimalField('hips_cm', 5, 2, { nullable: true }),
-      decimalField('chest_cm', 5, 2, { nullable: true }),
-      decimalField('left_arm_cm', 5, 2, { nullable: true }),
-      decimalField('right_arm_cm', 5, 2, { nullable: true }),
-      decimalField('left_thigh_cm', 5, 2, { nullable: true }),
-      decimalField('right_thigh_cm', 5, 2, { nullable: true }),
+      // Cuma pinggang. Dari semua lingkar, hanya ini yang punya bukti kuat
+      // (WHO dan NIH memakainya sebagai penanda lemak perut terlepas dari
+      // berat badan), dan hanya ini yang berguna saat timbangan macet.
+      // Lingkar dada, lengan, paha, dan pinggul dicabut: tidak dipakai di
+      // hitungan mana pun dan cuma jadi beban isian harian.
+      decimalField('waist_cm', 5, 2, { note: 'Lingkar pinggang dalam cm, diukur setinggi pusar' }),
       loggedAtDate(),
       userDateKey(),
+      createdAt(),
+    ],
+  },
+
+  {
+    collection: 'body_comparisons',
+    typeName: 'BodyComparisonRecord',
+    icon: 'compare',
+    note: 'Kesan AI saat membandingkan foto badan dua tanggal. Pendapat berupa teks, BUKAN angka, dan tidak pernah masuk hitungan.',
+    fields: [
+      pk(),
+      userFk('body_comparisons'),
+      { field: 'from_date', type: 'date', note: 'Tanggal foto yang lebih lama' },
+      { field: 'to_date', type: 'date', note: 'Tanggal foto yang lebih baru' },
+      enumField('direction', BODY_DIRECTION, {
+        note: 'Arah perubahan menurut model. Label, bukan ukuran.',
+      }),
+      {
+        field: 'opinion',
+        type: 'text',
+        note: 'Kesan model dalam bahasa Indonesia, beberapa kalimat',
+      },
+      decimalField('waist_from_cm', 5, 2, {
+        nullable: true,
+        note: 'Lingkar pinggang pada from_date saat perbandingan dibuat, untuk riwayat',
+      }),
+      decimalField('waist_to_cm', 5, 2, {
+        nullable: true,
+        note: 'Lingkar pinggang pada to_date saat perbandingan dibuat, untuk riwayat',
+      }),
+      {
+        field: 'ai_raw',
+        type: 'json',
+        nullable: true,
+        note: 'Balasan model utuh, untuk ditelusuri',
+      },
+      {
+        field: 'pair_key',
+        type: 'string',
+        maxLength: 80,
+        unique: true,
+        hidden: true,
+        note: '"{user_id}:{from_date}:{to_date}". Satu pendapat per pasangan tanggal, diperbarui kalau diminta ulang.',
+      },
       createdAt(),
     ],
   },

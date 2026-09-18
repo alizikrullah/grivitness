@@ -176,6 +176,13 @@ const main = async (): Promise<void> => {
       ok(`ai_analysis: ${Object.keys(d.ai_analysis ?? {}).join(', ')}`);
     }
 
+    // Perbandingan foto badan (POST /api/body-photos/compare) sengaja TIDAK
+    // ikut di sini. Butuh dua foto badan (2 gambar tiap analisa) lalu satu
+    // perbandingan (2 gambar gabungan), dan free tier Groq tidak muat semuanya
+    // dalam satu menit. Diuji terpisah dengan jeda 65 detik antar panggilan;
+    // hasil terakhir: gambar gabungan diterima, arah UNCLEAR untuk gambar
+    // polos, riwayat tersimpan, minta ulang menimpa bukan menduplikasi.
+
     write('\nGET /api/summary/daily');
     const summary = await request(app)
       .get('/api/summary/daily')

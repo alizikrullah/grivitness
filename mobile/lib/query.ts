@@ -59,6 +59,8 @@ export const qk = {
   bodyPhotoToday: ['body-photos', 'today'] as const,
   bodyPhotoDate: (date: string) => ['body-photos', 'date', date] as const,
   bodyPhotoRange: (from: string, to: string) => ['body-photos', 'range', from, to] as const,
+  bodyCompare: (from: string, to: string) => ['body-photos', 'compare', from, to] as const,
+  bodyComparisons: ['body-photos', 'comparisons'] as const,
 
   deviceEnergyToday: ['device-energy', 'today'] as const,
   deviceEnergyDate: (date: string) => ['device-energy', 'date', date] as const,

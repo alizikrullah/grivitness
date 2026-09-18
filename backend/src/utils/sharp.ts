@@ -90,3 +90,45 @@ export const toAnalysisBuffer = async (webp: Buffer): Promise<Buffer> =>
     })
     .webp({ quality: 80 })
     .toBuffer();
+
+/**
+ * Menggabungkan dua foto jadi satu gambar berdampingan: kiri "sebelum", kanan
+ * "sesudah", dipisah garis tipis.
+ *
+ * Dibuat untuk membandingkan foto badan dua tanggal. Model vision Groq
+ * membatasi TIGA gambar per permintaan, jadi empat foto (depan dan samping
+ * untuk dua tanggal) tidak bisa dikirim apa adanya. Digabung per sudut,
+ * jadi dua gambar, dan ini justru cara orang membandingkan progress photo:
+ * berdampingan, bukan bergantian.
+ *
+ * Keduanya disamakan tingginya lebih dulu supaya skalanya sebanding, lalu
+ * hasilnya dikecilkan ke ukuran analisa. Tiap sisi jadi sekitar 512px lebar,
+ * cukup untuk siluet dan pinggang, yang memang satu-satunya hal yang bisa
+ * dinilai dari foto semacam ini.
+ */
+export const sideBySide = async (kiri: Buffer, kanan: Buffer): Promise<Buffer> => {
+  const TINGGI = 1024;
+  const JARAK = 12;
+
+  const samakan = (buffer: Buffer) =>
+    sharp(buffer).resize({ height: TINGGI, fit: 'inside' }).toBuffer({ resolveWithObject: true });
+
+  const [a, b] = await Promise.all([samakan(kiri), samakan(kanan)]);
+
+  const lebar = a.info.width + JARAK + b.info.width;
+
+  return sharp({
+    create: {
+      width: lebar,
+      height: TINGGI,
+      channels: 3,
+      background: { r: 255, g: 255, b: 255 },
+    },
+  })
+    .composite([
+      { input: a.data, left: 0, top: 0 },
+      { input: b.data, left: a.info.width + JARAK, top: 0 },
+    ])
+    .webp({ quality: 80 })
+    .toBuffer();
+};

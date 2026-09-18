@@ -6,7 +6,7 @@ import { AppError } from '../../utils/api-error.js';
 import type { DateRangeDto, SingleDateDto, UuidParamDto } from '../../utils/query.js';
 import { sendSuccess } from '../../utils/response.js';
 import * as bodyPhotosService from './body-photos.service.js';
-import type { CreateBodyPhotoDto } from './body-photos.validation.js';
+import type { ComparePhotosDto, CreateBodyPhotoDto } from './body-photos.validation.js';
 
 /** Bentuk req.files saat memakai upload.fields(). */
 type UploadedFields = Record<string, Express.Multer.File[] | undefined>;
@@ -67,4 +67,25 @@ export const remove = async (req: Request, res: Response): Promise<void> => {
 
   await bodyPhotosService.remove(user.id, id);
   sendSuccess(res, { message: 'Foto badan dan filenya dihapus' });
+};
+
+/** Tampilan dua tanggal berdampingan, tanpa AI. */
+export const getComparison = async (req: Request, res: Response): Promise<void> => {
+  const user = getAuthUser(req);
+  sendSuccess(
+    res,
+    await bodyPhotosService.getComparison(user.id, getValidatedQuery<ComparePhotosDto>(res)),
+  );
+};
+
+/** Riwayat semua pendapat AI, yang terbaru dulu. */
+export const listComparisons = async (req: Request, res: Response): Promise<void> => {
+  const user = getAuthUser(req);
+  sendSuccess(res, await bodyPhotosService.listComparisons(user.id));
+};
+
+/** Minta kesan AI atas dua tanggal. Hanya saat user menekan tombolnya. */
+export const compare = async (req: Request, res: Response): Promise<void> => {
+  const user = getAuthUser(req);
+  sendSuccess(res, await bodyPhotosService.compare(user.id, req.body as ComparePhotosDto), 201);
 };

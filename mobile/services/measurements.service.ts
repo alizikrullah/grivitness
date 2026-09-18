@@ -1,33 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { del, get, patch, post } from '@/lib/api';
+import { del, get, post } from '@/lib/api';
 import { invalidateAfterLog, qk } from '@/lib/query';
 import type { BodyMeasurement } from '@/types';
 
-/** Semua bagian opsional, user boleh mencatat pinggang saja. */
+/**
+ * Cuma lingkar pinggang, dicatat 2-4 minggu sekali bersama foto badan.
+ *
+ * Dulu ada tujuh lingkar dan itu yang membuat fiturnya mengganggu: tujuh kolom
+ * kosong yang terasa seperti PR harian, untuk angka yang tidak dipakai
+ * hitungan mana pun. Backend meng-upsert per tanggal, jadi mengukur ulang di
+ * hari yang sama tinggal kirim lagi.
+ */
 export interface MeasurementInput {
-  waist_cm?: number;
-  hips_cm?: number;
-  chest_cm?: number;
-  left_arm_cm?: number;
-  right_arm_cm?: number;
-  left_thigh_cm?: number;
-  right_thigh_cm?: number;
+  waist_cm: number;
   logged_at?: string;
 }
-
-/** Bagian badan yang bisa dicatat, beserta namanya untuk ditampilkan. */
-export const MEASUREMENT_PARTS = [
-  { key: 'chest_cm', label: 'Dada' },
-  { key: 'waist_cm', label: 'Pinggang' },
-  { key: 'hips_cm', label: 'Pinggul' },
-  { key: 'left_arm_cm', label: 'Lengan kiri' },
-  { key: 'right_arm_cm', label: 'Lengan kanan' },
-  { key: 'left_thigh_cm', label: 'Paha kiri' },
-  { key: 'right_thigh_cm', label: 'Paha kanan' },
-] as const;
-
-export type MeasurementKey = (typeof MEASUREMENT_PARTS)[number]['key'];
 
 export const useLatestMeasurement = () =>
   useQuery({
@@ -69,12 +57,11 @@ export const useSaveMeasurement = () => {
   const client = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, ...body }: { id?: string } & MeasurementInput) =>
-      id
-        ? patch<BodyMeasurement>('/api/measurements/' + id, body)
-        : post<BodyMeasurement>('/api/measurements', body),
+    mutationFn: (body: MeasurementInput) => post<BodyMeasurement>('/api/measurements', body),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['measurements'] });
+      // Pinggang ikut tampil di perbandingan foto badan.
+      void client.invalidateQueries({ queryKey: ['body-photos', 'compare'] });
       invalidateAfterLog(client);
     },
   });
@@ -87,6 +74,7 @@ export const useDeleteMeasurement = () => {
     mutationFn: (id: string) => del('/api/measurements/' + id),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['measurements'] });
+      void client.invalidateQueries({ queryKey: ['body-photos', 'compare'] });
       invalidateAfterLog(client);
     },
   });
