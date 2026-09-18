@@ -1,14 +1,18 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import {
+  type FoodItemDraft,
+  FoodItemsEditor,
+  susunItem,
+} from '@/components/features/FoodItemsEditor';
 import { RemoteImage } from '@/components/features/RemoteImage';
-import { Button, ChipGroup, ErrorNote, Input, Sheet, Text } from '@/components/ui';
+import { Button, ChipGroup, ErrorNote, Sheet, Text } from '@/components/ui';
 import { MEAL_LABEL, MEAL_OPTIONS } from '@/constants/labels';
 import { radius, spacing } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
 import { useUpdateFood } from '@/services/food.service';
 import type { FoodLog, MealType } from '@/types';
-import { toNum } from '@/utils/format';
 
 interface FoodEditSheetProps {
   log: FoodLog;
@@ -16,36 +20,36 @@ interface FoodEditSheetProps {
 }
 
 /**
- * Mengoreksi hasil analisa AI.
+ * Mengoreksi sesi makan tanpa memanggil AI lagi.
  *
- * Daftar makanan disunting sebagai satu baris dipisah koma, bukan sebagai
- * daftar yang bisa ditambah-kurang satu per satu. Untuk tiga sampai lima nama
- * hidangan, mengetik ulang satu baris jauh lebih cepat daripada menekan tombol
- * hapus di tiap baris lalu menambah yang baru.
+ * Yang disunting adalah nama, jumlah porsi, dan berat tiap item. Nilai gizi
+ * per 100 sudah tersimpan dari analisa pertama, jadi backend tinggal
+ * menghitung ulang. Karena itu berat wajib di sini: tidak ada foto yang
+ * dianalisa ulang untuk menaksirnya, dan yang tampil adalah berat yang
+ * dipakai terakhir kali.
+ *
+ * Menambah makanan dimatikan. Makanan baru butuh taksiran gizi baru, dan itu
+ * sesi makan baru.
  */
 export const FoodEditSheet = ({ log, onClose }: FoodEditSheetProps) => {
   const update = useUpdateFood();
 
-  const [makanan, setMakanan] = useState((log.ai_analysis?.foods_detected ?? []).join(', '));
   const [jenis, setJenis] = useState<MealType>(log.meal_type);
-  const [kalori, setKalori] = useState(String(log.total_calories));
-  const [protein, setProtein] = useState(String(toNum(log.protein_g) ?? 0));
-  const [karbo, setKarbo] = useState(String(toNum(log.carbs_g) ?? 0));
-  const [lemak, setLemak] = useState(String(toNum(log.fat_g) ?? 0));
-  const [catatan, setCatatan] = useState(log.notes ?? '');
+  const [items, setItems] = useState<FoodItemDraft[]>(
+    (log.ai_analysis?.items ?? []).map((item) => ({
+      name: item.name,
+      portions: String(item.portions),
+      weight: String(item.weight_per_portion),
+      unit: item.unit,
+    })),
+  );
   const [error, setError] = useState<string | null>(null);
 
-  /** Angka yang tidak terbaca dikembalikan sebagai undefined supaya field itu tidak ikut dikirim. */
-  const angka = (teks: string): number | undefined => {
-    const nilai = toNum(teks.replace(',', '.'));
-    return nilai === null || nilai < 0 ? undefined : nilai;
-  };
-
   const simpan = () => {
-    const kaloriBaru = angka(kalori);
+    const susunan = susunItem(items, true);
 
-    if (kaloriBaru === undefined) {
-      setError('Kalori harus berupa angka');
+    if ('error' in susunan) {
+      setError(susunan.error);
       return;
     }
 
@@ -55,15 +59,8 @@ export const FoodEditSheet = ({ log, onClose }: FoodEditSheetProps) => {
       {
         id: log.id,
         meal_type: jenis,
-        notes: catatan.trim() === '' ? null : catatan.trim(),
-        foods_detected: makanan
-          .split(',')
-          .map((nama) => nama.trim())
-          .filter((nama) => nama !== ''),
-        total_calories: Math.round(kaloriBaru),
-        protein_g: angka(protein),
-        carbs_g: angka(karbo),
-        fat_g: angka(lemak),
+        // Berat dijamin ada oleh susunItem dengan beratWajib = true.
+        items: susunan.items.map((item) => ({ ...item, weight: item.weight ?? 0 })),
       },
       {
         onSuccess: onClose,
@@ -82,31 +79,18 @@ export const FoodEditSheet = ({ log, onClose }: FoodEditSheetProps) => {
       }
     >
       {/*
-        Fotonya ditampilkan di paling atas, sebelum satu pun kolom isian.
-
-        Yang sedang dikoreksi user adalah taksiran AI ATAS foto ini, jadi
-        fotonya adalah rujukan untuk menilai benar tidaknya angka di bawahnya.
-        Mengoreksi tanpa melihat piringnya berarti menebak dua kali.
-
-        Sekaligus jadi bukti bahwa fotonya memang tersimpan utuh di server, bukan
-        cuma sempat terlihat sekali saat diunggah.
+        Fotonya di paling atas kalau ada, sebagai rujukan untuk menilai berat
+        yang ditaksir. Mengoreksi tanpa melihat piringnya berarti menebak dua
+        kali.
       */}
-      <RemoteImage
-        path={log.photo_url}
-        style={styles.foto}
-        aspectRatio={4 / 3}
-        accessibilityLabel={'Foto ' + MEAL_LABEL[log.meal_type]}
-      />
-
-      <Input
-        label="Makanan"
-        value={makanan}
-        onChangeText={setMakanan}
-        placeholder="Sate lontong, bumbu kacang"
-        hint="Pisahkan dengan koma"
-        autoCapitalize="sentences"
-        multiline
-      />
+      {log.photo_url ? (
+        <RemoteImage
+          path={log.photo_url}
+          style={styles.foto}
+          aspectRatio={4 / 3}
+          accessibilityLabel={'Foto ' + MEAL_LABEL[log.meal_type]}
+        />
+      ) : null}
 
       <View style={styles.group}>
         <Text variant="label" tone="secondary">
@@ -121,53 +105,18 @@ export const FoodEditSheet = ({ log, onClose }: FoodEditSheetProps) => {
         />
       </View>
 
-      <Input
-        label="Kalori"
-        value={kalori}
-        onChangeText={setKalori}
-        keyboardType="number-pad"
-        suffix="kkal"
+      <FoodItemsEditor
+        items={items}
+        onChange={setItems}
+        beratWajib
+        bisaTambah={false}
+        disabled={update.isPending}
       />
 
-      <View style={styles.macros}>
-        <View style={styles.macroItem}>
-          <Input
-            label="Protein"
-            value={protein}
-            onChangeText={setProtein}
-            keyboardType="decimal-pad"
-            suffix="g"
-          />
-        </View>
-        <View style={styles.macroItem}>
-          <Input
-            label="Karbo"
-            value={karbo}
-            onChangeText={setKarbo}
-            keyboardType="decimal-pad"
-            suffix="g"
-          />
-        </View>
-        <View style={styles.macroItem}>
-          <Input
-            label="Lemak"
-            value={lemak}
-            onChangeText={setLemak}
-            keyboardType="decimal-pad"
-            suffix="g"
-          />
-        </View>
-      </View>
-
-      <Input
-        label="Catatan"
-        value={catatan}
-        onChangeText={setCatatan}
-        placeholder="Opsional"
-        maxLength={1000}
-        autoCapitalize="sentences"
-        multiline
-      />
+      <Text variant="caption" tone="tertiary">
+        Kalorinya dihitung ulang dari nilai gizi yang sudah ditaksir, tanpa memanggil AI lagi. Untuk
+        makanan yang belum ada di daftar, catat sebagai sesi baru.
+      </Text>
 
       {error ? <ErrorNote message={error} /> : null}
     </Sheet>
@@ -180,6 +129,4 @@ const styles = StyleSheet.create({
   // aspectRatio lewat prop RemoteImage, bukan di sini. Lihat catatan di sana.
   foto: { width: '100%', borderRadius: radius.lg },
   group: { gap: spacing.md },
-  macros: { flexDirection: 'row', gap: spacing.sm },
-  macroItem: { flex: 1 },
 });

@@ -8,6 +8,22 @@ config();
  * pertama kali di-import. Kalau ada yang kurang atau salah format, proses langsung
  * berhenti dengan pesan jelas, bukan meledak di tengah request nanti.
  */
+/**
+ * Model Groq bawaan, dipakai kalau env tidak menyebut, DAN sebagai cadangan
+ * kalau model yang disebut env ternyata sudah tidak ada.
+ *
+ * Groq mengganti nama model tanpa masa transisi: qwen/qwen3.6-27b lenyap dan
+ * digantikan qwen/qwen3.8-27b, dan yang lama langsung membalas 404. Env di
+ * server produksi ditulis tangan dan tidak ikut berubah saat kode berubah,
+ * jadi nama yang mati di sana mematikan analisa foto sampai ada yang sadar.
+ * Cadangan di sini membuat backend memakai nama yang masih hidup sambil
+ * mencatat peringatan keras di log.
+ */
+export const GROQ_MODEL_BAWAAN = {
+  vision: 'qwen/qwen3.8-27b',
+  chat: 'openai/gpt-oss-120b',
+} as const;
+
 const EnvSchema = z.object({
   // --- Server ---
   PORT: z.coerce.number().int().positive().default(3000),
@@ -52,10 +68,10 @@ const EnvSchema = z.object({
   // --- Groq ---
   // Sengaja tidak wajib: baru dibutuhkan saat module food & body-photos dikerjakan.
   GROQ_API_KEY: z.string().default(''),
-  GROQ_VISION_MODEL: z.string().default('qwen/qwen3.6-27b'),
+  GROQ_VISION_MODEL: z.string().default(GROQ_MODEL_BAWAAN.vision),
   // Dipisah dari model vision karena Groq menghitung batas laju PER MODEL,
   // bukan per akun. Model berbeda berarti jatah token yang berbeda pula.
-  GROQ_CHAT_MODEL: z.string().default('openai/gpt-oss-120b'),
+  GROQ_CHAT_MODEL: z.string().default(GROQ_MODEL_BAWAAN.chat),
 });
 
 const parsed = EnvSchema.safeParse(process.env);

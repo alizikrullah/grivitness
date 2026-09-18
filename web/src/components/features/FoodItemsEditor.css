@@ -1,0 +1,75 @@
+.food-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.food-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+}
+
+.food-item-hapus {
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-high);
+}
+
+.food-item-hapus:hover:not(:disabled) {
+  background: var(--border);
+}
+
+.food-item-angka {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.food-item-porsi {
+  flex: 1;
+}
+
+.food-item-berat {
+  flex: 2;
+}
+
+.food-item-tambah {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--border);
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 600;
+  background: transparent;
+}
+
+.food-item-tambah:hover:not(:disabled) {
+  background: var(--primary-soft);
+}
+
+.food-peringatan {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.food-thumb-kosong {
+  height: 160px;
+  border-radius: var(--radius-md);
+  background: var(--surface-high);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

@@ -1,8 +1,14 @@
-import { ForkKnifeIcon, SparkleIcon } from 'phosphor-react-native';
+import { ForkKnifeIcon, SparkleIcon, WarningCircleIcon } from 'phosphor-react-native';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { FoodEditSheet } from '@/components/features/FoodEditSheet';
+import {
+  barisKosong,
+  type FoodItemDraft,
+  FoodItemsEditor,
+  susunItem,
+} from '@/components/features/FoodItemsEditor';
 import { LogActions } from '@/components/features/LogActions';
 import { RemoteImage } from '@/components/features/RemoteImage';
 import { MacroBar } from '@/components/features/Metrics';
@@ -15,7 +21,6 @@ import {
   EmptyState,
   ErrorNote,
   Header,
-  Input,
   Loading,
   Screen,
   SectionHeader,
@@ -26,7 +31,7 @@ import { MEAL_LABEL, MEAL_OPTIONS } from '@/constants/labels';
 import { radius, spacing } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
 import { useCreateFood, useDeleteFood, useFoodDate } from '@/services/food.service';
-import type { FoodLog, MealType } from '@/types';
+import type { FoodItem, FoodLog, MealType } from '@/types';
 import { usePhotoPicker } from '@/hooks/usePhotoPicker';
 import { dayPhrase, timeWIB, todayWIB, wibToISO } from '@/utils/date';
 import { thousands, toNum } from '@/utils/format';
@@ -39,6 +44,11 @@ const tebakJenisMakan = (): MealType => {
   if (jam < 21) return 'DINNER';
   return 'SNACK';
 };
+
+/** "2 × 150 g" atau "250 ml" kalau porsinya satu. */
+const ringkasJumlah = (item: FoodItem): string =>
+  (item.portions === 1 ? '' : `${item.portions} × `) +
+  `${thousands(item.weight_per_portion)} ${item.unit}`;
 
 export default function FoodScreen() {
   /**
@@ -55,7 +65,7 @@ export default function FoodScreen() {
 
   const [uri, setUri] = useState<string | null>(null);
   const [jenis, setJenis] = useState<MealType>(tebakJenisMakan());
-  const [catatan, setCatatan] = useState('');
+  const [items, setItems] = useState<FoodItemDraft[]>([barisKosong()]);
   const [error, setError] = useState<string | null>(null);
   const [diedit, setDiedit] = useState<FoodLog | null>(null);
 
@@ -68,8 +78,11 @@ export default function FoodScreen() {
   };
 
   const simpan = () => {
-    if (!uri) {
-      setError('Ambil foto makanannya dulu');
+    // Tanpa foto tidak ada yang bisa menaksir berat, jadi beratnya wajib.
+    const susunan = susunItem(items, uri === null);
+
+    if ('error' in susunan) {
+      setError(susunan.error);
       return;
     }
 
@@ -79,7 +92,7 @@ export default function FoodScreen() {
       {
         uri,
         meal_type: jenis,
-        notes: catatan.trim() === '' ? undefined : catatan.trim(),
+        items: susunan.items,
         // Saat menelusuri hari lampau, makanan dicatat ke tanggal ITU, bukan ke
         // hari ini. Tengah hari dipakai sebagai jam netral karena jam
         // sesungguhnya sudah tidak bisa diingat lagi.
@@ -88,7 +101,7 @@ export default function FoodScreen() {
       {
         onSuccess: () => {
           setUri(null);
-          setCatatan('');
+          setItems([barisKosong()]);
         },
         onError: (e) => setError(toApiError(e).message),
       },
@@ -98,21 +111,9 @@ export default function FoodScreen() {
   return (
     <>
       <Screen>
-        <Header title="Makanan" subtitle="Foto piringnya, AI yang memperkirakan gizinya" />
+        <Header title="Makanan" subtitle="Tulis apa yang kamu makan, AI menaksir gizinya" />
 
         <DateStrip value={tanggal} onChange={setTanggal} />
-
-        <View style={styles.photoRow}>
-          <PhotoSlot
-            uri={uri}
-            label="Foto makanan"
-            onCamera={() => void ambil('kamera')}
-            onGallery={() => void ambil('galeri')}
-            onClear={() => setUri(null)}
-            aspectRatio={4 / 3}
-            disabled={picker.sibuk || createFood.isPending}
-          />
-        </View>
 
         <View style={styles.group}>
           <Text variant="label" tone="secondary">
@@ -127,15 +128,39 @@ export default function FoodScreen() {
           />
         </View>
 
-        <Input
-          label="Catatan"
-          value={catatan}
-          onChangeText={setCatatan}
-          placeholder="Opsional. Misalnya: nasi setengah porsi"
-          multiline
-          maxLength={1000}
-          autoCapitalize="sentences"
+        {/*
+          Daftar makanan yang ditulis user adalah sumber kebenarannya. Foto di
+          bawah cuma pelengkap untuk menaksir berat yang dikosongkan. Dulu
+          terbalik: foto wajib, tulisan opsional, dan jumlah porsi yang ditulis
+          user diabaikan model.
+        */}
+        <FoodItemsEditor
+          items={items}
+          onChange={setItems}
+          beratWajib={uri === null}
+          disabled={createFood.isPending}
         />
+
+        <View style={styles.group}>
+          <Text variant="label" tone="secondary">
+            Foto (opsional)
+          </Text>
+          <Text variant="caption" tone="tertiary">
+            Kalau ada foto, berat yang kamu kosongkan ditaksir dari sana. Tanpa foto, isi perkiraan
+            beratnya sendiri.
+          </Text>
+          <View style={styles.photoRow}>
+            <PhotoSlot
+              uri={uri}
+              label="Foto makanan"
+              onCamera={() => void ambil('kamera')}
+              onGallery={() => void ambil('galeri')}
+              onClear={() => setUri(null)}
+              aspectRatio={4 / 3}
+              disabled={picker.sibuk || createFood.isPending}
+            />
+          </View>
+        </View>
 
         {error ? <ErrorNote message={error} /> : null}
 
@@ -144,17 +169,18 @@ export default function FoodScreen() {
             <View style={styles.analyzing}>
               <SparkleIcon size={20} color={colors.primary} weight="duotone" />
               <Text variant="caption" tone="secondary" style={styles.analyzingText}>
-                Menganalisa foto. Ini bisa memakan waktu sampai satu menit.
+                {uri
+                  ? 'Menaksir berat dan gizinya dari foto. Ini bisa memakan waktu sampai satu menit.'
+                  : 'Mengambil nilai gizinya. Sebentar.'}
               </Text>
             </View>
           </Card>
         ) : null}
 
         <Button
-          label="Analisa & simpan"
+          label={uri ? 'Analisa & simpan' : 'Hitung & simpan'}
           onPress={simpan}
           loading={createFood.isPending}
-          disabled={!uri}
           size="lg"
         />
 
@@ -173,7 +199,7 @@ export default function FoodScreen() {
           <EmptyState
             icon={<ForkKnifeIcon size={30} color={colors.textTertiary} weight="duotone" />}
             title="Belum ada catatan makan"
-            message="Foto makananmu, sisanya diperkirakan otomatis."
+            message="Tulis makananmu di atas, gizinya ditaksir otomatis."
           />
         ) : (
           <>
@@ -189,18 +215,24 @@ export default function FoodScreen() {
             </Card>
 
             {today.data?.logs.map((log) => {
-              const terdeteksi = log.ai_analysis?.foods_detected ?? [];
-              const rincian = log.ai_analysis?.items ?? [];
+              const analisa = log.ai_analysis;
+              const rincian = analisa?.items ?? [];
 
               return (
                 <Card key={log.id} padding="md">
                   <View style={styles.logCard}>
                     <View style={styles.logRow}>
-                      <RemoteImage
-                        path={log.photo_url}
-                        style={styles.thumb}
-                        accessibilityLabel={'Foto ' + MEAL_LABEL[log.meal_type]}
-                      />
+                      {log.photo_url ? (
+                        <RemoteImage
+                          path={log.photo_url}
+                          style={styles.thumb}
+                          accessibilityLabel={'Foto ' + MEAL_LABEL[log.meal_type]}
+                        />
+                      ) : (
+                        <View style={[styles.thumb, styles.thumbKosong]}>
+                          <ForkKnifeIcon size={22} color={colors.textTertiary} weight="duotone" />
+                        </View>
+                      )}
 
                       <View style={styles.logText}>
                         <Text variant="label" numberOfLines={1}>
@@ -208,9 +240,7 @@ export default function FoodScreen() {
                         </Text>
 
                         <Text variant="caption" tone="secondary" numberOfLines={2}>
-                          {terdeteksi.length > 0
-                            ? terdeteksi.join(', ')
-                            : (log.notes ?? 'Tanpa keterangan')}
+                          {rincian.map((item) => item.name).join(', ') || 'Tanpa rincian'}
                         </Text>
 
                         <Text variant="caption" tone="tertiary">
@@ -220,14 +250,6 @@ export default function FoodScreen() {
                         </Text>
                       </View>
 
-                      {/*
-                      Lewat LogActions, bukan tombol telanjang.
-
-                      Sebelumnya tombol hapus di sini langsung menghapus begitu
-                      disentuh, padahal ukurannya kecil dan duduk persis di
-                      sebelah tombol ubah. Satu salah sentuh menghilangkan foto
-                      beserta analisanya, dan backend tidak punya undo.
-                    */}
                       <LogActions
                         onEdit={() => setDiedit(log)}
                         onDelete={() => deleteFood.mutate(log.id)}
@@ -235,20 +257,33 @@ export default function FoodScreen() {
                           MEAL_LABEL[log.meal_type] +
                           ' ' +
                           thousands(log.total_calories) +
-                          ' kkal akan dihapus beserta fotonya, dan tidak bisa dikembalikan.'
+                          ' kkal akan dihapus' +
+                          (log.photo_url ? ' beserta fotonya' : '') +
+                          ', dan tidak bisa dikembalikan.'
                         }
                       />
                     </View>
 
                     {/*
-                    Rincian per bahan beserta beratnya. Ini yang membuat angka
-                    kalorinya bisa diperiksa: kalau totalnya terasa meleset,
-                    kelihatan bagian mana yang salah ditaksir, bukan cuma satu
-                    angka besar yang harus dipercaya begitu saja.
+                      Tulisan menang atas foto, tapi kalau model melihat makanan
+                      yang jelas berbeda, user diberi tahu. Bukan untuk menolak
+                      catatannya, cuma supaya salah pilih foto ketahuan.
+                    */}
+                    {analisa?.photo_matches === false ? (
+                      <View style={styles.peringatan}>
+                        <WarningCircleIcon size={16} color={colors.warning} weight="duotone" />
+                        <Text variant="caption" tone="warning" style={styles.peringatanText}>
+                          Foto terlihat berbeda dari yang ditulis.
+                          {analisa.photo_note ? ' ' + analisa.photo_note : ''}
+                        </Text>
+                      </View>
+                    ) : null}
 
-                    Kosong pada catatan lama yang dibuat sebelum analisa
-                    diuraikan per bahan.
-                  */}
+                    {/*
+                      Rincian per makanan: jumlah × berat per porsi, lalu
+                      kalorinya. Ini yang membuat totalnya bisa diperiksa:
+                      kalau meleset, kelihatan di baris mana.
+                    */}
                     {rincian.length > 0 ? (
                       <View style={styles.rincian}>
                         {rincian.map((item, i) => (
@@ -263,11 +298,17 @@ export default function FoodScreen() {
                             </Text>
 
                             <Text variant="caption" tone="tertiary">
-                              {thousands(item.grams)} g
+                              {ringkasJumlah(item)}
                             </Text>
 
-                            <Text variant="caption" style={styles.rincianKkal}>
-                              {thousands(item.calories)} kkal
+                            <Text
+                              variant="caption"
+                              tone={item.nutrition_missing ? 'warning' : 'primary'}
+                              style={styles.rincianKkal}
+                            >
+                              {item.nutrition_missing
+                                ? 'belum ditaksir'
+                                : thousands(item.calories) + ' kkal'}
                             </Text>
                           </View>
                         ))}
@@ -298,6 +339,8 @@ const styles = StyleSheet.create({
   macroCard: { gap: spacing.lg },
   logCard: { gap: spacing.md },
   logRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  peringatan: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  peringatanText: { flex: 1 },
   rincian: {
     gap: spacing.sm,
     paddingTop: spacing.md,
@@ -308,13 +351,13 @@ const styles = StyleSheet.create({
   /* flex: 1 supaya nama panjang terpotong di ujungnya, bukan mendorong angka
      kalorinya keluar dari kartu. */
   rincianNama: { flex: 1 },
-  rincianKkal: { minWidth: 64, textAlign: 'right' },
+  rincianKkal: { minWidth: 72, textAlign: 'right' },
   thumb: {
     width: 60,
     height: 60,
     borderRadius: radius.md,
     backgroundColor: colors.surfaceHigh,
   },
+  thumbKosong: { alignItems: 'center', justifyContent: 'center' },
   logText: { flex: 1, gap: 2 },
-  logActions: { gap: spacing.sm },
 });

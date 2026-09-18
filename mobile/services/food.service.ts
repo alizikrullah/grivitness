@@ -3,19 +3,31 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, del, get, patch, unwrap } from '@/lib/api';
 import { invalidateAfterLog, qk } from '@/lib/query';
 import { todayWIB } from '@/utils/date';
-import type { FoodDay, FoodLog, MealType } from '@/types';
+import type { FoodDay, FoodLog, FoodUnit, MealType } from '@/types';
+
+/**
+ * Satu makanan seperti yang ditulis user.
+ *
+ * Nama dan jumlah porsi wajib. Berat per porsi opsional kalau ada foto (model
+ * menaksirnya dari foto), WAJIB kalau tidak ada foto. Backend yang menolak
+ * kalau aturan itu dilanggar, tapi layar sebaiknya sudah memeriksanya lebih
+ * dulu supaya pesannya muncul di kolom yang tepat.
+ */
+export interface FoodItemInput {
+  name: string;
+  portions: number;
+  /** Berat atau volume SATU porsi, dalam `unit`. */
+  weight?: number;
+  unit: FoodUnit;
+}
 
 export interface FoodInput {
-  uri: string;
+  /** Kosong berarti dicatat tanpa foto, dari tulisan saja. */
+  uri?: string | null;
   meal_type: MealType;
-  notes?: string;
+  items: FoodItemInput[];
   /** Timestamp ISO. Dikosongkan berarti sekarang. Diisi saat mencatat ke hari lampau. */
   logged_at?: string;
-  /** Koreksi manual atas hasil AI. Dikosongkan berarti angka AI yang dipakai. */
-  total_calories?: number;
-  protein_g?: number;
-  carbs_g?: number;
-  fat_g?: number;
 }
 
 export const useFoodToday = () =>
@@ -64,13 +76,25 @@ export const asFilePart = (uri: string) => {
   return { uri, name, type: tipeBerkas(name) } as unknown as Blob;
 };
 
+/**
+ * Dua bentuk request untuk satu endpoint.
+ *
+ * Dengan foto: multipart, dan daftar item dikirim sebagai string JSON di field
+ * "items" karena multipart cuma membawa string. Tanpa foto: JSON biasa, daftar
+ * item apa adanya. Backend menerima keduanya.
+ */
 export const useCreateFood = () => {
   const client = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ uri, ...rest }: FoodInput) => {
+    mutationFn: ({ uri, items, ...rest }: FoodInput) => {
+      if (!uri) {
+        return unwrap<FoodLog>(api.post('/api/food', { ...rest, items }));
+      }
+
       const form = new FormData();
       form.append('photo', asFilePart(uri));
+      form.append('items', JSON.stringify(items));
 
       for (const [kunci, nilai] of Object.entries(rest)) {
         if (nilai !== undefined && nilai !== '') form.append(kunci, String(nilai));
@@ -87,24 +111,27 @@ export const useCreateFood = () => {
   });
 };
 
+/** Item saat dikoreksi: beratnya wajib, karena tidak ada foto yang dianalisa ulang. */
+export interface FoodItemEditInput extends FoodItemInput {
+  weight: number;
+}
+
 export interface FoodEditInput {
   id: string;
   meal_type?: MealType;
-  notes?: string | null;
-  /** Daftar makanan hasil AI yang sudah dibetulkan user. */
-  foods_detected?: string[];
-  total_calories?: number;
-  protein_g?: number;
-  carbs_g?: number;
-  fat_g?: number;
+  /**
+   * Daftar item yang sudah dibetulkan, urutannya sama dengan yang tersimpan.
+   * Boleh lebih pendek (item dihapus), tidak boleh lebih panjang: makanan baru
+   * butuh taksiran gizi baru, dan itu sesi makan baru.
+   */
+  items?: FoodItemEditInput[];
 }
 
 /**
- * Mengoreksi log makanan tanpa memotret ulang.
+ * Mengoreksi sesi makan tanpa memanggil AI lagi.
  *
- * Analisa AI sering meleset pada hidangan yang mirip, dan sebelum ini satu
- * satunya jalan keluar adalah menghapus lalu mencatat dari awal, yang berarti
- * satu panggilan AI lagi hanya untuk membetulkan satu kata.
+ * Nilai gizi per 100 tiap item sudah tersimpan dari analisa pertama, jadi
+ * mengubah nama, jumlah porsi, atau berat cukup dihitung ulang backend.
  */
 export const useUpdateFood = () => {
   const client = useQueryClient();
