@@ -54,12 +54,23 @@ export const dateRangeFilter = (range: DateRangeDto): Record<string, unknown> =>
   logged_at: { _between: [range.from, range.to] },
 });
 
+/** Awal hari WIB sebagai instan UTC. "2026-09-19" -> "2026-09-18T17:00:00.000Z". */
+export const awalHariWIB = (date: string): string =>
+  new Date(`${date}T00:00:00+07:00`).toISOString();
+
 /**
- * Filter untuk kolom bertipe timestamp yang perlu dibatasi per tanggal.
+ * Filter untuk kolom bertipe timestamp yang perlu dibatasi per tanggal WIB.
  *
  * Berbeda dari kolom `date`, timestamp membawa jam sehingga perbandingan
  * langsung dengan "YYYY-MM-DD" akan melewatkan sebagian besar baris di hari
  * terakhir. Batas atasnya karena itu digeser ke awal hari berikutnya.
+ *
+ * Batasnya WAJIB dalam zona WIB, ditulis sebagai instan UTC yang eksplisit.
+ * Versi lama memakai "YYYY-MM-DDT00:00:00" tanpa zona, yang dibaca Postgres
+ * sebagai UTC: hari "hari ini" baru mulai jam 07:00 WIB, dan segala yang
+ * dicatat sebelum itu, minum pagi, sarapan, hilang dari tampilan dan dari
+ * hitungan kalori hari itu lalu nyangkut di hari kemarin. Ketahuan saat user
+ * mencatat minum jam lima pagi dan totalnya tetap nol.
  */
 export const timestampRangeFilter = (range: DateRangeDto): Record<string, unknown> => {
   const setelahHariTerakhir = new Date(new Date(`${range.to}T00:00:00Z`).getTime() + 86_400_000)
@@ -68,8 +79,8 @@ export const timestampRangeFilter = (range: DateRangeDto): Record<string, unknow
 
   return {
     logged_at: {
-      _gte: `${range.from}T00:00:00`,
-      _lt: `${setelahHariTerakhir}T00:00:00`,
+      _gte: awalHariWIB(range.from),
+      _lt: awalHariWIB(setelahHariTerakhir),
     },
   };
 };
