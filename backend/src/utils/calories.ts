@@ -67,9 +67,27 @@ export const calculateBMR = ({ weightKg, heightCm, age, gender }: BmrInput): num
 // ============================================================
 
 /**
- * Tempo berjalan biasa. Dipakai untuk mengubah jumlah langkah jadi durasi,
- * karena metode faktorial butuh JAM, bukan jumlah.
+ * LANGKAH TIDAK MASUK HITUNGAN KALORI KELUAR. Dia pantauan, bukan bahan hitung.
+ *
+ * Dulu langkah dipartisi ke PAL dan kalori bersihnya ditambahkan ke TDEE.
+ * Itu dicabut, karena membuka pintu dobel hitung yang tidak ditangkap partisi
+ * 24 jam: jalan kaki yang dicatat sebagai olahraga JUGA dihitung pedometer ke
+ * step_logs, dan yang memakai jam tangan mendapat jalannya untuk ketiga kali
+ * lewat kalori aktif perangkat. Partisi cuma menjaga jam tidak tumpang tindih,
+ * bukan menjaga satu aktivitas masuk lewat dua pintu.
+ *
+ * Mencabutnya justru mengembalikan metode faktorial ke bentuk aslinya. FAO/WHO
+ * tidak menghitung langkah terpisah; jalan-jalan kecil sepanjang hari sudah
+ * terserap di PAR pekerjaan (ACTIVITY_PAR). Yang dikreditkan sebagai gerak
+ * hanya olahraga yang dicatat, dan kalori aktif jam tangan bagi yang memakainya.
+ *
+ * Konstanta di bawah tetap ada untuk SATU keperluan: mengubah sisa defisit jadi
+ * anjuran "tambah sekian langkah" di planWeightChange. Itu saran perilaku, bukan
+ * kredit kalori. Jalan yang dilakukan lalu dicatat sebagai olahraga barulah
+ * dikreditkan.
  */
+
+/** Tempo berjalan biasa, langkah per menit. */
 const LANGKAH_PER_MENIT = 100;
 
 /** Berjalan 2,5 mph (4 km/jam) di permukaan datar. Compendium 2011, kode 17190. */
@@ -85,18 +103,15 @@ const MET_JALAN = 3.0;
  *   1 MET       = 3.5 ml O2/kg/menit  ->  kkal/menit = MET x 3.5 x kg / 200
  *   bersih      = (3.0 - 1) x 3.5 / 200        = 0.035 per kg per menit
  *   per langkah = 0.035 / 100 langkah/menit    = 0.00035 per kg
- *
- * Dikurangi satu MET karena MET mengukur pengeluaran KOTOR, sudah termasuk
- * energi yang tetap terbakar walau cuma duduk diam. Energi itu sudah ditanggung
- * BMR di dalam TDEE, jadi menghitungnya lagi di sini membayar jam yang sama
- * dua kali.
  */
 const KKAL_BERSIH_PER_LANGKAH_PER_KG = ((MET_JALAN - 1) * 3.5) / 200 / LANGKAH_PER_MENIT;
 
-/** Berapa menit dihabiskan untuk berjalan sebanyak ini. */
-export const walkMinutesFromSteps = (steps: number): number => steps / LANGKAH_PER_MENIT;
-
-/** Estimasi kalori BERSIH terbakar dari jumlah langkah, di atas metabolisme istirahat. */
+/**
+ * Kalori bersih yang kira-kira terbakar oleh sejumlah langkah.
+ *
+ * HANYA untuk anjuran langkah tambahan di rencana berat badan. Jangan pernah
+ * dipakai untuk calories_out harian, lihat catatan di atas.
+ */
 export const caloriesFromSteps = (steps: number, weightKg: number): number =>
   round(steps * weightKg * KKAL_BERSIH_PER_LANGKAH_PER_KG, 0);
 
@@ -163,37 +178,35 @@ export interface PalInput {
   activityLevel: ActivityLevel;
   /** Menit tidur yang tercatat. Null berarti belum dicatat, dipakai asumsi 8 jam. */
   sleepMinutes: number | null;
-  steps: number;
   workoutMinutes: number;
 }
 
 /**
- * Menghitung PAL satu hari dengan membagi habis 24 jam.
+ * Menghitung PAL satu hari dengan membagi habis 24 jam: tidur, olahraga, dan
+ * sisa hari.
  *
- * Jam berjalan dan jam olahraga diberi PAR 1.0 di sini, BUKAN nilai MET-nya.
- * Yang dihitung di potongan ini hanyalah bagian istirahatnya, biaya kerja di
- * atas istirahat sudah dihitung terpisah sebagai kalori bersih langkah dan
- * olahraga, lalu dijumlahkan di calculateTDEE. Secara aljabar hasilnya sama
- * dengan memberi tiap potongan nilai MET penuh, tapi cara ini tidak memerlukan
- * nilai MET tersimpan di setiap log, sehingga olahraga yang diinput manual,
- * yang memang tidak punya MET, tetap terhitung benar.
+ * Jam olahraga diberi PAR 1.0 di sini, BUKAN nilai MET-nya. Yang dihitung di
+ * potongan ini hanyalah bagian istirahatnya, biaya kerja di atas istirahat
+ * sudah dihitung terpisah sebagai kalori bersih olahraga, lalu dijumlahkan di
+ * calculateTDEE. Secara aljabar hasilnya sama dengan memberi potongan itu nilai
+ * MET penuh, tapi cara ini tidak memerlukan nilai MET tersimpan di setiap log,
+ * sehingga olahraga yang kalorinya diisi manual tetap terhitung benar.
  *
- * Karena 24 jam dipartisi, satu jam mustahil masuk dua potongan sekaligus.
- * Itulah yang membuat dobel hitung tidak mungkin terjadi, bukan kehati-hatian.
+ * Langkah TIDAK punya potongan sendiri lagi. Jalan-jalan kecil sepanjang hari
+ * termasuk ke sisa hari, seperti metode faktorial FAO/WHO aslinya. Lihat
+ * catatan di bagian LANGKAH.
  */
 export const restingPartitionPAL = ({
   activityLevel,
   sleepMinutes,
-  steps,
   workoutMinutes,
 }: PalInput): number => {
   const tidur = Math.max(sleepMinutes ?? TIDUR_DEFAULT_MENIT, 0);
-  const jalan = Math.max(walkMinutesFromSteps(steps), 0);
   const olahraga = Math.max(workoutMinutes, 0);
 
   // Data yang tidak masuk akal (tidur 20 jam plus olahraga 6 jam) tidak boleh
   // membuat sisa hari jadi negatif dan menghasilkan PAL yang mustahil.
-  const terpakai = Math.min(tidur + jalan + olahraga, MENIT_SEHARI);
+  const terpakai = Math.min(tidur + olahraga, MENIT_SEHARI);
   const sisa = MENIT_SEHARI - terpakai;
 
   return round((terpakai * PAR_TIDUR + sisa * ACTIVITY_PAR[activityLevel]) / MENIT_SEHARI, 4);
@@ -201,7 +214,6 @@ export const restingPartitionPAL = ({
 
 export interface TdeeInput extends PalInput {
   bmr: number;
-  weightKg: number;
   /** Kalori bersih olahraga hari itu, dari workout_logs. */
   workoutCalories: number;
 }
@@ -219,7 +231,6 @@ export interface TdeeBreakdown {
   pal: number;
   /** Bagian yang berasal dari metabolisme dan kegiatan sehari-hari. */
   baseline: number;
-  step_calories: number;
   workout_calories: number;
 }
 
@@ -231,47 +242,39 @@ export interface TdeeBreakdown {
  * dan langkah yang ditambahkan setelahnya menabrak dirinya sendiri. Efeknya
  * defisit terlihat lebih besar daripada kenyataan, persis alasan orang bingung
  * kenapa beratnya tidak turun sesuai perkiraan aplikasi.
+ *
+ * Sekarang cuma dua suku: metabolisme dikali PAL, ditambah olahraga tercatat.
  */
 export const calculateTDEE = (input: TdeeInput): TdeeBreakdown => {
   const baseline = round(input.bmr * restingPartitionPAL(input), 0);
-  const langkah = caloriesFromSteps(input.steps, input.weightKg);
 
-  const tdee = baseline + langkah + input.workoutCalories;
+  const tdee = baseline + input.workoutCalories;
 
   return {
     tdee,
     pal: input.bmr > 0 ? round(tdee / input.bmr, 3) : 0,
     baseline,
-    step_calories: langkah,
     workout_calories: input.workoutCalories,
   };
 };
 
 /**
- * Langkah yang diasumsikan pada hari biasa ketika menghitung TDEE acuan.
- *
- * Dipakai sebagai dasar budget kalori, bukan sebagai target. Angkanya sengaja
- * rendah, kira-kira gerak seadanya orang yang tidak berolahraga, supaya
- * budget-nya konservatif. Untuk aplikasi penurunan berat badan, salah menaksir
- * ke bawah membuat user turun sedikit lebih cepat dari perkiraan; salah menaksir
- * ke atas membuat programnya diam-diam tidak bekerja.
- */
-const LANGKAH_HARI_BIASA = 3000;
-
-/**
- * TDEE acuan: hari tanpa olahraga, tidur normal, gerak seadanya.
+ * TDEE acuan: hari tanpa olahraga, tidur normal.
  *
  * Ini yang dipakai untuk menghitung budget kalori, karena budget harus stabil.
  * Kalau budget ikut naik-turun mengikuti aktivitas hari itu, user tidak pernah
  * tahu berapa yang boleh dimakan sampai harinya berakhir.
+ *
+ * Dulu hari acuan ini mengasumsikan 3.000 langkah. Asumsi itu ikut dicabut
+ * bersama langkah dari seluruh hitungan, jadi budget-nya turun kira-kira
+ * 80-100 kkal untuk orang 80 kg. Angka itu memang tidak seharusnya ada:
+ * gerak seadanya sudah terwakili di PAR pekerjaan.
  */
-export const baselineTDEE = (bmr: number, weightKg: number, activityLevel: ActivityLevel): number =>
+export const baselineTDEE = (bmr: number, activityLevel: ActivityLevel): number =>
   calculateTDEE({
     bmr,
-    weightKg,
     activityLevel,
     sleepMinutes: null,
-    steps: LANGKAH_HARI_BIASA,
     workoutMinutes: 0,
     workoutCalories: 0,
   }).tdee;
@@ -353,7 +356,7 @@ const tdeeTerkoreksi = (weightKg: number, input: PlanInput): number => {
     gender: input.gender,
   });
 
-  return round(baselineTDEE(bmr, weightKg, input.activityLevel) * (input.tdeeFactor ?? 1), 0);
+  return round(baselineTDEE(bmr, input.activityLevel) * (input.tdeeFactor ?? 1), 0);
 };
 
 /**
@@ -500,6 +503,12 @@ export const planWeightChange = (input: PlanInput): WeightPlan => {
 
   // Sisa defisit yang tidak boleh datang dari makanan masih boleh datang dari
   // gerak. Diubah jadi langkah supaya jadi anjuran yang bisa langsung dilakukan.
+  //
+  // Ini anjuran, bukan kredit. Langkah harian tidak masuk calories_out, jadi
+  // jalan tambahan itu baru terhitung kalau dicatat sebagai olahraga, atau
+  // lewat kalori aktif jam tangan. Secara fisik anjurannya tetap benar: jalan
+  // lebih banyak membakar lebih banyak, dan observeTDEE menangkapnya dari
+  // berat yang benar-benar turun.
   const kurang = Math.max(defisitDibutuhkan - defisit, 0);
   const langkahTambahan =
     turun && kurang > 0

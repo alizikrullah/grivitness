@@ -237,11 +237,158 @@ describe('calories_out pada ringkasan harian', () => {
     expect(d.calories_out_source).toBe('formula');
     expect(d.device_kcal).toBeNull();
 
-    // Rumus faktorial: BMR dikali PAL, ditambah kalori bersih langkah dan
-    // olahraga. Yang penting di sini bukan angka pastinya, melainkan bahwa
-    // sumbernya sudah berpindah dan hasilnya tetap masuk akal.
+    // Rumus faktorial: BMR dikali PAL, ditambah kalori bersih olahraga. Yang
+    // penting di sini bukan angka pastinya, melainkan bahwa sumbernya sudah
+    // berpindah dan hasilnya tetap masuk akal.
     expect(d.calories_out).toBeGreaterThan(2000);
     expect(d.calories_out).toBeLessThan(5000);
+  });
+});
+
+/**
+ * PEMBUKTIAN UNTUK KELUHAN NYATA, hari kemarin supaya terpisah dari state
+ * describe di atas.
+ *
+ * Kondisi user: jam tangan cuma dipakai saat jalan kaki, dan jam itu HANYA
+ * punya kalori aktif. Urutannya persis seperti yang dia lakukan:
+ *   siang   catat jalan kaki, kalori diketik dari jam (180), centang terekam jam
+ *   sore    catat renang tanpa jam, kalori dari MET library
+ *   sore    pedometer mencatat 6.000 langkah, sebagian besar dari jalan tadi
+ *   malam   isi kalori aktif jam seharian (420)
+ *
+ * Dulu jalan yang sama masuk TIGA kali: di kalori aktif jam, di kalori langkah,
+ * dan sebagai olahraga versi MET karena tanda "terekam jam" belum bisa
+ * dipasang sebelum angka harian ada. Sekarang hasilnya harus PERSIS
+ * BMR + 420 + renang. Tidak ada satu kalori pun dari langkah maupun dari jalan.
+ */
+describe('hari jalan kaki pakai jam, renang tanpa jam, langkah dari pedometer', () => {
+  const kemarin = new Date(new Date(`${hariIni}T00:00:00Z`).getTime() - 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+
+  let renangKcal = 0;
+
+  it('jalan kaki: kalori dari jam diketik manual, ditandai MANUAL dan terekam jam', async () => {
+    const res = await request(app).post('/api/workouts').set(auth()).send({
+      workout_name: 'Jalan kaki',
+      duration_minutes: 30,
+      calories_burned: 180,
+      intensity: 'LOW',
+      tracked_by_device: true,
+      logged_at: kemarin,
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.calories_burned).toBe(180);
+    expect(res.body.data.calories_source).toBe('MANUAL');
+    expect(res.body.data.tracked_by_device).toBe(true);
+  });
+
+  it('renang: dipilih dari library, kalori dihitung MET, tidak terekam jam', async () => {
+    const library = await request(app).get('/api/workouts/library').set(auth());
+
+    expect(library.status).toBe(200);
+    expect(library.body.data.length).toBeGreaterThan(0);
+
+    const item = library.body.data[0] as { id: string; name: string };
+
+    const res = await request(app).post('/api/workouts').set(auth()).send({
+      workout_library_id: item.id,
+      duration_minutes: 40,
+      intensity: 'HIGH',
+      tracked_by_device: false,
+      logged_at: kemarin,
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.workout_name).toBe(item.name);
+    expect(res.body.data.calories_source).toBe('MET');
+    expect(res.body.data.calories_burned).toBeGreaterThan(0);
+
+    renangKcal = res.body.data.calories_burned as number;
+  });
+
+  it('library juga bisa ditimpa angka manual tanpa kehilangan kaitan ke library', async () => {
+    const library = await request(app).get('/api/workouts/library').set(auth());
+    const item = library.body.data[0] as { id: string };
+
+    // Dicatat ke tanggal lain supaya tidak mengganggu hitungan hari kemarin.
+    const res = await request(app).post('/api/workouts').set(auth()).send({
+      workout_library_id: item.id,
+      duration_minutes: 40,
+      calories_burned: 999,
+      intensity: 'HIGH',
+      logged_at: '2020-01-02',
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.workout_library_id).toBe(item.id);
+    expect(res.body.data.calories_burned).toBe(999);
+    expect(res.body.data.calories_source).toBe('MANUAL');
+  });
+
+  it('langkah dari pedometer tercatat sebagai pantauan, tanpa kalori', async () => {
+    const res = await request(app)
+      .post('/api/steps')
+      .set(auth())
+      .send({ steps: 6000, logged_at: kemarin });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.steps).toBe(6000);
+    // Kolomnya dicabut dari schema. Sampai migrasi bersihkan dijalankan di
+    // database, kolom lamanya masih ada tapi kosong; setelahnya tidak ada.
+    // Keduanya berarti hal yang sama: tidak ada kalori dari langkah.
+    expect(res.body.data.calories_burned ?? null).toBeNull();
+  });
+
+  it('calories_out = BMR + aktif jam + renang, PERSIS, tanpa jalan dan tanpa langkah', async () => {
+    const jam = await request(app)
+      .post('/api/device-energy')
+      .set(auth())
+      .send({ active_kcal: 420, logged_at: kemarin });
+
+    expect(jam.status).toBe(201);
+
+    const bmr = jam.body.data.bmr_kcal as number;
+
+    const ringkasan = await request(app)
+      .get('/api/summary/daily')
+      .set(auth())
+      .query({ date: kemarin });
+
+    const d = ringkasan.body.data;
+
+    expect(d.calories_out_source).toBe('device');
+    expect(d.steps).toBe(6000);
+    expect(d.calories_out).toBe(bmr + 420 + renangKcal);
+
+    // Rincian energi tidak lagi punya suku langkah sama sekali.
+    expect(d.energy).not.toHaveProperty('step_calories');
+  });
+
+  it('tanpa angka jam, olahraga berceklis tetap dihitung, tidak hilang', async () => {
+    const daftar = await request(app)
+      .get('/api/device-energy')
+      .set(auth())
+      .query({ from: kemarin, to: kemarin });
+
+    const hapus = await request(app)
+      .delete(`/api/device-energy/${daftar.body.data[0].id as string}`)
+      .set(auth());
+
+    expect(hapus.status).toBe(200);
+
+    const ringkasan = await request(app)
+      .get('/api/summary/daily')
+      .set(auth())
+      .query({ date: kemarin });
+
+    const d = ringkasan.body.data;
+
+    expect(d.calories_out_source).toBe('formula');
+    // Rumus: baseline + SEMUA olahraga (jalan 180 + renang), ceklis tidak
+    // berpengaruh karena tidak ada angka perangkat yang sudah memuatnya.
+    expect(d.calories_out).toBe(d.energy.baseline + 180 + renangKcal);
   });
 });
 

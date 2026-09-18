@@ -72,7 +72,7 @@ export const loadEnergyProfile = async (userId: string): Promise<EnergyProfile> 
     return { ...metrics, baselineTdee: null, observed: null };
   }
 
-  const estimated = baselineTDEE(metrics.bmr, metrics.weightKg, metrics.activityLevel);
+  const estimated = baselineTDEE(metrics.bmr, metrics.activityLevel);
 
   const weights: WeightPoint[] = weightLogs.map((log) => ({
     date: log.logged_at,

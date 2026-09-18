@@ -1,26 +1,26 @@
 import { loadUserMetrics, type UserMetrics } from '../../data/user-metrics.js';
 import { forUser } from '../../data/scoped.js';
 import type { StepLogRecord } from '../../types/directus-schema.js';
-import { caloriesFromSteps, distanceFromSteps } from '../../utils/calories.js';
+import { distanceFromSteps } from '../../utils/calories.js';
 import { dailyKey, todayInJakarta } from '../../utils/daily-key.js';
 import { type DateRangeDto, dateRangeFilter } from '../../utils/query.js';
 import { recordActivitySafely } from '../streaks/streaks.service.js';
 import type { CreateStepsDto, UpdateStepsDto } from './steps.validation.js';
 
 /**
- * Menghitung turunan dari jumlah langkah: jarak tempuh dan kalori terbakar.
+ * Turunan dari jumlah langkah: jarak tempuh saja.
  *
- * Jaraknya sekarang diturunkan dari tinggi badan, bukan lagi asumsi 80cm per
- * langkah untuk semua orang, asumsi itu melebihkan jarak sekitar 10% pada
- * tinggi rata-rata dan makin meleset untuk yang bertubuh kecil.
+ * Jaraknya diturunkan dari tinggi badan, bukan asumsi 80cm per langkah untuk
+ * semua orang, asumsi itu melebihkan jarak sekitar 10% pada tinggi rata-rata
+ * dan makin meleset untuk yang bertubuh kecil.
  *
- * Kalorinya BERSIH, di atas metabolisme istirahat. Yang istirahat sudah
- * ditanggung TDEE, jadi menghitungnya kotor di sini berarti membayar jam yang
- * sama dua kali.
+ * Kalori SENGAJA tidak dihitung lagi. Langkah adalah pantauan, bukan bahan
+ * hitung kalori keluar, lihat catatan LANGKAH di utils/calories.ts. Menyimpan
+ * angka kalori di sini cuma mengundang pertanyaan "kenapa tidak masuk ke
+ * kalori keluar saya", dan jawabannya memang: tidak seharusnya masuk.
  */
 const turunan = (steps: number, m: UserMetrics) => ({
   distance_km: distanceFromSteps(steps, m.heightCm, m.gender).toFixed(3),
-  calories_burned: caloriesFromSteps(steps, m.weightKg),
 });
 
 export const create = async (userId: string, data: CreateStepsDto): Promise<StepLogRecord> => {
@@ -57,8 +57,8 @@ export const getRange = async (userId: string, range: DateRangeDto): Promise<Ste
 /**
  * Mengubah jumlah langkah.
  *
- * Jarak dan kalori ikut dihitung ulang. Kalau tidak, angka di database jadi
- * bertentangan satu sama lain, langkahnya berubah tapi kalorinya tetap.
+ * Jarak ikut dihitung ulang. Kalau tidak, angka di database jadi bertentangan
+ * satu sama lain, langkahnya berubah tapi jaraknya tetap.
  */
 export const update = async (
   userId: string,

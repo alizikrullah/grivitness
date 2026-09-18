@@ -112,14 +112,16 @@ export const DashboardPage = () => {
 
             {/*
               Susunan "keluar" dibuka, bukan cuma satu angka besar yang harus
-              dipercaya. Ketiganya TIDAK saling tumpang tindih: 24 jam dibagi
-              habis, jadi jam olahraga dan jam berjalan diambil dari jatah
-              metabolisme, bukan ditambahkan di atasnya.
+              dipercaya. Keduanya TIDAK saling tumpang tindih: 24 jam dibagi
+              habis, jadi jam olahraga diambil dari jatah metabolisme, bukan
+              ditambahkan di atasnya. Langkah tidak ada di sini karena memang
+              tidak dihitung, jalan-jalan kecil sudah ada di dalam metabolisme
+              lewat jenis pekerjaan.
             */}
             {data?.energy ? (
               <span className="t-caption c-tertiary dash-breakdown">
-                {thousands(data.energy.baseline)} metabolisme + {data.energy.step_calories} langkah
-                + {data.energy.workout_calories} olahraga
+                {thousands(data.energy.baseline)} metabolisme + {data.energy.workout_calories}{' '}
+                olahraga
               </span>
             ) : null}
           </div>

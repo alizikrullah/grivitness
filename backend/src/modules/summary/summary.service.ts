@@ -16,10 +16,12 @@ import { type DailyTargets, dailyTargets } from '../../utils/targets.js';
 export interface EnergyBreakdown {
   /** Physical Activity Level hari itu, hasil membagi habis 24 jam. */
   pal: number;
-  /** Metabolisme basal dikali PAL, hidup dan kegiatan sehari-hari. */
+  /**
+   * Metabolisme basal dikali PAL: hidup, kegiatan sehari-hari, dan jalan-jalan
+   * kecil sepanjang hari. Langkah tidak dirinci terpisah karena memang tidak
+   * dihitung terpisah, lihat catatan LANGKAH di utils/calories.ts.
+   */
   baseline: number;
-  /** Kalori bersih dari berjalan, di atas metabolisme istirahat. */
-  step_calories: number;
   /** Kalori bersih dari olahraga tercatat. */
   workout_calories: number;
 }
@@ -59,8 +61,8 @@ export interface DailySummary {
   /**
    * Kalori dari olahraga saja, terpisah dari calories_out.
    *
-   * calories_out memuat metabolisme dan langkah juga, jadi angkanya tidak bisa
-   * dipakai untuk menjawab "olahraga tadi membakar berapa". Dipisah di sini
+   * calories_out memuat metabolisme juga, jadi angkanya tidak bisa dipakai
+   * untuk menjawab "olahraga tadi membakar berapa". Dipisah di sini
    * supaya layar bisa menampilkan durasi dan kalorinya berdampingan tanpa
    * harus memanggil endpoint olahraga lagi.
    */
@@ -140,22 +142,25 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
   const beratHitung = weightKg ?? metrics.weightKg;
 
   /**
-   * Pengeluaran energi lewat metode faktorial: 24 jam dibagi habis.
+   * Pengeluaran energi lewat metode faktorial: 24 jam dibagi habis antara
+   * tidur, olahraga, dan sisa hari.
    *
    * Rumus lama `TDEE + olahraga + langkah` menjumlahkan tiga hal yang saling
    * menabrak, pengali aktivitas mendeskripsikan seluruh hari, jadi apa pun yang
    * ditambahkan sesudahnya menghitung ulang jam yang sama. Efeknya defisit
    * terlihat lebih besar daripada kenyataan.
+   *
+   * Langkah sengaja TIDAK dikirim ke sini. Jalan kaki yang dicatat sebagai
+   * olahraga juga terhitung pedometer, jadi memasukkan keduanya membayar jalan
+   * yang sama dua kali. Langkah tetap ditampilkan sebagai pantauan di bawah.
    */
   const energi =
     metrics.bmr === null
       ? null
       : calculateTDEE({
           bmr: metrics.bmr,
-          weightKg: beratHitung,
           activityLevel: metrics.activityLevel,
           sleepMinutes: tidur > 0 ? tidur : null,
-          steps: langkah,
           workoutMinutes: workoutMenit,
           workoutCalories: workoutKalori,
         });
@@ -190,14 +195,18 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
   /**
    * Kalori keluar hari itu, dengan angka smartwatch MENGGANTIKAN rumus.
    *
-   * Bukan ditambahkan. Jam tangan mengukur seluruh hari: jalan kaki dan kegiatan
-   * di luar olahraga sudah ada di dalamnya, dan keduanya juga sudah dihitung
-   * metode faktorial dari step_logs serta activity_level. Menjumlahkan keduanya
+   * Bukan ditambahkan. Jam tangan mengukur semua jam ia dipakai: jalan kaki dan
+   * kegiatan di luar olahraga sudah ada di dalamnya, dan keduanya juga sudah
+   * terwakili di PAR pekerjaan pada metode faktorial. Menjumlahkan keduanya
    * berarti menghitung jam yang sama dua kali, kekeliruan yang persis sama
    * dengan rumus lama TDEE + olahraga + langkah yang sudah dibuang.
    *
    * Yang ditambahkan di atasnya hanya olahraga yang TIDAK dilihat jam tangan,
-   * misalnya berenang atau sesi yang jamnya kebetulan dilepas.
+   * ditandai tracked_by_device = false, misalnya berenang. Olahraga yang
+   * ditandai terekam jam TIDAK ditambahkan, karena sudah ada di dalam angka
+   * aktif perangkat. Tanda itu cuma berarti sesuatu kalau angka perangkatnya
+   * ada: di hari tanpa angka perangkat, semua olahraga ikut dihitung lewat
+   * cabang rumus di atas, jadi sesi yang ditandai tidak pernah hilang.
    *
    * Ini TIDAK menyentuh jatah kalori harian. Budget datang dari baselineTDEE()
    * dan sengaja stabil, supaya user tahu berapa yang boleh dimakan sejak pagi
@@ -206,11 +215,9 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
   const kaloriKeluar =
     kaloriDevice === null
       ? // Tanpa profil, metabolisme tidak bisa dihitung dan yang tersisa cuma
-        // kalori aktivitas. Angkanya jadi jauh lebih kecil dari kenyataan, tapi
+        // kalori olahraga. Angkanya jadi jauh lebih kecil dari kenyataan, tapi
         // itu lebih jujur daripada menebak metabolisme basal user.
-        energi
-        ? energi.tdee
-        : (stepLog?.calories_burned ?? 0) + workoutKalori
+        (energi?.tdee ?? workoutKalori)
       : kaloriDevice + workoutKaloriLuarDevice;
 
   return {
@@ -226,7 +233,6 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
       ? {
           pal: energi.pal,
           baseline: energi.baseline,
-          step_calories: energi.step_calories,
           workout_calories: energi.workout_calories,
         }
       : null,

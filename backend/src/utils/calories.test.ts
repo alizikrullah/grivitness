@@ -72,7 +72,6 @@ describe('restingPartitionPAL', () => {
   const dasar = {
     activityLevel: 'SEDENTARY' as const,
     sleepMinutes: 480,
-    steps: 0,
     workoutMinutes: 0,
   };
 
@@ -86,16 +85,29 @@ describe('restingPartitionPAL', () => {
   });
 
   /**
-   * Jam berjalan dan olahraga PINDAH dari sisa hari ke potongan PAR 1.0, jadi
-   * angka ini justru TURUN. Biaya kerjanya ditambahkan terpisah sebagai kalori
-   * bersih. Inilah mekanisme yang membuat dobel hitung mustahil: satu jam cuma
-   * bisa berada di satu potongan.
+   * Jam olahraga PINDAH dari sisa hari ke potongan PAR 1.0, jadi angka ini
+   * justru TURUN. Biaya kerjanya ditambahkan terpisah sebagai kalori bersih.
+   * Inilah mekanisme yang membuat satu jam tidak bisa dibayar dua kali: satu
+   * jam cuma bisa berada di satu potongan.
    */
-  it('memindahkan jam aktif keluar dari sisa hari, bukan menambahkannya', () => {
+  it('memindahkan jam olahraga keluar dari sisa hari, bukan menambahkannya', () => {
     const diam = restingPartitionPAL(dasar);
-    const aktif = restingPartitionPAL({ ...dasar, steps: 10_000, workoutMinutes: 60 });
+    const aktif = restingPartitionPAL({ ...dasar, workoutMinutes: 60 });
 
     expect(aktif).toBeLessThan(diam);
+  });
+
+  /**
+   * Regresi untuk dobel hitung yang dulu lolos dari partisi. Langkah pernah
+   * punya potongan sendiri, dan jalan kaki yang dicatat sebagai olahraga ikut
+   * terhitung pedometer, jadi jalan yang sama masuk dua kali. Sekarang tidak
+   * ada cara memasukkan langkah ke sini sama sekali, dan tipe PalInput menolak
+   * mencobanya. Tes ini menjaga supaya potongan itu tidak diam-diam kembali.
+   */
+  it('tidak punya potongan langkah', () => {
+    const kunci = Object.keys(dasar).sort();
+
+    expect(kunci).toEqual(['activityLevel', 'sleepMinutes', 'workoutMinutes']);
   });
 
   it('makin berat pekerjaannya makin tinggi', () => {
@@ -117,7 +129,6 @@ describe('restingPartitionPAL', () => {
     const hasil = restingPartitionPAL({
       ...dasar,
       sleepMinutes: 20 * 60,
-      steps: 60_000,
       workoutMinutes: 360,
     });
 
@@ -128,18 +139,17 @@ describe('restingPartitionPAL', () => {
 describe('calculateTDEE', () => {
   const dasar = {
     bmr: 1749,
-    weightKg: 80,
     activityLevel: 'SEDENTARY' as const,
     sleepMinutes: 480,
-    steps: 3000,
     workoutMinutes: 0,
     workoutCalories: 0,
   };
 
-  it('menjumlahkan metabolisme, langkah, dan olahraga', () => {
+  it('menjumlahkan metabolisme dan olahraga, tidak ada suku lain', () => {
     const hasil = calculateTDEE(dasar);
 
-    expect(hasil.tdee).toBe(hasil.baseline + hasil.step_calories + hasil.workout_calories);
+    expect(hasil.tdee).toBe(hasil.baseline + hasil.workout_calories);
+    expect(Object.keys(hasil).sort()).toEqual(['baseline', 'pal', 'tdee', 'workout_calories']);
   });
 
   /**
@@ -148,10 +158,13 @@ describe('calculateTDEE', () => {
    * FAO/WHO dan siapa pun yang mengeceknya akan tersesat.
    */
   it('melaporkan PAL sesungguhnya, bukan potongan istirahatnya', () => {
-    const hasil = calculateTDEE(dasar);
+    // Hari tanpa olahraga keduanya memang sama. Bedanya baru terlihat begitu
+    // ada kalori olahraga di atas potongan istirahat.
+    const aktif = { ...dasar, workoutMinutes: 45, workoutCalories: 400 };
+    const hasil = calculateTDEE(aktif);
 
     expect(hasil.pal).toBeCloseTo(hasil.tdee / dasar.bmr, 3);
-    expect(hasil.pal).toBeGreaterThan(restingPartitionPAL(dasar));
+    expect(hasil.pal).toBeGreaterThan(restingPartitionPAL(aktif));
   });
 
   /**
@@ -166,17 +179,27 @@ describe('calculateTDEE', () => {
     expect(hasil.pal).toBeLessThanOrEqual(1.69);
   });
 
-  /** Hari dengan 10.000 langkah dan 45 menit lari harus naik ke pita "moderat". */
-  it('mendarat di pita moderat untuk hari yang benar-benar aktif', () => {
-    const hasil = calculateTDEE({
+  /**
+   * Pekerja kantoran yang lari 45 menit TIDAK naik ke pita moderat FAO/WHO
+   * (1.70-1.99). Itu memang benar: pita moderat menggambarkan orang yang
+   * pekerjaannya banyak bergerak, bukan pekerja duduk yang berolahraga. Yang
+   * naik ke pita moderat adalah pekerjaan moderat plus olahraga yang sama.
+   */
+  it('pita FAO/WHO ditentukan pekerjaan, olahraga cuma menggesernya', () => {
+    const lari = caloriesFromWorkout(netKcalPerMinuteAt70(8.3), 45, 80);
+
+    const kantoran = calculateTDEE({ ...dasar, workoutMinutes: 45, workoutCalories: lari });
+    const perawat = calculateTDEE({
       ...dasar,
-      steps: 10_000,
+      activityLevel: 'MODERATELY_ACTIVE',
       workoutMinutes: 45,
-      workoutCalories: caloriesFromWorkout(netKcalPerMinuteAt70(8.3), 45, 80),
+      workoutCalories: lari,
     });
 
-    expect(hasil.pal).toBeGreaterThanOrEqual(1.7);
-    expect(hasil.pal).toBeLessThanOrEqual(1.99);
+    expect(kantoran.pal).toBeGreaterThan(1.5);
+    expect(kantoran.pal).toBeLessThan(1.7);
+    expect(perawat.pal).toBeGreaterThanOrEqual(1.7);
+    expect(perawat.pal).toBeLessThanOrEqual(1.99);
   });
 
   /**
@@ -197,14 +220,26 @@ describe('calculateTDEE', () => {
     expect(dengan.baseline).toBeLessThan(tanpa.baseline);
   });
 
-  it('sama untuk langkah, sebagian energinya sudah ada di sisa hari', () => {
-    const sedikit = calculateTDEE({ ...dasar, steps: 0 });
-    const banyak = calculateTDEE({ ...dasar, steps: 10_000 });
+  /**
+   * Bagian rumus dari keluhan nyata: jalan kaki pakai jam (180 kkal aktif),
+   * renang tanpa jam (350 kkal MET), pedometer mencatat 6.000 langkah dari
+   * jalan tadi. Dulu jalan yang sama masuk sampai tiga kali. Di sisi rumus,
+   * yang bisa dijamin sekarang: totalnya PERSIS baseline + olahraga, dan
+   * langkah bukan lagi masukan, jadi tidak ada suku tersembunyi yang bisa
+   * menambahkannya lagi. Sisi perangkatnya dibuktikan di
+   * tests/device-energy.integration.test.ts.
+   */
+  it('totalnya persis baseline ditambah olahraga, langkah tidak ikut campur', () => {
+    const jalan = 180;
+    const renang = 350;
 
-    const kalorLangkah = caloriesFromSteps(10_000, 80);
+    const hasil = calculateTDEE({
+      ...dasar,
+      workoutMinutes: 70,
+      workoutCalories: jalan + renang,
+    });
 
-    expect(banyak.tdee).toBeGreaterThan(sedikit.tdee);
-    expect(banyak.tdee - sedikit.tdee).toBeLessThan(kalorLangkah);
+    expect(hasil.tdee).toBe(hasil.baseline + jalan + renang);
   });
 });
 
@@ -252,7 +287,12 @@ describe('netKcalPerMinuteAt70', () => {
 });
 
 describe('estimasi dari langkah', () => {
-  /** 10.000 x 80 x 0.00035 = 280 kkal bersih. */
+  /**
+   * 10.000 x 80 x 0.00035 = 280 kkal bersih. Konversi ini HANYA dipakai untuk
+   * anjuran "tambah sekian langkah" di rencana berat badan, bukan untuk
+   * calories_out harian. Tesnya dipertahankan supaya konstanta turunannya
+   * tetap terjaga.
+   */
   it('menghitung kalori bersih dari langkah dan berat badan', () => {
     expect(caloriesFromSteps(10_000, 80)).toBe(280);
   });
@@ -410,13 +450,19 @@ describe('planWeightChange', () => {
 describe('baselineTDEE', () => {
   /** Harus stabil: tidak bergantung pada aktivitas hari itu sama sekali. */
   it('memberi angka yang sama untuk profil yang sama', () => {
-    expect(baselineTDEE(1749, 80, 'SEDENTARY')).toBe(baselineTDEE(1749, 80, 'SEDENTARY'));
+    expect(baselineTDEE(1749, 'SEDENTARY')).toBe(baselineTDEE(1749, 'SEDENTARY'));
   });
 
   it('naik seiring beratnya pekerjaan', () => {
-    expect(baselineTDEE(1749, 80, 'VERY_ACTIVE')).toBeGreaterThan(
-      baselineTDEE(1749, 80, 'SEDENTARY'),
-    );
+    expect(baselineTDEE(1749, 'VERY_ACTIVE')).toBeGreaterThan(baselineTDEE(1749, 'SEDENTARY'));
+  });
+
+  /**
+   * Hari kantor: tidur 8 jam PAR 1.0, sisa 16 jam PAR 1.6. Tidak ada lagi
+   * asumsi 3.000 langkah yang dulu menambah sekitar 84 kkal untuk 80 kg.
+   */
+  it('tidak lagi menyelipkan asumsi langkah', () => {
+    expect(baselineTDEE(1749, 'SEDENTARY')).toBe(Math.round(1749 * ((480 + 960 * 1.6) / 1440)));
   });
 });
 

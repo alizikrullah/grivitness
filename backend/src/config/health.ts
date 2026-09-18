@@ -1,6 +1,21 @@
+import { createRequire } from 'node:module';
+
 import { serverHealth } from '@directus/sdk';
 
 import { directus } from './directus.js';
+
+/**
+ * Versi dari package.json, dibaca sekali saat modul dimuat.
+ *
+ * Dipakai untuk memastikan deploy otomatis benar-benar mendarat: setelah push,
+ * /health di produksi harus menampilkan versi baru. Tanpa ini tidak ada cara
+ * membedakan backend lama yang masih hidup dari backend baru yang gagal naik,
+ * keduanya sama-sama membalas "ok".
+ *
+ * Jalur relatifnya sama di src/ maupun dist/, dua tingkat di bawah akar paket,
+ * jadi berlaku untuk tsx saat development dan node dist/ di Docker.
+ */
+const { version } = createRequire(import.meta.url)('../../package.json') as { version: string };
 
 /**
  * Health check yang benar-benar memverifikasi dependensi, bukan sekadar
@@ -14,6 +29,7 @@ import { directus } from './directus.js';
 
 export interface HealthReport {
   status: 'ok' | 'degraded';
+  version: string;
   uptime_seconds: number;
   environment: string;
   dependencies: {
@@ -54,6 +70,7 @@ export const checkHealth = async (environment: string): Promise<HealthReport> =>
 
   return {
     status: directusStatus.reachable ? 'ok' : 'degraded',
+    version,
     uptime_seconds: Math.round(process.uptime()),
     environment,
     dependencies: { directus: directusStatus },

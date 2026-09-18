@@ -20,8 +20,9 @@
  */
 
 import {
-  CHAT_ROLE,
   ACTIVITY_LEVEL,
+  CALORIE_SOURCE,
+  CHAT_ROLE,
   GENDER,
   MEAL_TYPE,
   WORKOUT_CATEGORY,
@@ -439,8 +440,12 @@ export const collections: CollectionDef[] = [
       {
         field: 'calories_burned',
         type: 'integer',
-        note: 'calories_per_minute * durasi * (berat_user / 70)',
+        note: 'MET: kkal_per_menit * durasi * (berat_user / 70). MANUAL: angka yang diketik user, mis. dari jam tangan.',
       },
+      enumField('calories_source', CALORIE_SOURCE, {
+        defaultValue: 'MET',
+        note: 'Asal angka calories_burned. MANUAL tidak boleh dihitung ulang diam-diam saat durasi atau berat berubah.',
+      }),
       enumField('intensity', WORKOUT_INTENSITY),
       {
         field: 'tracked_by_device',
@@ -463,12 +468,11 @@ export const collections: CollectionDef[] = [
       pk(),
       userFk('step_logs'),
       { field: 'steps', type: 'integer' },
-      decimalField('distance_km', 6, 3, { note: 'Estimasi: steps * 0.0008' }),
-      {
-        field: 'calories_burned',
-        type: 'integer',
-        note: 'Estimasi: steps * berat_kg * 0.0005',
-      },
+      decimalField('distance_km', 6, 3, {
+        note: 'Estimasi dari tinggi badan: steps * tinggi_cm * 0.415 / 100000',
+      }),
+      // Tidak ada kolom kalori. Langkah adalah pantauan, bukan bahan hitung
+      // kalori keluar, lihat catatan LANGKAH di src/utils/calories.ts.
       loggedAtDate(),
       userDateKey(),
       createdAt(),

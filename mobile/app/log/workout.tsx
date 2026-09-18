@@ -7,6 +7,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import {
   Button,
   Card,
+  Checkbox,
   ChipGroup,
   DateStrip,
   EmptyState,
@@ -14,7 +15,6 @@ import {
   Header,
   Input,
   Loading,
-  Row,
   Screen,
   SectionHeader,
   Sheet,
@@ -39,7 +39,7 @@ import {
   type WorkoutInput,
 } from '@/services/workouts.service';
 import type { WorkoutCategory, WorkoutIntensity, WorkoutLog } from '@/types';
-import { useDeviceEnergyDate } from '@/services/device-energy.service';
+import { useProfile } from '@/services/users.service';
 import { dayPhrase, todayWIB } from '@/utils/date';
 import { duration, thousands, toNum } from '@/utils/format';
 
@@ -51,9 +51,8 @@ interface Pilihan {
   perMenit: number;
 }
 
-/** Pilihan pada pertanyaan "terekam smartwatch". */
-const REKAM = ['YA', 'TIDAK'] as const;
-const REKAM_LABEL = { YA: 'Ya, jam saya pakai', TIDAK: 'Tidak' };
+/** Berat acuan nilai kkal/menit di library. Sama dengan BERAT_ACUAN_KG di backend. */
+const BERAT_ACUAN_KG = 70;
 
 export default function WorkoutScreen() {
   /**
@@ -67,17 +66,12 @@ export default function WorkoutScreen() {
   const createWorkout = useCreateWorkout();
   const deleteWorkout = useDeleteWorkout();
 
-  /**
-   * Pertanyaan "terekam smartwatch" hanya relevan kalau hari itu memang ada
-   * angka dari perangkat. Tanpa itu kalori olahraga selalu dihitung penuh, dan
-   * menanyakannya cuma menambah satu keputusan yang tidak berpengaruh apa-apa.
-   */
-  const angkaPerangkat = useDeviceEnergyDate(tanggal).data;
+  /** Berat badan untuk menaksir kalori dari nilai library yang acuannya 70 kg. */
+  const beratKg = useProfile().data?.current_weight_kg ?? BERAT_ACUAN_KG;
 
   const [sheet, setSheet] = useState(false);
   const [pilihan, setPilihan] = useState<Pilihan | null>(null);
   const [manual, setManual] = useState('');
-  const [kaloriManual, setKaloriManual] = useState('');
   const [menit, setMenit] = useState(30);
   const [intensitas, setIntensitas] = useState<WorkoutIntensity>('MEDIUM');
   const [catatan, setCatatan] = useState('');
@@ -85,7 +79,26 @@ export default function WorkoutScreen() {
   const [error, setError] = useState<string | null>(null);
   const [diedit, setDiedit] = useState<WorkoutLog | null>(null);
 
+  /**
+   * Kolom kalori punya dua keadaan: masih taksiran, atau sudah disentuh user.
+   *
+   * Selama belum disentuh, isinya mengikuti pilihan olahraga dan durasi, dan
+   * saat disimpan TIDAK dikirim, biar backend menghitungnya sendiri dari MET
+   * dan menandainya sebagai taksiran. Begitu user mengetik, angka itulah yang
+   * dikirim dan backend menandainya MANUAL, misalnya angka dari jam tangan.
+   *
+   * Kalau taksiran ikut dikirim, backend akan mengira user yang mengetiknya
+   * dan menolak menghitung ulang saat durasinya nanti dibetulkan.
+   */
+  const [kaloriDiketik, setKaloriDiketik] = useState<string | null>(null);
+
   const pakaiManual = pilihan === null;
+
+  const taksiran = pilihan
+    ? Math.round((pilihan.perMenit * menit * beratKg) / BERAT_ACUAN_KG)
+    : null;
+
+  const kaloriTampil = kaloriDiketik ?? (taksiran === null ? '' : String(taksiran));
 
   const simpan = () => {
     setError(null);
@@ -94,33 +107,35 @@ export default function WorkoutScreen() {
       duration_minutes: menit,
       intensity: intensitas,
       notes: catatan.trim() === '' ? undefined : catatan.trim(),
-      // Kalau hari itu tidak ada angka perangkat, pertanyaannya tidak muncul di
-      // layar, jadi tidak boleh ada nilai yang menyelinap dari sesi sebelumnya.
-      tracked_by_device: angkaPerangkat ? terekam : false,
+      tracked_by_device: terekam,
       // Saat menelusuri hari lampau, sesi dicatat ke tanggal ITU.
       logged_at: hariIni ? undefined : tanggal,
     };
 
     if (pilihan) {
-      // Kalori dihitung backend dari durasi dan berat badan user, jadi tidak
-      // dikirim dari sini, nilai apa pun yang dikirim client akan diabaikan.
       if (pilihan.sumber === 'library') body.workout_library_id = pilihan.id;
       else body.custom_workout_id = pilihan.id;
     } else {
       const nama = manual.trim();
-      const kalori = Number(kaloriManual);
 
       if (nama.length < 2) {
         setError('Isi nama olahraga, atau pilih dari daftar');
         return;
       }
 
-      if (!Number.isFinite(kalori) || kalori < 0) {
-        setError('Isi perkiraan kalori terbakar');
+      body.workout_name = nama;
+    }
+
+    // Olahraga tulis sendiri tidak punya MET untuk dirujuk, jadi kalorinya
+    // wajib. Untuk pilihan dari daftar, hanya dikirim kalau user mengetiknya.
+    if (pakaiManual || kaloriDiketik !== null) {
+      const kalori = Number(kaloriTampil);
+
+      if (kaloriTampil.trim() === '' || !Number.isFinite(kalori) || kalori < 0) {
+        setError('Isi kalori terbakar');
         return;
       }
 
-      body.workout_name = nama;
       body.calories_burned = Math.round(kalori);
     }
 
@@ -128,15 +143,13 @@ export default function WorkoutScreen() {
       onSuccess: () => {
         setPilihan(null);
         setManual('');
-        setKaloriManual('');
+        setKaloriDiketik(null);
         setCatatan('');
         setTerekam(false);
       },
       onError: (e) => setError(toApiError(e).message),
     });
   };
-
-  const perkiraanKalori = pilihan ? Math.round(pilihan.perMenit * menit) : null;
 
   return (
     <>
@@ -166,36 +179,14 @@ export default function WorkoutScreen() {
         </Pressable>
 
         {pakaiManual ? (
-          <>
-            <Input
-              label="Atau tulis sendiri"
-              value={manual}
-              onChangeText={setManual}
-              placeholder="Nama olahraga"
-              autoCapitalize="sentences"
-            />
-            <Input
-              label="Perkiraan kalori terbakar"
-              value={kaloriManual}
-              onChangeText={setKaloriManual}
-              placeholder="200"
-              keyboardType="number-pad"
-              suffix="kkal"
-              hint="Wajib diisi untuk olahraga yang ditulis sendiri"
-            />
-          </>
-        ) : (
-          <Card variant="outline" padding="md">
-            <Row
-              label="Perkiraan kalori"
-              value={thousands(perkiraanKalori ?? 0) + ' kkal'}
-              tone="accent"
-            />
-            <Text variant="caption" tone="tertiary">
-              Angka pastinya dihitung ulang backend sesuai berat badan kamu.
-            </Text>
-          </Card>
-        )}
+          <Input
+            label="Atau tulis sendiri"
+            value={manual}
+            onChangeText={setManual}
+            placeholder="Nama olahraga"
+            autoCapitalize="sentences"
+          />
+        ) : null}
 
         <Card>
           <View style={styles.durationCard}>
@@ -205,6 +196,28 @@ export default function WorkoutScreen() {
             <Stepper value={menit} onChange={setMenit} step={5} min={1} max={1440} suffix="menit" />
           </View>
         </Card>
+
+        {/*
+          Satu kolom kalori untuk semua sumber. Terisi taksiran begitu olahraga
+          dipilih, dan bisa ditimpa: angka dari jam tangan, atau angka apa pun
+          yang user lebih percaya. Dulu angka dari daftar tidak bisa diubah dan
+          angka jam tangan tidak punya tempat.
+        */}
+        <Input
+          label="Kalori terbakar"
+          value={kaloriTampil}
+          onChangeText={setKaloriDiketik}
+          placeholder={pakaiManual ? '200' : ''}
+          keyboardType="number-pad"
+          suffix="kkal"
+          hint={
+            pakaiManual
+              ? 'Wajib diisi untuk olahraga yang ditulis sendiri.'
+              : kaloriDiketik === null
+                ? 'Taksiran dari durasi dan berat badanmu. Ketik sendiri kalau jam tanganmu menunjukkan angka lain.'
+                : 'Angka ini disimpan apa adanya dan tidak dihitung ulang.'
+          }
+        />
 
         <View style={styles.group}>
           <Text variant="label" tone="secondary">
@@ -220,33 +233,23 @@ export default function WorkoutScreen() {
         </View>
 
         {/*
-          Muncul HANYA kalau hari itu ada angka kalori dari smartwatch.
+          SELALU tampil, tidak lagi menunggu angka harian jam diisi.
 
-          Jawabannya menentukan apakah kalori sesi ini ditambahkan di atas angka
-          perangkat atau tidak. Jalan santai dan berkebun yang dilakukan sambil
-          memakai jam sudah ikut terhitung di sana, jadi menambahkannya lagi
-          berarti menghitung dua kali. Berenang atau sesi yang jamnya dilepas
-          belum, jadi memang harus ditambahkan.
+          Dulu pertanyaan ini cuma muncul kalau hari itu sudah ada angka
+          smartwatch. Padahal urutan nyatanya terbalik: sesi dicatat siang,
+          angka jam diisi malam. Sesi jadi tersimpan "tidak terekam" lalu
+          ditambahkan lagi di atas angka jam yang sudah memuatnya, dan jalan
+          yang sama dihitung dua kali.
+
+          Centangan ini baru berpengaruh kalau angka jam hari itu ada. Tanpa
+          angka jam, sesi tetap dihitung penuh, jadi tidak ada yang hilang.
         */}
-        {angkaPerangkat ? (
-          <View style={styles.group}>
-            <Text variant="label" tone="secondary">
-              Sesi ini terekam smartwatch?
-            </Text>
-            <ChipGroup
-              options={REKAM}
-              value={terekam ? 'YA' : 'TIDAK'}
-              onChange={(v) => setTerekam(v === 'YA')}
-              labels={REKAM_LABEL}
-              wrap
-            />
-            <Text variant="caption" tone="tertiary">
-              {'Kalau jawabannya ya, kalorinya sudah termasuk di angka ' +
-                thousands(angkaPerangkat.total_kcal) +
-                ' kkal dan tidak dihitung lagi.'}
-            </Text>
-          </View>
-        ) : null}
+        <Checkbox
+          label="Sesi ini terekam jam tangan"
+          checked={terekam}
+          onChange={setTerekam}
+          hint="Kalorinya sudah ada di dalam angka aktif jam hari itu, jadi tidak ditambah lagi."
+        />
 
         <Input
           label="Catatan"
@@ -297,9 +300,14 @@ export default function WorkoutScreen() {
                     {duration(log.duration_minutes)} · {thousands(log.calories_burned)} kkal ·{' '}
                     {INTENSITY_LABEL[log.intensity]}
                   </Text>
-                  {log.tracked_by_device ? (
+                  {log.tracked_by_device || log.calories_source === 'MANUAL' ? (
                     <Text variant="caption" tone="tertiary">
-                      Sudah termasuk di angka smartwatch
+                      {[
+                        log.tracked_by_device ? 'Terekam jam tangan' : null,
+                        log.calories_source === 'MANUAL' ? 'Kalori diisi sendiri' : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </Text>
                   ) : null}
                 </View>

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import {
   Button,
   Card,
+  Checkbox,
   ChipGroup,
   DateField,
   EmptyState,
@@ -22,7 +23,7 @@ import {
   useWorkoutLibrary,
   useWorkoutsDate,
 } from '@/services/workouts.service';
-import { useDeviceEnergyDate } from '@/services/device-energy.service';
+import { useProfile } from '@/services/users.service';
 import type { WorkoutCategory, WorkoutIntensity, WorkoutLibraryItem } from '@/types';
 import { dayPhrase, todayWIB } from '@/utils/date';
 import { duration, thousands, toNum } from '@/utils/format';
@@ -31,9 +32,8 @@ import { LogActions } from './LogActions';
 const KATEGORI = ['CARDIO', 'STRENGTH', 'FLEXIBILITY', 'SPORTS', 'OTHER'] as const;
 const INTENSITAS = ['LOW', 'MEDIUM', 'HIGH'] as const;
 
-/** Pilihan pada pertanyaan "terekam smartwatch". */
-const REKAM = ['YA', 'TIDAK'] as const;
-const REKAM_LABEL = { YA: 'Ya, jam saya pakai', TIDAK: 'Tidak' };
+/** Berat acuan nilai kkal/menit di library. Sama dengan BERAT_ACUAN_KG di backend. */
+const BERAT_ACUAN_KG = 70;
 
 export const WorkoutPanel = () => {
   /** Tanggal yang sedang dilihat. Bawaannya hari ini. */
@@ -44,12 +44,8 @@ export const WorkoutPanel = () => {
   const create = useCreateWorkout();
   const hapus = useDeleteWorkout();
 
-  /**
-   * Pertanyaan "terekam smartwatch" hanya relevan kalau hari itu memang ada
-   * angka dari perangkat. Tanpa itu kalori olahraga selalu dihitung penuh, dan
-   * menanyakannya cuma menambah satu keputusan yang tidak berpengaruh apa-apa.
-   */
-  const angkaPerangkat = useDeviceEnergyDate(tanggal).data;
+  /** Berat badan untuk menaksir kalori dari nilai library yang acuannya 70 kg. */
+  const beratKg = useProfile().data?.current_weight_kg ?? BERAT_ACUAN_KG;
 
   const [kategori, setKategori] = useState<WorkoutCategory>('CARDIO');
   const [cari, setCari] = useState('');
@@ -61,6 +57,26 @@ export const WorkoutPanel = () => {
   const [terekam, setTerekam] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Kolom kalori punya dua keadaan: masih taksiran, atau sudah disentuh user.
+   *
+   * Selama belum disentuh, isinya mengikuti pilihan dan durasi, dan saat
+   * disimpan TIDAK dikirim, biar backend menghitungnya dari MET dan
+   * menandainya taksiran. Begitu user mengetik, angka itulah yang dikirim dan
+   * backend menandainya MANUAL, misalnya angka dari jam tangan. Kalau
+   * taksiran ikut dikirim, backend mengira user yang mengetiknya dan menolak
+   * menghitung ulang saat durasinya nanti dibetulkan.
+   */
+  const [kaloriDiketik, setKaloriDiketik] = useState<string | null>(null);
+
+  const taksiran = dipilih
+    ? Math.round(
+        ((toNum(dipilih.calories_burned_per_minute) ?? 0) * menit * beratKg) / BERAT_ACUAN_KG,
+      )
+    : null;
+
+  const kaloriTampil = kaloriDiketik ?? (taksiran === null ? '' : String(taksiran));
+
   const simpan = () => {
     setError(null);
 
@@ -69,14 +85,26 @@ export const WorkoutPanel = () => {
       return;
     }
 
+    let kalori: number | undefined;
+
+    if (kaloriDiketik !== null) {
+      const angka = Number(kaloriTampil);
+
+      if (kaloriTampil.trim() === '' || !Number.isFinite(angka) || angka < 0) {
+        setError('Isi kalori terbakar');
+        return;
+      }
+
+      kalori = Math.round(angka);
+    }
+
     create.mutate(
       {
         workout_library_id: dipilih.id,
         duration_minutes: menit,
         intensity: intensitas,
-        // Kalau hari itu tidak ada angka perangkat, pertanyaannya tidak muncul
-        // di layar, jadi tidak boleh ada nilai yang menyelinap dari sesi lalu.
-        tracked_by_device: angkaPerangkat ? terekam : false,
+        tracked_by_device: terekam,
+        ...(kalori === undefined ? {} : { calories_burned: kalori }),
         // Dicatat ke tanggal yang sedang dilihat, bukan selalu ke hari ini.
         logged_at: hariIni ? undefined : tanggal,
       },
@@ -84,21 +112,12 @@ export const WorkoutPanel = () => {
         onError: (e) => setError(toApiError(e).message),
         onSuccess: () => {
           setDipilih(null);
+          setKaloriDiketik(null);
           setTerekam(false);
         },
       },
     );
   };
-
-  /**
-   * Perkiraan kalori ditampilkan SEBELUM disimpan, dihitung dari nilai per
-   * menit di library. Backend tetap menghitung ulang dengan berat badan
-   * sebenarnya, yang di sini cuma ancar-ancar supaya user tahu kira-kira
-   * dampaknya sebelum memutuskan.
-   */
-  const perkiraan = dipilih
-    ? Math.round((toNum(dipilih.calories_burned_per_minute) ?? 0) * menit)
-    : 0;
 
   return (
     <>
@@ -162,36 +181,40 @@ export const WorkoutPanel = () => {
                 />
               </div>
 
-              <div className="row-between">
-                <span className="t-caption c-secondary">Perkiraan kalori</span>
-                <span className="t-h3 c-accent">{thousands(perkiraan)} kkal</span>
-              </div>
+              {/*
+                Satu kolom kalori, terisi taksiran dan bisa ditimpa: angka dari
+                jam tangan, atau angka apa pun yang user lebih percaya. Dulu
+                angkanya cuma ditampilkan dan tidak bisa diubah.
+              */}
+              <Input
+                label="Kalori terbakar"
+                inputMode="numeric"
+                value={kaloriTampil}
+                onChange={(e) => setKaloriDiketik(e.target.value.replace(/[^0-9]/g, ''))}
+                suffix="kkal"
+                hint={
+                  kaloriDiketik === null
+                    ? 'Taksiran dari durasi dan berat badanmu. Ketik sendiri kalau jam tanganmu menunjukkan angka lain.'
+                    : 'Angka ini disimpan apa adanya dan tidak dihitung ulang.'
+                }
+              />
 
               {/*
-                Muncul HANYA kalau hari itu ada angka kalori dari smartwatch.
+                SELALU tampil, tidak lagi menunggu angka harian jam diisi. Dulu
+                cuma muncul kalau angka smartwatch hari itu sudah ada, padahal
+                urutan nyatanya terbalik: sesi dicatat siang, angka jam diisi
+                malam. Sesi jadi tersimpan "tidak terekam" lalu ditambahkan lagi
+                di atas angka jam yang sudah memuatnya.
 
-                Jawabannya menentukan apakah kalori sesi ini ditambahkan di atas
-                angka perangkat. Jalan santai dan berkebun sambil memakai jam
-                sudah ikut terhitung di sana, jadi menambahkannya lagi berarti
-                menghitung dua kali. Berenang atau sesi yang jamnya dilepas
-                belum, jadi memang harus ditambahkan.
+                Centangan ini baru berpengaruh kalau angka jam hari itu ada.
+                Tanpa angka jam, sesi tetap dihitung penuh.
               */}
-              {angkaPerangkat ? (
-                <div className="stack-xs">
-                  <span className="t-label c-secondary">Sesi ini terekam smartwatch?</span>
-                  <ChipGroup
-                    options={REKAM}
-                    value={terekam ? 'YA' : 'TIDAK'}
-                    onChange={(v) => setTerekam(v === 'YA')}
-                    labels={REKAM_LABEL}
-                  />
-                  <span className="t-caption c-tertiary">
-                    {'Kalau jawabannya ya, kalorinya sudah termasuk di angka ' +
-                      thousands(angkaPerangkat.total_kcal) +
-                      ' kkal dan tidak dihitung lagi.'}
-                  </span>
-                </div>
-              ) : null}
+              <Checkbox
+                label="Sesi ini terekam jam tangan"
+                checked={terekam}
+                onChange={setTerekam}
+                hint="Kalorinya sudah ada di dalam angka aktif jam hari itu, jadi tidak ditambah lagi."
+              />
             </>
           ) : null}
 
@@ -240,6 +263,8 @@ export const WorkoutPanel = () => {
                   <span className="t-caption c-tertiary">
                     {' '}
                     · {duration(log.duration_minutes)} · {thousands(log.calories_burned)} kkal
+                    {log.tracked_by_device ? ' · terekam jam' : ''}
+                    {log.calories_source === 'MANUAL' ? ' · kalori diisi sendiri' : ''}
                   </span>
                 </span>
 
