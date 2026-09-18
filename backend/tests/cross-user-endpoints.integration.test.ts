@@ -140,7 +140,6 @@ beforeAll(async () => {
 
   milikA.fileMakanan = await unggahBerkasUji('lintas-makan.webp');
   const makanan = await repoA.create('food_logs', {
-    photo_url: `/api/files/${milikA.fileMakanan}`,
     directus_file_id: milikA.fileMakanan,
     meal_type: 'LUNCH',
     ai_analysis: { items: [], confidence: 'low' },
@@ -148,7 +147,6 @@ beforeAll(async () => {
     protein_g: '30.00',
     carbs_g: '80.00',
     fat_g: '20.00',
-    notes: null,
     logged_at: new Date().toISOString(),
   });
   milikA.food = makanan.id;
@@ -313,7 +311,7 @@ describe('mengubah dan menghapus dengan id milik user lain', () => {
       kunci: 'workout',
       isi: { duration_minutes: 15 },
     },
-    { nama: 'makanan', jalur: '/api/food', kunci: 'food', isi: { total_calories: 100 } },
+    { nama: 'makanan', jalur: '/api/food', kunci: 'food', isi: { meal_type: 'DINNER' } },
     { nama: 'tidur', jalur: '/api/sleep', kunci: 'sleep', isi: { quality_score: 3 } },
     { nama: 'goal', jalur: '/api/goals', kunci: 'goal', isi: { target_weight_kg: 65 } },
   ];

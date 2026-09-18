@@ -45,23 +45,98 @@ const main = async (): Promise<void> => {
   const fileTerunggah: string[] = [];
 
   try {
-    write('POST /api/food');
+    write('POST /api/food tanpa foto (jalur teks, model chat)');
+    const teks = await request(app)
+      .post('/api/food')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        meal_type: 'BREAKFAST',
+        items: [
+          { name: 'Nasi uduk', portions: 1, weight: 200, unit: 'g' },
+          { name: 'Telur balado', portions: 2, weight: 60, unit: 'g' },
+          { name: 'Teh manis', portions: 1, weight: 250, unit: 'ml' },
+        ],
+      });
+
+    if (teks.status !== 201) {
+      bad(`status ${teks.status}: ${JSON.stringify(teks.body.error)}`);
+    } else {
+      const d = teks.body.data;
+      const a = d.ai_analysis as {
+        source: string;
+        items: { name: string; portions: number; amount: number; calories: number }[];
+      };
+      ok(`sumber ${a.source}, foto_url ${String(d.photo_url)}`);
+      for (const item of a.items) {
+        ok(`${item.name}: ${item.portions} porsi, ${item.amount} total, ${item.calories} kkal`);
+      }
+      ok(`total ${d.total_calories} kkal, protein ${d.protein_g} g`);
+
+      const telur = a.items[1];
+      if (telur?.amount === 120) ok('2 porsi × 60 g = 120 g, jumlah dari user dihormati');
+      else bad(`telur seharusnya 120 g, dapat ${telur?.amount}`);
+    }
+
+    write('\nPOST /api/food tanpa foto dan tanpa berat: harus ditolak');
+    const tolakBerat = await request(app)
+      .post('/api/food')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ meal_type: 'SNACK', items: [{ name: 'Pisang', portions: 1, unit: 'g' }] });
+
+    if (tolakBerat.status === 400) ok(`ditolak: ${tolakBerat.body.error.message}`);
+    else bad(`seharusnya 400, dapat ${tolakBerat.status}`);
+
+    write('\nPOST /api/food dengan foto (jalur vision), berat sebagian dikosongkan');
     const foto = await gambarUji(200, 150, 100);
 
     const food = await request(app)
       .post('/api/food')
       .set('Authorization', `Bearer ${token}`)
       .field('meal_type', 'LUNCH')
+      .field(
+        'items',
+        JSON.stringify([
+          { name: 'Nasi putih', portions: 1, unit: 'g' },
+          { name: 'Ayam goreng', portions: 2, unit: 'g' },
+        ]),
+      )
       .attach('photo', foto, 'makan.jpg');
 
     if (food.status !== 201) {
       bad(`status ${food.status}: ${JSON.stringify(food.body.error)}`);
     } else {
       const d = food.body.data;
+      const a = d.ai_analysis as {
+        source: string;
+        photo_matches: boolean | null;
+        photo_note: string | null;
+        items: {
+          name: string;
+          portions: number;
+          weight_per_portion: number;
+          weight_source: string;
+          amount: number;
+          calories: number;
+        }[];
+      };
       fileTerunggah.push(d.directus_file_id as string);
-      ok(`log dibuat, file ${d.directus_file_id}`);
-      ok(`kalori ${d.total_calories}, protein ${d.protein_g}g`);
-      ok(`ai_analysis tersimpan: ${Object.keys(d.ai_analysis ?? {}).join(', ')}`);
+      ok(`log dibuat, file ${d.directus_file_id}, sumber ${a.source}`);
+      for (const item of a.items) {
+        ok(
+          `${item.name}: ${item.portions} × ${item.weight_per_portion} (${item.weight_source}) = ${item.amount}, ${item.calories} kkal`,
+        );
+      }
+      ok(
+        `foto cocok: ${String(a.photo_matches)}${a.photo_note ? ', catatan: ' + a.photo_note : ''}`,
+      );
+      ok(`total ${d.total_calories} kkal`);
+
+      const ayam = a.items[1];
+      if (ayam?.portions === 2 && ayam.amount === ayam.weight_per_portion * 2) {
+        ok('ayam 2 porsi dikalikan backend, bukan diserahkan ke model');
+      } else {
+        bad(`ayam: porsi ${ayam?.portions}, jumlah ${ayam?.amount}`);
+      }
 
       // photo_url menunjuk ke proxy milik backend, bukan ke Directus langsung.
       // File di Directus privat, jadi hanya lewat sinilah client bisa membukanya.
@@ -121,6 +196,7 @@ const main = async (): Promise<void> => {
       .post('/api/food')
       .set('Authorization', `Bearer ${token}`)
       .field('meal_type', 'BUKAN_MEAL_TYPE')
+      .field('items', JSON.stringify([{ name: 'Nasi', portions: 1, unit: 'g' }]))
       .attach('photo', foto, 'makan.jpg');
 
     if (tolak.status === 400) ok(`meal_type ngawur ditolak: ${tolak.body.error.code}`);

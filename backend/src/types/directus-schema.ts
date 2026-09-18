@@ -142,24 +142,27 @@ export interface BodyPhotoRecord {
   created_at: TimestampString | null;
 }
 
-/** Log makanan hasil analisa foto oleh Groq Vision. Bisa banyak per hari. */
+/**
+ * Satu sesi makan: daftar item yang ditulis user, ditaksir AI, dihitung backend. Bisa
+ * banyak per hari.
+ */
 export interface FoodLogRecord {
   id: string;
   /** Pemilik data ini */
   user_id: string;
-  photo_url: string;
-  /** File foto makanan di Directus storage */
+  /** File foto makanan di Directus storage, kosong kalau dicatat tanpa foto */
   directus_file_id: string | null;
   meal_type: MealType;
-  /** Raw JSON hasil analisa Groq Vision, disimpan utuh */
+  /**
+   * Daftar item lengkap dengan hasil perkalian backend, nilai per 100 dari model, sumber
+   * (PHOTO/TEXT), dan balasan model utuh
+   */
   ai_analysis: Record<string, unknown>;
-  /** Di-extract dari ai_analysis, jadi kolom sendiri supaya gampang di-aggregate */
+  /** Jumlah kalori semua item, dihitung backend. Kolom sendiri supaya gampang di-aggregate */
   total_calories: number;
   protein_g: DecimalString;
   carbs_g: DecimalString;
   fat_g: DecimalString;
-  /** Catatan bebas dari user */
-  notes: string | null;
   /** Pakai timestamp, bukan date, supaya urutan makan dalam sehari bisa di-sort */
   logged_at: TimestampString;
   /** Diisi otomatis oleh Directus saat item dibuat */

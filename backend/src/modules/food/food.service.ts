@@ -4,242 +4,99 @@ import type { FoodLogRecord } from '../../types/directus-schema.js';
 import { AppError } from '../../utils/api-error.js';
 import { todayInJakarta } from '../../utils/daily-key.js';
 import { removeFile, removeFileSafely, uploadWebP } from '../../utils/directus-files.js';
-import { analyzeImages, foodPrompt } from '../../utils/groq.js';
-import { logger } from '../../utils/logger.js';
+import { analyzeImages, analyzeText, foodPrompt } from '../../utils/groq.js';
+import { type FoodAnalysis, hitungItem, jumlahkan, susunAnalisa } from '../../utils/food-math.js';
 import { convertToWebP, toAnalysisBuffer } from '../../utils/sharp.js';
 import { timestampDayFilter } from '../../utils/query.js';
+import { fileUrl } from '../files/files.service.js';
 import { recordActivitySafely } from '../streaks/streaks.service.js';
-import type { CreateFoodDto, UpdateFoodDto } from './food.validation.js';
+import type { CreateFoodDto, FoodItemEditDto, UpdateFoodDto } from './food.validation.js';
+
+/** Bentuk yang dikirim ke client: record ditambah URL foto yang dirangkai dari id berkasnya. */
+export type FoodLog = FoodLogRecord & { photo_url: string | null };
+
+const denganFoto = (log: FoodLogRecord): FoodLog => ({
+  ...log,
+  photo_url: log.directus_file_id ? fileUrl(log.directus_file_id) : null,
+});
 
 /**
- * Satu bahan di dalam piring, sesudah dihitung backend.
+ * Mencatat satu sesi makan.
  *
- * Nilai per 100 gram dan taksiran beratnya datang dari model. Empat field
- * terakhir adalah hasil perkalian, dan itu dikerjakan di sini.
- */
-export interface ItemMakanan {
-  name: string;
-  grams: number;
-  kcal_per_100g: number;
-  protein_per_100g: number;
-  carbs_per_100g: number;
-  fat_per_100g: number;
-  calories: number;
-  protein_g: number;
-  carbs_g: number;
-  fat_g: number;
-}
-
-/**
- * Bentuk hasil analisa Groq yang dipakai sebagai kolom tersendiri.
- * Field-nya di-extract supaya summary harian bisa mengagregasi tanpa harus
- * mem-parse JSON di setiap baris.
- */
-interface AnalisaMakanan {
-  items: ItemMakanan[];
-  total_calories: number;
-  protein_g: number;
-  carbs_g: number;
-  fat_g: number;
-}
-
-/**
- * Mengambil angka gizi dari respons AI.
+ * Fotonya opsional. Dengan foto: diunggah ke storage, salinan kecilnya dikirim
+ * ke model vision untuk menaksir berat item yang beratnya dikosongkan user.
+ * Tanpa foto: setiap item wajib punya berat, dan model teks cuma diminta nilai
+ * gizinya.
  *
- * Model bisa saja membalas field yang hilang atau bertipe aneh walaupun sudah
- * diminta format tertentu. Nilai yang tidak terbaca diperlakukan sebagai nol
- * daripada menggagalkan seluruh pencatatan: foto dan analisanya tetap tersimpan
- * utuh di ai_analysis, dan user bisa mengoreksi angkanya.
- */
-const angka = (nilai: unknown): number => {
-  const parsed = typeof nilai === 'string' ? Number(nilai) : nilai;
-  return typeof parsed === 'number' && Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-};
-
-/**
- * Batas atas yang berasal dari sifat makanannya sendiri, bukan dari selera.
- *
- * Lemak murni adalah bahan pangan terpadat yang ada, 900 kkal per 100 gram, jadi
- * apa pun di atas itu pasti keliru. Begitu juga satu makro tidak mungkin lebih
- * dari 100 gram di dalam 100 gram bahan. Batas beratnya lebih longgar karena
- * cuma untuk menangkal salah ketik nol, bukan untuk menilai porsi.
- */
-const MAKS_GRAM = 3000;
-const MAKS_KKAL_PER_100G = 900;
-const MAKS_MAKRO_PER_100G = 100;
-
-const batas = (nilai: number, maks: number): number => (nilai > maks ? maks : nilai);
-
-const bulat = (nilai: number, desimal: number): number => {
-  const faktor = 10 ** desimal;
-  return Math.round(nilai * faktor) / faktor;
-};
-
-/**
- * Menghitung satu bahan dari taksiran model.
- *
- * Model HANYA menaksir: berapa gram, dan berapa gizinya per 100 gram. Semua
- * perkalian dikerjakan di sini, persis seperti aturan di fitur chat bahwa model
- * tidak boleh menghitung apa pun. Salah kali-kalian dari model karena itu tidak
- * mungkin sampai ke angka yang dilihat user.
- */
-const hitungItem = (mentah: unknown): ItemMakanan | null => {
-  if (typeof mentah !== 'object' || mentah === null || Array.isArray(mentah)) return null;
-
-  const r = mentah as Record<string, unknown>;
-  const name = typeof r.name === 'string' ? r.name.trim() : '';
-
-  // Bahan tanpa nama tidak bisa ditampilkan maupun dikoreksi user, jadi lebih
-  // baik dibuang daripada muncul sebagai baris kosong yang menambah kalori.
-  if (name === '') return null;
-
-  const gram = batas(angka(r.grams), MAKS_GRAM);
-  const kkal100 = batas(angka(r.kcal_per_100g), MAKS_KKAL_PER_100G);
-  const protein100 = batas(angka(r.protein_per_100g), MAKS_MAKRO_PER_100G);
-  const karbo100 = batas(angka(r.carbs_per_100g), MAKS_MAKRO_PER_100G);
-  const lemak100 = batas(angka(r.fat_per_100g), MAKS_MAKRO_PER_100G);
-
-  const rasio = gram / 100;
-
-  return {
-    name,
-    grams: Math.round(gram),
-    kcal_per_100g: Math.round(kkal100),
-    protein_per_100g: bulat(protein100, 1),
-    carbs_per_100g: bulat(karbo100, 1),
-    fat_per_100g: bulat(lemak100, 1),
-    calories: Math.round(kkal100 * rasio),
-    protein_g: bulat(protein100 * rasio, 1),
-    carbs_g: bulat(karbo100 * rasio, 1),
-    fat_g: bulat(lemak100 * rasio, 1),
-  };
-};
-
-const jumlah = (items: ItemMakanan[], ambil: (item: ItemMakanan) => number): number =>
-  items.reduce((total, item) => total + ambil(item), 0);
-
-const extractAnalisa = (raw: Record<string, unknown>): AnalisaMakanan => {
-  const daftar = Array.isArray(raw.items) ? raw.items : [];
-  const items = daftar
-    .map(hitungItem)
-    .filter((item): item is ItemMakanan => item !== null)
-    // Bahan tanpa berat tidak menyumbang kalori apa pun dan cuma jadi baris
-    // membingungkan di layar.
-    .filter((item) => item.grams > 0);
-
-  if (items.length === 0) {
-    // Bentuk lama: model langsung menyebut totalnya tanpa menguraikan bahannya.
-    // Masih diterima supaya satu balasan yang tidak menurut format tidak
-    // menggagalkan pencatatan yang fotonya sudah terlanjur diunggah.
-    logger.warn('Analisa makanan tidak memuat rincian bahan, memakai total dari model');
-
-    return {
-      items: [],
-      total_calories: Math.round(angka(raw.total_calories)),
-      protein_g: angka(raw.protein_g),
-      carbs_g: angka(raw.carbs_g),
-      fat_g: angka(raw.fat_g),
-    };
-  }
-
-  return {
-    items,
-    total_calories: Math.round(jumlah(items, (i) => i.calories)),
-    protein_g: bulat(
-      jumlah(items, (i) => i.protein_g),
-      1,
-    ),
-    carbs_g: bulat(
-      jumlah(items, (i) => i.carbs_g),
-      1,
-    ),
-    fat_g: bulat(
-      jumlah(items, (i) => i.fat_g),
-      1,
-    ),
-  };
-};
-
-/**
- * Mencatat makanan dari foto.
- *
- * Ini operasi lintas sistem: file diunggah ke Directus storage, AI dipanggil,
- * lalu record dibuat di database. Karena Directus tidak punya transaction,
- * seluruhnya dibungkus unitOfWork, termasuk file yang sudah terlanjur
- * terunggah, yang didaftarkan lewat onRollback.
- *
- * Tanpa itu, kegagalan di langkah mana pun setelah upload akan meninggalkan
- * file yatim di storage yang tidak dirujuk baris mana pun.
+ * Ini operasi lintas sistem, jadi dibungkus unitOfWork: berkas yang sudah
+ * terlanjur terunggah didaftarkan lewat onRollback supaya kegagalan di langkah
+ * mana pun setelahnya tidak meninggalkan berkas yatim di storage.
  */
 export const create = async (
   userId: string,
-  photo: Buffer,
+  photo: Buffer | null,
   data: CreateFoodDto,
-): Promise<FoodLogRecord> => {
-  const converted = await convertToWebP(photo);
+): Promise<FoodLog> => {
+  if (photo === null) {
+    const tanpaBerat = data.items.filter((item) => item.weight === undefined).map((i) => i.name);
+
+    if (tanpaBerat.length > 0) {
+      throw AppError.badRequest(
+        `Tanpa foto, isi perkiraan berat untuk: ${tanpaBerat.join(', ')}. Atau lampirkan foto supaya ditaksir dari sana.`,
+      );
+    }
+  }
+
+  const converted = photo === null ? null : await convertToWebP(photo);
 
   const log = await unitOfWork(async (tx) => {
-    const file = await uploadWebP(
-      converted.buffer,
-      `food-${Date.now()}.webp`,
-      `Foto makanan ${data.meal_type}`,
-    );
+    let fileId: string | null = null;
+    let analisaMentah: Record<string, unknown>;
 
-    // Didaftarkan SEGERA setelah upload berhasil, sebelum langkah berikutnya
-    // dijalankan. Kalau didaftarkan belakangan, kegagalan di antara keduanya
-    // meninggalkan file tanpa cara membersihkannya.
-    tx.onRollback(() => removeFileSafely(file.id), `file makanan ${file.id}`);
+    if (converted) {
+      const file = await uploadWebP(
+        converted.buffer,
+        `food-${Date.now()}.webp`,
+        `Foto makanan ${data.meal_type}`,
+      );
 
-    // Yang dikirim ke AI salinan kecilnya, bukan yang tersimpan di storage.
-    // Catatan user ikut dikirim sebagai konteks, tanpa itu AI cuma menebak
-    // dari rupa makanannya dan sering keliru pada hidangan yang mirip.
-    const analisaMentah = await analyzeImages(
-      [await toAnalysisBuffer(converted.buffer)],
-      foodPrompt(data.notes),
-    );
-    const analisa = extractAnalisa(analisaMentah);
+      // Didaftarkan SEGERA setelah upload berhasil, sebelum langkah berikutnya
+      // dijalankan. Kalau didaftarkan belakangan, kegagalan di antara keduanya
+      // meninggalkan berkas tanpa cara membersihkannya.
+      tx.onRollback(() => removeFileSafely(file.id), `file makanan ${file.id}`);
+      fileId = file.id;
 
-    // foods_detected diturunkan dari nama bahan supaya tampilan dan fitur
-    // koreksi yang sudah memakainya tetap bekerja. Dibiarkan apa adanya kalau
-    // model tidak menguraikan bahannya, supaya daftar lamanya tidak terhapus.
-    const rincian =
-      analisa.items.length > 0
-        ? { items: analisa.items, foods_detected: analisa.items.map((item) => item.name) }
-        : {};
+      // Yang dikirim ke model salinan kecilnya, bukan yang tersimpan di storage.
+      analisaMentah = await analyzeImages(
+        [await toAnalysisBuffer(converted.buffer)],
+        foodPrompt(data.items, true),
+      );
+    } else {
+      analisaMentah = await analyzeText(foodPrompt(data.items, false));
+    }
+
+    const analisa = susunAnalisa(data.items, analisaMentah, converted ? 'PHOTO' : 'TEXT');
 
     const repo = forUser(userId, tx);
 
     return repo.create('food_logs', {
-      photo_url: file.url,
-      directus_file_id: file.id,
+      directus_file_id: fileId,
       meal_type: data.meal_type,
-      // Respons AI disimpan UTUH, bukan cuma angka yang di-extract. Kalau
-      // suatu saat butuh tingkat keyakinannya, datanya sudah ada tanpa perlu
-      // menganalisa ulang.
-      //
-      // Rincian bahan ditulis kembali LENGKAP DENGAN hasil perkaliannya. Layar
-      // karena itu tidak pernah menghitung sendiri, dan angka yang dibaca user
-      // dijamin sama persis dengan yang masuk ke summary harian.
-      ai_analysis: {
-        ...analisaMentah,
-        ...rincian,
-        total_calories: analisa.total_calories,
-        protein_g: analisa.protein_g,
-        carbs_g: analisa.carbs_g,
-        fat_g: analisa.fat_g,
-      },
-      total_calories: data.total_calories ?? analisa.total_calories,
-      protein_g: (data.protein_g ?? analisa.protein_g).toFixed(2),
-      carbs_g: (data.carbs_g ?? analisa.carbs_g).toFixed(2),
-      fat_g: (data.fat_g ?? analisa.fat_g).toFixed(2),
-      notes: data.notes ?? null,
+      // Disimpan LENGKAP DENGAN hasil perkaliannya. Layar karena itu tidak
+      // pernah menghitung sendiri, dan angka yang dibaca user dijamin sama
+      // persis dengan yang masuk ke summary harian.
+      ai_analysis: analisa as unknown as Record<string, unknown>,
+      total_calories: analisa.total_calories,
+      protein_g: analisa.protein_g.toFixed(2),
+      carbs_g: analisa.carbs_g.toFixed(2),
+      fat_g: analisa.fat_g.toFixed(2),
       logged_at: data.logged_at ?? new Date().toISOString(),
     });
   });
 
   await recordActivitySafely(userId);
 
-  return log;
+  return denganFoto(log);
 };
 
 export interface FoodDay {
@@ -248,7 +105,7 @@ export interface FoodDay {
   total_protein_g: number;
   total_carbs_g: number;
   total_fat_g: number;
-  logs: FoodLogRecord[];
+  logs: FoodLog[];
 }
 
 export const getByDate = async (userId: string, date: string): Promise<FoodDay> => {
@@ -271,29 +128,37 @@ export const getByDate = async (userId: string, date: string): Promise<FoodDay> 
     total_protein_g: protein,
     total_carbs_g: karbo,
     total_fat_g: lemak,
-    logs,
+    logs: logs.map(denganFoto),
   };
 };
 
 export const getToday = async (userId: string): Promise<FoodDay> =>
   getByDate(userId, todayInJakarta());
 
+/** Membaca ai_analysis lama dengan hati-hati: kolomnya JSON bebas. */
+const analisaTersimpan = (log: FoodLogRecord): FoodAnalysis | null => {
+  const a = log.ai_analysis as Partial<FoodAnalysis> | null;
+  if (!a || !Array.isArray(a.items)) return null;
+  return a as FoodAnalysis;
+};
+
 /**
- * Mengoreksi log makanan yang sudah tercatat.
+ * Mengoreksi sesi makan, TANPA memanggil model lagi.
  *
- * Hanya field yang benar-benar dikirim yang disentuh. Menyalin seluruh objek
- * akan menimpa kolom yang tidak disebut dengan undefined, dan koreksi kecil
- * seperti membetulkan nama hidangan justru menghapus angka gizinya.
+ * Nilai gizi per 100 tiap item sudah tersimpan dari analisa pertama, jadi
+ * mengubah nama, jumlah porsi, atau berat cukup dihitung ulang di sini. Item
+ * dicocokkan ke yang tersimpan lewat urutannya. Item yang belum pernah
+ * dianalisa (daftar lebih panjang dari yang tersimpan) ditolak: itu makanan
+ * baru, dan makanan baru adalah sesi baru.
  *
- * Perubahan pada daftar makanan ditulis ke dalam ai_analysis, bukan menimpanya.
- * Hasil asli dari AI tetap dipertahankan supaya masih bisa dibandingkan, dan
- * ditandai user_edited agar jelas angkanya sudah tidak murni dari model.
+ * Hasil model tetap tersimpan di `raw`, dan sesinya ditandai user_edited
+ * supaya jelas angkanya sudah bukan murni taksiran.
  */
 export const update = async (
   userId: string,
   logId: string,
   data: UpdateFoodDto,
-): Promise<FoodLogRecord> => {
+): Promise<FoodLog> => {
   const repo = forUser(userId);
 
   // Lewat findById supaya log milik user lain dibalas 404, bukan ikut terubah.
@@ -302,29 +167,58 @@ export const update = async (
   const perubahan: Record<string, unknown> = {};
 
   if (data.meal_type !== undefined) perubahan.meal_type = data.meal_type;
-  if (data.notes !== undefined) perubahan.notes = data.notes;
-  if (data.total_calories !== undefined) perubahan.total_calories = data.total_calories;
-  if (data.protein_g !== undefined) perubahan.protein_g = data.protein_g.toFixed(2);
-  if (data.carbs_g !== undefined) perubahan.carbs_g = data.carbs_g.toFixed(2);
-  if (data.fat_g !== undefined) perubahan.fat_g = data.fat_g.toFixed(2);
 
-  if (data.foods_detected !== undefined) {
-    perubahan.ai_analysis = {
-      ...log.ai_analysis,
-      foods_detected: data.foods_detected,
+  if (data.items !== undefined) {
+    const lama = analisaTersimpan(log);
+
+    if (!lama) {
+      throw AppError.badRequest('Catatan ini tidak punya rincian item yang bisa dikoreksi');
+    }
+
+    if (data.items.length > lama.items.length) {
+      throw AppError.badRequest(
+        'Menambah makanan baru butuh taksiran gizi baru. Catat sebagai sesi makan baru.',
+      );
+    }
+
+    const dihitung = data.items.map((item: FoodItemEditDto, i) => {
+      // Daftar lebih pendek berarti user menghapus item; yang tersisa
+      // dicocokkan berurutan dan aman karena panjangnya sudah dijamin.
+      const asal = lama.items[i];
+      if (!asal) throw AppError.badRequest('Item tidak dikenali');
+
+      return hitungItem(item, null, {
+        kcal: asal.kcal_per_100,
+        protein: asal.protein_per_100,
+        carbs: asal.carbs_per_100,
+        fat: asal.fat_per_100,
+        missing: asal.nutrition_missing,
+      });
+    });
+
+    const baru: FoodAnalysis = {
+      ...lama,
+      items: dihitung,
+      ...jumlahkan(dihitung),
       user_edited: true,
     };
+
+    perubahan.ai_analysis = baru;
+    perubahan.total_calories = baru.total_calories;
+    perubahan.protein_g = baru.protein_g.toFixed(2);
+    perubahan.carbs_g = baru.carbs_g.toFixed(2);
+    perubahan.fat_g = baru.fat_g.toFixed(2);
   }
 
-  return repo.update('food_logs', logId, perubahan);
+  return denganFoto(await repo.update('food_logs', logId, perubahan));
 };
 
 /**
- * Menghapus log makanan beserta fotonya.
+ * Menghapus sesi makan beserta fotonya kalau ada.
  *
- * File dihapus dari Directus LEBIH DULU, baru record-nya, sesuai CLAUDE.md
- * section 5. Kalau urutannya dibalik dan penghapusan file gagal, tidak ada
- * lagi yang menyimpan id file itu dan ia jadi yatim tanpa jejak.
+ * Berkas dihapus dari Directus LEBIH DULU, baru record-nya, sesuai CLAUDE.md
+ * section 5. Kalau urutannya dibalik dan penghapusan berkas gagal, tidak ada
+ * lagi yang menyimpan id berkas itu dan ia jadi yatim tanpa jejak.
  */
 export const remove = async (userId: string, logId: string): Promise<void> => {
   const repo = forUser(userId);
@@ -335,7 +229,7 @@ export const remove = async (userId: string, logId: string): Promise<void> => {
     try {
       await removeFile(log.directus_file_id);
     } catch (error) {
-      // File yang memang sudah tidak ada bukan alasan menolak penghapusan
+      // Berkas yang memang sudah tidak ada bukan alasan menolak penghapusan
       // record, hasil akhirnya justru yang diinginkan user.
       if (!isNotFound(error)) throw error;
     }

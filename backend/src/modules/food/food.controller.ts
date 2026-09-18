@@ -2,21 +2,25 @@ import type { Request, Response } from 'express';
 
 import { getValidatedParams, getValidatedQuery } from '../../middlewares/validate.middleware.js';
 import { getAuthUser } from '../../types/index.js';
-import { AppError } from '../../utils/api-error.js';
 import { todayInJakarta } from '../../utils/daily-key.js';
 import type { UuidParamDto } from '../../utils/query.js';
 import { sendSuccess } from '../../utils/response.js';
 import * as foodService from './food.service.js';
 import type { CreateFoodDto, FoodDateDto, UpdateFoodDto } from './food.validation.js';
 
+/**
+ * Foto OPSIONAL. Dengan foto request-nya multipart dan Multer mengisi req.file;
+ * tanpa foto request-nya JSON biasa dan req.file kosong. Service yang
+ * memutuskan apa artinya tanpa foto: setiap item wajib punya berat.
+ */
 export const create = async (req: Request, res: Response): Promise<void> => {
   const user = getAuthUser(req);
 
-  if (!req.file) {
-    throw AppError.badRequest('Foto makanan wajib dikirim di field "photo"');
-  }
-
-  const result = await foodService.create(user.id, req.file.buffer, req.body as CreateFoodDto);
+  const result = await foodService.create(
+    user.id,
+    req.file?.buffer ?? null,
+    req.body as CreateFoodDto,
+  );
 
   sendSuccess(res, result, 201);
 };

@@ -221,39 +221,56 @@ export interface BodyMeasurement {
   created_at: string | null;
 }
 
+/** Satuan berat atau volume satu porsi. Minuman ditakar ml. */
+export type FoodUnit = 'g' | 'ml';
+
 /**
- * Satu bahan di dalam piring, hasil penguraian AI.
+ * Satu makanan di dalam sesi makan, sesudah dihitung backend.
  *
- * Model hanya menaksir berat dan nilai gizi per 100 gram. Empat field terakhir
- * adalah hasil perkalian, dan itu dikerjakan backend, bukan model.
+ * Nama, jumlah porsi, dan satuan ditulis user dan tidak pernah diubah siapa
+ * pun. Berat per porsi dari user atau taksiran model, ditandai asalnya. Nilai
+ * per 100 dari model. Empat angka terakhir hasil perkalian backend.
  */
 export interface FoodItem {
   name: string;
-  grams: number;
-  kcal_per_100g: number;
-  protein_per_100g: number;
-  carbs_per_100g: number;
-  fat_per_100g: number;
+  portions: number;
+  unit: FoodUnit;
+  /** Berat atau volume SATU porsi. */
+  weight_per_portion: number;
+  weight_source: 'USER' | 'AI';
+  /** Total yang dimakan: portions × weight_per_portion. */
+  amount: number;
+  kcal_per_100: number;
+  protein_per_100: number;
+  carbs_per_100: number;
+  fat_per_100: number;
   calories: number;
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  /** true kalau model tidak memberi nilai gizi untuk item ini; angkanya nol dan harus dicatat ulang. */
+  nutrition_missing: boolean;
 }
 
 export interface FoodAnalysis {
-  /** Kosong pada catatan lama yang dibuat sebelum analisa diuraikan per bahan. */
-  items?: FoodItem[];
-  foods_detected?: string[];
-  total_calories?: number;
-  protein_g?: number;
-  carbs_g?: number;
-  fat_g?: number;
-  confidence?: 'low' | 'medium' | 'high';
+  /** PHOTO kalau ditaksir dari foto, TEXT kalau dari tulisan saja. */
+  source: 'PHOTO' | 'TEXT';
+  items: FoodItem[];
+  total_calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  confidence: string | null;
+  /** Null tanpa foto. false kalau model melihat makanan yang jelas berbeda dari tulisan. */
+  photo_matches: boolean | null;
+  photo_note: string | null;
+  user_edited: boolean;
 }
 
 export interface FoodLog {
   id: string;
-  photo_url: string;
+  /** Null kalau dicatat tanpa foto. */
+  photo_url: string | null;
   directus_file_id: string | null;
   meal_type: MealType;
   ai_analysis: FoodAnalysis;
@@ -261,7 +278,6 @@ export interface FoodLog {
   protein_g: DecimalString;
   carbs_g: DecimalString;
   fat_g: DecimalString;
-  notes: string | null;
   logged_at: TimestampString;
   created_at: string | null;
 }

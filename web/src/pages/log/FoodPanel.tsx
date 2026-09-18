@@ -1,7 +1,13 @@
-import { ForkKnifeIcon, SparkleIcon } from '@phosphor-icons/react';
+import { ForkKnifeIcon, SparkleIcon, WarningCircleIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
 
 import { AuthImage } from '@/components/features/AuthImage';
+import {
+  barisKosong,
+  type FoodItemDraft,
+  FoodItemsEditor,
+  susunItem,
+} from '@/components/features/FoodItemsEditor';
 import { PhotoPicker } from '@/components/features/PhotoPicker';
 import {
   Button,
@@ -10,7 +16,6 @@ import {
   DateField,
   EmptyState,
   ErrorNote,
-  Input,
   Loading,
   Modal,
   SectionHeader,
@@ -19,10 +24,15 @@ import { colors, metricColors } from '@/constants/colors';
 import { MEAL_LABEL, MEAL_OPTIONS } from '@/constants/labels';
 import { toApiError } from '@/lib/api';
 import { useCreateFood, useDeleteFood, useFoodDate, useUpdateFood } from '@/services/food.service';
-import type { FoodLog, MealType } from '@/types';
+import type { FoodItem, FoodLog, MealType } from '@/types';
 import { dayPhrase, timeWIB, todayWIB, wibToISO } from '@/utils/date';
 import { thousands, toNum } from '@/utils/format';
 import { LogActions } from './LogActions';
+
+/** "2 × 150 g" atau "250 ml" kalau porsinya satu. */
+const ringkasJumlah = (item: FoodItem): string =>
+  (item.portions === 1 ? '' : `${item.portions} × `) +
+  `${thousands(item.weight_per_portion)} ${item.unit}`;
 
 export const FoodPanel = () => {
   /** Tanggal yang sedang dilihat. Bawaannya hari ini. */
@@ -35,23 +45,26 @@ export const FoodPanel = () => {
 
   const [file, setFile] = useState<File | null>(null);
   const [jenis, setJenis] = useState<MealType>('LUNCH');
-  const [catatan, setCatatan] = useState('');
+  const [items, setItems] = useState<FoodItemDraft[]>([barisKosong()]);
   const [error, setError] = useState<string | null>(null);
   const [diedit, setDiedit] = useState<FoodLog | null>(null);
 
   const simpan = () => {
-    setError(null);
+    // Tanpa foto tidak ada yang bisa menaksir berat, jadi beratnya wajib.
+    const susunan = susunItem(items, file === null);
 
-    if (!file) {
-      setError('Pilih foto makanannya dulu');
+    if ('error' in susunan) {
+      setError(susunan.error);
       return;
     }
+
+    setError(null);
 
     create.mutate(
       {
         file,
         meal_type: jenis,
-        notes: catatan.trim() || undefined,
+        items: susunan.items,
         // Saat menelusuri hari lampau, makanan dicatat ke tanggal ITU. Tengah
         // hari dipakai sebagai jam netral karena jam sesungguhnya sudah tidak
         // bisa diingat lagi.
@@ -61,7 +74,7 @@ export const FoodPanel = () => {
         onError: (e) => setError(toApiError(e).message),
         onSuccess: () => {
           setFile(null);
-          setCatatan('');
+          setItems([barisKosong()]);
         },
       },
     );
@@ -75,19 +88,30 @@ export const FoodPanel = () => {
 
       <Card>
         <div className="stack">
-          <div style={{ maxWidth: 260 }}>
-            <PhotoPicker label="Foto makanan" file={file} onPick={setFile} />
-          </div>
-
           <ChipGroup options={MEAL_OPTIONS} value={jenis} onChange={setJenis} labels={MEAL_LABEL} />
 
-          <Input
-            label="Catatan"
-            value={catatan}
-            onChange={(e) => setCatatan(e.target.value)}
-            placeholder="Contoh: sate lontong dengan bumbu kacang"
-            hint="Catatan ini dikirim ke AI dan dianggap benar soal APA makanannya. Foto cuma dipakai menakar porsinya."
+          {/*
+            Daftar makanan yang ditulis user adalah sumber kebenarannya. Foto
+            cuma pelengkap untuk menaksir berat yang dikosongkan. Dulu terbalik:
+            foto wajib, tulisan opsional, dan jumlah porsi diabaikan model.
+          */}
+          <FoodItemsEditor
+            items={items}
+            onChange={setItems}
+            beratWajib={file === null}
+            disabled={create.isPending}
           />
+
+          <div className="stack-xs">
+            <span className="t-label c-secondary">Foto (opsional)</span>
+            <span className="t-caption c-tertiary">
+              Kalau ada foto, berat yang kamu kosongkan ditaksir dari sana. Tanpa foto, isi
+              perkiraan beratnya sendiri.
+            </span>
+            <div style={{ maxWidth: 260 }}>
+              <PhotoPicker label="Foto makanan" file={file} onPick={setFile} />
+            </div>
+          </div>
 
           {error ? <ErrorNote message={error} /> : null}
 
@@ -95,12 +119,14 @@ export const FoodPanel = () => {
               dijelaskan, bukan cuma tombol berputar tanpa keterangan. */}
           {create.isPending ? (
             <span className="t-caption c-secondary">
-              Menganalisa foto… ini bisa sampai satu menit.
+              {file
+                ? 'Menaksir berat dan gizinya dari foto… ini bisa sampai satu menit.'
+                : 'Mengambil nilai gizinya… sebentar.'}
             </span>
           ) : null}
 
           <Button
-            label="Analisa dan simpan"
+            label={file ? 'Analisa dan simpan' : 'Hitung dan simpan'}
             size="lg"
             full
             onClick={simpan}
@@ -118,7 +144,7 @@ export const FoodPanel = () => {
         <EmptyState
           icon={<ForkKnifeIcon size={28} color={colors.textTertiary} weight="duotone" />}
           title="Belum ada catatan makan"
-          message="Foto makananmu dan biarkan AI menghitung kalorinya."
+          message="Tulis makananmu di atas, gizinya ditaksir otomatis."
         />
       ) : (
         <>
@@ -132,66 +158,95 @@ export const FoodPanel = () => {
           </Card>
 
           <div className="grid-2">
-            {today.data?.logs.map((log) => (
-              <Card key={log.id} padding="md">
-                <div className="stack-sm">
-                  <AuthImage path={log.photo_url} alt={MEAL_LABEL[log.meal_type]} height={160} />
+            {today.data?.logs.map((log) => {
+              const analisa = log.ai_analysis;
+              const rincian = analisa?.items ?? [];
 
-                  <div className="row-between">
-                    <span className="stack-xs flex-1">
-                      <span className="t-label">{MEAL_LABEL[log.meal_type]}</span>
-                      <span className="t-caption c-tertiary">{timeWIB(log.logged_at)} WIB</span>
-                    </span>
+              return (
+                <Card key={log.id} padding="md">
+                  <div className="stack-sm">
+                    {log.photo_url ? (
+                      <AuthImage
+                        path={log.photo_url}
+                        alt={MEAL_LABEL[log.meal_type]}
+                        height={160}
+                      />
+                    ) : (
+                      <div className="food-thumb-kosong">
+                        <ForkKnifeIcon size={28} color={colors.textTertiary} weight="duotone" />
+                      </div>
+                    )}
 
-                    <LogActions
-                      onEdit={() => setDiedit(log)}
-                      onDelete={() =>
-                        hapus.mutate(log.id, { onError: (e) => setError(toApiError(e).message) })
-                      }
-                      confirmMessage="Hapus catatan makan ini?"
-                    />
-                  </div>
+                    <div className="row-between">
+                      <span className="stack-xs flex-1">
+                        <span className="t-label">{MEAL_LABEL[log.meal_type]}</span>
+                        <span className="t-caption c-tertiary">{timeWIB(log.logged_at)} WIB</span>
+                      </span>
 
-                  <span className="t-h3" style={{ color: metricColors.calories }}>
-                    {thousands(log.total_calories)} kkal
-                  </span>
-
-                  <span className="t-caption c-secondary">
-                    P {Math.round(toNum(log.protein_g) ?? 0)}g · K{' '}
-                    {Math.round(toNum(log.carbs_g) ?? 0)}g · L {Math.round(toNum(log.fat_g) ?? 0)}g
-                  </span>
-
-                  {/*
-                    Rincian per bahan beserta beratnya. Ini yang membuat angka
-                    kalorinya bisa diperiksa: kalau totalnya terasa meleset,
-                    kelihatan bagian mana yang salah ditaksir, bukan cuma satu
-                    angka besar yang harus dipercaya begitu saja.
-
-                    Kosong pada catatan lama yang dibuat sebelum analisa
-                    diuraikan per bahan; daftar nama lamanya yang dipakai.
-                  */}
-                  {log.ai_analysis.items?.length ? (
-                    <div className="food-rincian">
-                      {log.ai_analysis.items.map((item, i) => (
-                        <div key={item.name + i} className="food-rincian-row">
-                          <span className="t-caption c-secondary food-rincian-nama">
-                            {item.name}
-                          </span>
-                          <span className="t-caption c-tertiary">{thousands(item.grams)} g</span>
-                          <span className="t-caption food-rincian-kkal">
-                            {thousands(item.calories)} kkal
-                          </span>
-                        </div>
-                      ))}
+                      <LogActions
+                        onEdit={() => setDiedit(log)}
+                        onDelete={() =>
+                          hapus.mutate(log.id, { onError: (e) => setError(toApiError(e).message) })
+                        }
+                        confirmMessage="Hapus catatan makan ini?"
+                      />
                     </div>
-                  ) : log.ai_analysis.foods_detected?.length ? (
-                    <span className="t-caption c-tertiary">
-                      {log.ai_analysis.foods_detected.join(', ')}
+
+                    <span className="t-h3" style={{ color: metricColors.calories }}>
+                      {thousands(log.total_calories)} kkal
                     </span>
-                  ) : null}
-                </div>
-              </Card>
-            ))}
+
+                    <span className="t-caption c-secondary">
+                      P {Math.round(toNum(log.protein_g) ?? 0)}g · K{' '}
+                      {Math.round(toNum(log.carbs_g) ?? 0)}g · L {Math.round(toNum(log.fat_g) ?? 0)}
+                      g
+                    </span>
+
+                    {/*
+                      Tulisan menang atas foto, tapi kalau model melihat makanan
+                      yang jelas berbeda, user diberi tahu supaya salah pilih
+                      foto ketahuan.
+                    */}
+                    {analisa?.photo_matches === false ? (
+                      <div className="food-peringatan">
+                        <WarningCircleIcon size={16} color={colors.warning} weight="duotone" />
+                        <span className="t-caption c-warning flex-1">
+                          Foto terlihat berbeda dari yang ditulis.
+                          {analisa.photo_note ? ' ' + analisa.photo_note : ''}
+                        </span>
+                      </div>
+                    ) : null}
+
+                    {/*
+                      Rincian per makanan: jumlah × berat per porsi, lalu
+                      kalorinya. Ini yang membuat totalnya bisa diperiksa.
+                    */}
+                    {rincian.length > 0 ? (
+                      <div className="food-rincian">
+                        {rincian.map((item, i) => (
+                          <div key={item.name + i} className="food-rincian-row">
+                            <span className="t-caption c-secondary food-rincian-nama">
+                              {item.name}
+                            </span>
+                            <span className="t-caption c-tertiary">{ringkasJumlah(item)}</span>
+                            <span
+                              className={
+                                't-caption food-rincian-kkal' +
+                                (item.nutrition_missing ? ' c-warning' : '')
+                              }
+                            >
+                              {item.nutrition_missing
+                                ? 'belum ditaksir'
+                                : thousands(item.calories) + ' kkal'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </Card>
+              );
+            })}
           </div>
         </>
       )}
@@ -202,37 +257,43 @@ export const FoodPanel = () => {
 };
 
 /**
- * Mengoreksi hasil AI tanpa memotret ulang.
+ * Mengoreksi sesi makan tanpa memanggil AI lagi.
  *
- * AI sering meleset pada hidangan yang mirip. Tanpa jalur ini, satu-satunya
- * cara membetulkannya adalah menghapus lalu mencatat dari awal, yang berarti
- * satu panggilan AI lagi, dan satu langkah lebih dekat ke batas kuota Groq,
- * hanya untuk memperbaiki satu kata.
+ * Nilai gizi per 100 tiap item sudah tersimpan, jadi mengubah nama, jumlah,
+ * atau berat cukup dihitung ulang backend. Berat wajib di sini: tidak ada
+ * foto yang dianalisa ulang untuk menaksirnya. Menambah makanan dimatikan,
+ * makanan baru adalah sesi baru.
  */
 const FoodEditModal = ({ log, onClose }: { log: FoodLog; onClose: () => void }) => {
   const update = useUpdateFood();
 
-  const [kalori, setKalori] = useState(String(log.total_calories));
-  const [protein, setProtein] = useState(String(Math.round(toNum(log.protein_g) ?? 0)));
-  const [karbo, setKarbo] = useState(String(Math.round(toNum(log.carbs_g) ?? 0)));
-  const [lemak, setLemak] = useState(String(Math.round(toNum(log.fat_g) ?? 0)));
-  const [makanan, setMakanan] = useState((log.ai_analysis.foods_detected ?? []).join(', '));
+  const [jenis, setJenis] = useState<MealType>(log.meal_type);
+  const [items, setItems] = useState<FoodItemDraft[]>(
+    (log.ai_analysis?.items ?? []).map((item) => ({
+      name: item.name,
+      portions: String(item.portions),
+      weight: String(item.weight_per_portion),
+      unit: item.unit,
+    })),
+  );
   const [error, setError] = useState<string | null>(null);
 
   const simpan = () => {
+    const susunan = susunItem(items, true);
+
+    if ('error' in susunan) {
+      setError(susunan.error);
+      return;
+    }
+
     setError(null);
 
     update.mutate(
       {
         id: log.id,
-        total_calories: Number(kalori) || 0,
-        protein_g: Number(protein) || 0,
-        carbs_g: Number(karbo) || 0,
-        fat_g: Number(lemak) || 0,
-        foods_detected: makanan
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
+        meal_type: jenis,
+        // Berat dijamin ada oleh susunItem dengan beratWajib = true.
+        items: susunan.items.map((item) => ({ ...item, weight: item.weight ?? 0 })),
       },
       { onError: (e) => setError(toApiError(e).message), onSuccess: onClose },
     );
@@ -245,56 +306,25 @@ const FoodEditModal = ({ log, onClose }: { log: FoodLog; onClose: () => void }) 
       onClose={onClose}
       footer={<Button label="Simpan" size="lg" full onClick={simpan} loading={update.isPending} />}
     >
-      {/*
-        Fotonya ditampilkan di paling atas, sebelum satu pun kolom isian.
+      {/* Fotonya di atas kalau ada, sebagai rujukan untuk menilai berat yang ditaksir. */}
+      {log.photo_url ? (
+        <AuthImage path={log.photo_url} alt={'Foto ' + MEAL_LABEL[log.meal_type]} height={200} />
+      ) : null}
 
-        Yang sedang dikoreksi user adalah taksiran AI ATAS foto ini, jadi
-        fotonya adalah rujukan untuk menilai benar tidaknya angka di bawahnya.
-        Mengoreksi tanpa melihat piringnya berarti menebak dua kali.
+      <ChipGroup options={MEAL_OPTIONS} value={jenis} onChange={setJenis} labels={MEAL_LABEL} />
 
-        Sekaligus jadi bukti bahwa fotonya memang tersimpan utuh di server,
-        bukan cuma sempat terlihat sekali saat diunggah.
-      */}
-      <AuthImage path={log.photo_url} alt={'Foto ' + MEAL_LABEL[log.meal_type]} height={200} />
-
-      <Input
-        label="Daftar makanan"
-        value={makanan}
-        onChange={(e) => setMakanan(e.target.value)}
-        hint="Pisahkan dengan koma"
+      <FoodItemsEditor
+        items={items}
+        onChange={setItems}
+        beratWajib
+        bisaTambah={false}
+        disabled={update.isPending}
       />
 
-      <Input
-        label="Kalori"
-        inputMode="numeric"
-        value={kalori}
-        onChange={(e) => setKalori(e.target.value.replace(/[^0-9]/g, ''))}
-        suffix="kkal"
-      />
-
-      <div className="grid-3">
-        <Input
-          label="Protein"
-          inputMode="numeric"
-          value={protein}
-          onChange={(e) => setProtein(e.target.value.replace(/[^0-9]/g, ''))}
-          suffix="g"
-        />
-        <Input
-          label="Karbo"
-          inputMode="numeric"
-          value={karbo}
-          onChange={(e) => setKarbo(e.target.value.replace(/[^0-9]/g, ''))}
-          suffix="g"
-        />
-        <Input
-          label="Lemak"
-          inputMode="numeric"
-          value={lemak}
-          onChange={(e) => setLemak(e.target.value.replace(/[^0-9]/g, ''))}
-          suffix="g"
-        />
-      </div>
+      <span className="t-caption c-tertiary">
+        Kalorinya dihitung ulang dari nilai gizi yang sudah ditaksir, tanpa memanggil AI lagi. Untuk
+        makanan yang belum ada di daftar, catat sebagai sesi baru.
+      </span>
 
       {error ? <ErrorNote message={error} /> : null}
     </Modal>

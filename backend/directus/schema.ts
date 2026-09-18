@@ -370,27 +370,32 @@ export const collections: CollectionDef[] = [
     collection: 'food_logs',
     typeName: 'FoodLogRecord',
     icon: 'restaurant',
-    note: 'Log makanan hasil analisa foto oleh Groq Vision. Bisa banyak per hari.',
+    note: 'Satu sesi makan: daftar item yang ditulis user, ditaksir AI, dihitung backend. Bisa banyak per hari.',
     fields: [
       pk(),
       userFk('food_logs'),
-      { field: 'photo_url', type: 'string', maxLength: 500 },
-      fileFk('directus_file_id', 'File foto makanan di Directus storage'),
+      // Foto OPSIONAL. Tanpa foto, model ditaksir dari teks saja. URL-nya tidak
+      // disimpan karena cuma turunan dari id berkas, dirangkai di service.
+      fileFk(
+        'directus_file_id',
+        'File foto makanan di Directus storage, kosong kalau dicatat tanpa foto',
+      ),
       enumField('meal_type', MEAL_TYPE),
       {
         field: 'ai_analysis',
         type: 'json',
-        note: 'Raw JSON hasil analisa Groq Vision, disimpan utuh',
+        note: 'Daftar item lengkap dengan hasil perkalian backend, nilai per 100 dari model, sumber (PHOTO/TEXT), dan balasan model utuh',
       },
       {
         field: 'total_calories',
         type: 'integer',
-        note: 'Di-extract dari ai_analysis, jadi kolom sendiri supaya gampang di-aggregate',
+        note: 'Jumlah kalori semua item, dihitung backend. Kolom sendiri supaya gampang di-aggregate',
       },
       decimalField('protein_g', 6, 2),
       decimalField('carbs_g', 6, 2),
       decimalField('fat_g', 6, 2),
-      notes(),
+      // Tidak ada kolom catatan bebas. Nama item sudah menampung "ayam goreng
+      // tanpa kulit", dan catatan bebas dulu diabaikan model.
       {
         field: 'logged_at',
         type: 'timestamp',

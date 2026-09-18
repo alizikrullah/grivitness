@@ -39,6 +39,16 @@ export type ChatRole = (typeof CHAT_ROLE)[number];
 export const MEAL_TYPE = ['BREAKFAST', 'LUNCH', 'DINNER', 'SNACK'] as const;
 export type MealType = (typeof MEAL_TYPE)[number];
 
+/**
+ * Satuan berat atau volume satu porsi makanan.
+ *
+ * Minuman ditakar dalam ml, dan model diminta nilai gizi per 100 ml untuk
+ * item seperti itu, bukan per 100 g. Untuk air dan minuman encer bedanya
+ * tidak terasa, tapi untuk sirup dan minyak terasa.
+ */
+export const FOOD_UNIT = ['g', 'ml'] as const;
+export type FoodUnit = (typeof FOOD_UNIT)[number];
+
 export const WORKOUT_INTENSITY = ['LOW', 'MEDIUM', 'HIGH'] as const;
 export type WorkoutIntensity = (typeof WORKOUT_INTENSITY)[number];
 

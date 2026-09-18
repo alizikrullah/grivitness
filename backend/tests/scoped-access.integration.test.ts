@@ -284,7 +284,6 @@ describe('GET /api/files/:id, penyajian file privat', () => {
 
   beforeAll(async () => {
     await forUser(userA.id).create('food_logs', {
-      photo_url: `/api/files/${FILE_ID}`,
       directus_file_id: null,
       meal_type: 'LUNCH',
       ai_analysis: {},

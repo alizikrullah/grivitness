@@ -1,6 +1,6 @@
 import axios, { type AxiosError } from 'axios';
 
-import { env } from '../config/env.js';
+import { env, GROQ_MODEL_BAWAAN } from '../config/env.js';
 import { AppError } from './api-error.js';
 import { logger } from './logger.js';
 
@@ -71,10 +71,6 @@ export const analyzeImages = async (
   images: Buffer[],
   prompt: string,
 ): Promise<Record<string, unknown>> => {
-  if (env.GROQ_API_KEY === '') {
-    throw AppError.upstream('GROQ_API_KEY belum diisi di environment');
-  }
-
   if (images.length === 0) {
     throw AppError.badRequest('Tidak ada gambar untuk dianalisa');
   }
@@ -98,17 +94,65 @@ export const analyzeImages = async (
     })),
   ];
 
+  return mintaJson(
+    {
+      model: env.GROQ_VISION_MODEL,
+      messages: [{ role: 'user', content }],
+      ...TANPA_NALAR,
+    },
+    GROQ_MODEL_BAWAAN.vision,
+  );
+};
+
+/**
+ * Analisa dari TEKS saja, tanpa gambar, dengan format JSON yang sama.
+ *
+ * Dipakai saat user mencatat makanan tanpa foto. Modelnya model CHAT, bukan
+ * vision, dan itu disengaja: Groq menghitung batas laju per model, jadi jalur
+ * teks punya jatah token sendiri dan tidak berebut dengan analisa foto yang
+ * jauh lebih boros. Tidak ada gambar yang harus dibaca, jadi model teks
+ * memang cukup: yang diminta cuma pengetahuan gizi dan porsi umum.
+ *
+ * reasoning_effort tidak dikirim di sini. Nilai 'none' terbukti wajib untuk
+ * model vision, tapi model chat sudah bekerja tanpa parameter itu di fitur
+ * chat, dan nilai yang diterima tiap model berbeda.
+ */
+export const analyzeText = async (prompt: string): Promise<Record<string, unknown>> =>
+  mintaJson(
+    {
+      model: env.GROQ_CHAT_MODEL,
+      messages: [{ role: 'user', content: prompt }],
+    },
+    GROQ_MODEL_BAWAAN.chat,
+  );
+
+/**
+ * Inti permintaan JSON ke Groq: kirim, paksa JSON, dan tiga jenis percobaan
+ * ulang yang masing-masing menangani satu kegagalan khas.
+ *
+ * `modelBawaan` dipakai kalau model yang disebut env sudah tidak ada di Groq.
+ * Lihat GROQ_MODEL_BAWAAN di config/env.ts untuk alasannya.
+ */
+const mintaJson = async (
+  payload: Record<string, unknown>,
+  modelBawaan: string,
+): Promise<Record<string, unknown>> => {
+  if (env.GROQ_API_KEY === '') {
+    throw AppError.upstream('GROQ_API_KEY belum diisi di environment');
+  }
+
+  let model = payload.model as string;
+
   const kirim = async (jsonKetat: boolean): Promise<string> => {
     const { data } = await axios.post<GroqResponse>(
       ENDPOINT,
       {
-        model: env.GROQ_VISION_MODEL,
-        messages: [{ role: 'user', content }],
+        ...payload,
+        model,
         // Tanpa ini model bisa membalas prosa yang tidak bisa di-parse.
         ...(jsonKetat ? { response_format: { type: 'json_object' } } : {}),
         temperature: 0.2,
         max_tokens: MAKS_TOKEN_ANALISA,
-        ...TANPA_NALAR,
       },
       {
         headers: {
@@ -129,6 +173,27 @@ export const analyzeImages = async (
     return parseJsonResponse(await kirim(true));
   } catch (error) {
     if (error instanceof AppError) throw error;
+
+    /*
+      Nama model yang disebut env sudah mati di Groq. Ini terjadi tanpa masa
+      transisi (qwen/qwen3.6-27b lenyap begitu saja), dan env di server tidak
+      ikut berubah bersama kode. Dicoba sekali dengan nama bawaan yang masih
+      hidup, dengan peringatan keras di log supaya env-nya segera dibetulkan.
+    */
+    if (modelTidakAda(error) && model !== modelBawaan) {
+      logger.error(
+        { model, modelBawaan },
+        'Model Groq di env sudah tidak ada. Memakai model bawaan. PERBAIKI env di server.',
+      );
+      model = modelBawaan;
+
+      try {
+        return parseJsonResponse(await kirim(true));
+      } catch (ulang) {
+        if (ulang instanceof AppError) throw ulang;
+        throw translateAxiosError(ulang);
+      }
+    }
 
     /*
       Mode JSON terpaksa punya satu kegagalan yang khas: Groq membalas 400
@@ -172,6 +237,13 @@ export const analyzeImages = async (
       throw translateAxiosError(ulang);
     }
   }
+};
+
+/** Groq membalas 404 dengan pesan bahwa modelnya tidak ada atau tidak bisa diakses. */
+const modelTidakAda = (error: unknown): boolean => {
+  if (!axios.isAxiosError(error) || error.response?.status !== 404) return false;
+
+  return /does not exist|do not have access/i.test(JSON.stringify(error.response.data ?? ''));
 };
 
 /** Kegagalan khas decoder JSON berbatas Groq, bukan kesalahan permintaan kita. */
@@ -272,74 +344,92 @@ const translateAxiosError = (error: unknown): AppError => {
 };
 
 /**
- * Bagian tetap dari prompt analisa makanan.
- *
- * Model diminta menguraikan piringnya menjadi bahan beserta BERATNYA, lalu
- * menyebut nilai gizi per 100 gram. Yang mengalikan dan menjumlahkan adalah
- * backend, bukan model.
- *
- * Sebelumnya model diminta langsung menyebut total kalori satu piring. Tebakan
- * seperti itu tidak bisa diperiksa siapa pun: kalau hasilnya 700 kkal, tidak
- * ada cara tahu apakah yang meleset porsi nasinya atau anggapan soal minyaknya.
- * Diuraikan per bahan, kesalahannya kelihatan dan bisa dibetulkan user pada
- * bagian yang memang salah.
- *
- * Ini juga menutup satu sumber kesalahan lain: aritmetika model. Sekarang
- * angka yang dia sebut hanya taksiran (berapa gram, berapa kkal per 100 g),
- * dan taksiran itulah yang memang jadi keahliannya.
+ * Satu makanan seperti yang ditulis user, bahan untuk menyusun prompt.
+ * Bentuknya sama dengan FoodItemDto di food.validation.ts.
  */
-const FOOD_BASE = `Analyze the food in this image using TWO separate steps.
+export interface FoodPromptItem {
+  name: string;
+  portions: number;
+  weight?: number;
+  unit: 'g' | 'ml';
+}
 
-STEP 1 - Break the meal into individual components. For each component, estimate its edible weight in grams AS SERVED in the photo. Use plate diameter, cutlery, bowls, and common Indonesian serving sizes as scale references.
+/**
+ * Prompt analisa makanan. Tugas model SEMPIT, dan itu intinya.
+ *
+ * Nama makanan dan jumlah porsi datang dari user dan TIDAK boleh ditebak
+ * model. Yang tersisa untuk model cuma dua taksiran:
+ *   1. berat SATU porsi, HANYA untuk item yang user kosongkan beratnya
+ *   2. nilai gizi per 100 g atau per 100 ml, sesuai satuan item
+ *
+ * Perkalian jumlah × berat × gizi dikerjakan backend, bukan model. Ini
+ * warisan pelajaran fitur chat: model menaksir, backend menghitung.
+ *
+ * Sejarahnya: prompt lama mengirim foto plus catatan bebas dan meminta model
+ * "menuruti" catatan itu untuk jumlah porsi. Model tidak nurut. "2 pcs"
+ * dihitung satu, terlihat dari beratnya. Prompt sudah menyuruh dan gagal,
+ * jadi jaminannya dipindahkan ke kode: jumlah porsi sekarang kolom angka
+ * yang dikalikan backend, dan tidak ada lagi yang bisa diabaikan model.
+ *
+ * Nama diberi nomor dan dijawab per nomor, supaya jawaban bisa dicocokkan ke
+ * item user tanpa mengandalkan model mengeja ulang namanya sama persis.
+ */
+export const foodPrompt = (items: FoodPromptItem[], denganFoto: boolean): string => {
+  const daftar = items
+    .map((item, i) => {
+      const porsi = item.portions === 1 ? '1 portion' : `${item.portions} portions`;
+      const berat =
+        item.weight === undefined
+          ? 'weight per portion: UNKNOWN, estimate it'
+          : `weight per portion: ${item.weight} ${item.unit} (given by user, do not change)`;
+      return `${i + 1}. ${item.name}, ${porsi}, unit ${item.unit}, ${berat}`;
+    })
+    .join('\n');
 
-STEP 2 - For each component, state its nutrition PER 100 GRAMS from standard food composition tables.
+  const sumber = denganFoto
+    ? `A photo of the meal is attached. Use it ONLY to estimate weight per portion for items marked UNKNOWN, using plate size, cutlery, and bowls as scale references. Do not use it to rename items or change portion counts: the list below is authoritative and was written by the person who ate it.`
+    : `There is no photo. For items marked UNKNOWN, estimate a typical single-portion weight as served in Indonesia.`;
+
+  const cocok = denganFoto
+    ? `,
+  "photo_matches": boolean,
+  "photo_note": "string"`
+    : '';
+
+  const aturanFoto = denganFoto
+    ? `
+- photo_matches: false only if the photo clearly shows different food from the list (for example the list says nasi goreng but the photo is clearly soto). Minor differences, missing side dishes, or unclear photos count as true. photo_note: one short Indonesian sentence explaining a false, empty string when true.`
+    : '';
+
+  return `The user ate these items. Numbers and names come from the user and are FINAL.
+
+${daftar}
+
+${sumber}
+
+For EACH numbered item return, in the same order:
+- grams_per_portion: the weight of ONE portion in the item's unit (grams, or ml for drinks). For items with a given weight, copy the given number.
+- kcal_per_100, protein_per_100, carbs_per_100, fat_per_100: nutrition per 100 g (or per 100 ml when the unit is ml) of the food AS EATEN, from standard food composition tables. Fried food must include absorbed oil; cooked rice is not dry rice.
 
 Return ONLY a JSON object with this exact structure:
 {
   "items": [
     {
-      "name": "string",
-      "grams": number,
-      "kcal_per_100g": number,
-      "protein_per_100g": number,
-      "carbs_per_100g": number,
-      "fat_per_100g": number
+      "index": number,
+      "grams_per_portion": number,
+      "kcal_per_100": number,
+      "protein_per_100": number,
+      "carbs_per_100": number,
+      "fat_per_100": number
     }
   ],
-  "confidence": "low" | "medium" | "high"
+  "confidence": "low" | "medium" | "high"${cocok}
 }
 
 Rules:
-- Do NOT return totals and do NOT multiply anything. The application computes every total from grams and the per-100g values.
-- Every per-100g value must describe the food as it appears in the photo. Fried food must reflect absorbed oil; cooked rice is not dry rice.
-- List drinks as items too. Treat 1 ml as 1 gram unless the drink is oil or syrup based.
-- Ignore anything not eaten: plates, cutlery, garnish that is only decoration.
-- Use Indonesian food names when the dish is Indonesian.`;
-
-/**
- * Prompt analisa makanan, ditambah catatan user sebagai konteks.
- *
- * Catatan user WAJIB ikut dikirim kalau ada. Model yang cuma melihat foto sering
- * keliru membedakan makanan yang mirip secara visual, lontong terbaca singkong,
- * tempe terbaca tahu. User yang memotret tahu persis isi piringnya, jadi
- * keterangannya diperlakukan sebagai kebenaran untuk MENENTUKAN makanannya,
- * sementara foto tetap dipakai untuk menaksir porsi.
- *
- * Sebelumnya prompt ini konstanta dan catatan user cuma disimpan ke database
- * tanpa pernah sampai ke AI. Hasilnya analisa yang mengabaikan keterangan yang
- * sudah susah payah diketik user.
- */
-export const foodPrompt = (catatan?: string | null): string => {
-  const bersih = catatan?.trim();
-  if (!bersih) return FOOD_BASE;
-
-  return `${FOOD_BASE}
-
-The user describes this meal as: "${bersih}"
-
-Treat that description as authoritative for WHAT the food is. Do not replace a dish the user named with a different one that merely looks similar in the photo. If the description names a component you cannot clearly see, still include it as an item. Use the photo to estimate grams, and use the description to fill in anything the photo leaves ambiguous.
-
-If the description states a portion explicitly, such as "nasi setengah porsi" or "ayam 2 potong", let it override your visual estimate of that item's grams.`;
+- Return exactly one entry per numbered item, with the matching index.
+- Do NOT multiply by the portion count and do NOT return totals. The application computes every total.
+- Never rename, merge, split, add, or drop items.${aturanFoto}`;
 };
 
 /** Prompt analisa foto badan, sesuai CLAUDE.md section 7. */

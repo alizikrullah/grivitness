@@ -20,10 +20,12 @@ router.get('/', validateQuery(FoodDateSchema), foodController.getByDate);
 
 // upload.single dijalankan SEBELUM validateBody. Field non-file di request
 // multipart baru tersedia di req.body setelah Multer selesai mem-parse-nya.
+// Kalau request-nya JSON biasa (tanpa foto), Multer melewatkannya begitu saja
+// dan body-nya sudah terisi dari parser JSON.
 router.post('/', upload.single('photo'), validateBody(CreateFoodSchema), foodController.create);
 
-// Koreksi manual atas hasil AI. Sengaja tidak menerima foto, mengganti foto
-// berarti analisa ulang, dan itu pencatatan baru, bukan penyuntingan.
+// Koreksi item tanpa memanggil model lagi. Sengaja tidak menerima foto,
+// mengganti foto berarti analisa ulang, dan itu pencatatan baru.
 router.patch(
   '/:id',
   validateParams(UuidParamSchema),
