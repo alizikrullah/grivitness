@@ -1,6 +1,6 @@
 import { forUser } from '../../data/scoped.js';
 import { unitOfWork } from '../../data/unit-of-work.js';
-import type { ChatMessageRecord } from '../../types/directus-schema.js';
+import type { BodyComparisonRecord, ChatMessageRecord } from '../../types/directus-schema.js';
 import { chatCompletion, type ChatMessage } from '../../utils/groq.js';
 import { todayInJakarta } from '../../utils/daily-key.js';
 import * as summaryService from '../summary/summary.service.js';
@@ -46,6 +46,7 @@ const susunFakta = (
   harian: summaryService.DailySummary,
   pekan: summaryService.PeriodSummary,
   profil: usersService.ProfileWithDerived | null,
+  badan: BodyComparisonRecord | null,
 ): string => {
   const b: string[] = [];
 
@@ -133,6 +134,19 @@ const susunFakta = (
   b.push(`Olahraga total ${pekan.total_workout_minutes} menit.`);
   b.push(`Dia mencatat sesuatu pada ${pekan.days_logged} dari ${pekan.days} hari.`);
 
+  // Kesan AI terakhir dari perbandingan foto badan, kalau pernah diminta.
+  // Ini pendapat yang sudah dilihat user, jadi saran di chat bisa menyambung
+  // ke sana. Ditandai jelas sebagai kesan visual, bukan pengukuran.
+  if (badan) {
+    const pinggang =
+      badan.waist_from_cm && badan.waist_to_cm
+        ? ` Lingkar pinggang ${badan.waist_from_cm} cm jadi ${badan.waist_to_cm} cm.`
+        : '';
+    b.push(
+      `Kesan visual AI dari foto badan ${badan.from_date} ke ${badan.to_date} (pendapat, bukan ukuran): ${badan.opinion}${pinggang}`,
+    );
+  }
+
   return b.join('\n');
 };
 
@@ -212,12 +226,13 @@ export const clearHistory = async (userId: string): Promise<{ deleted: number }>
 export const reply = async (userId: string, pesanBaru: string): Promise<{ reply: string }> => {
   const hariIni = todayInJakarta();
 
-  const [harian, pekan, profil, riwayat] = await Promise.all([
+  const [harian, pekan, profil, riwayat, badan] = await Promise.all([
     summaryService.getDaily(userId, hariIni),
     // Tanpa argumen, getWeekly memakai tujuh hari terakhir sampai hari ini.
     summaryService.getWeekly(userId),
     ambilProfil(userId),
     getHistory(userId),
+    forUser(userId).findOne('body_comparisons', { sort: ['-to_date', '-created_at'] }),
   ]);
 
   const sebelumnya: ChatMessage[] = riwayat.slice(-KONTEKS_MAKS).map((p) => ({
@@ -226,7 +241,7 @@ export const reply = async (userId: string, pesanBaru: string): Promise<{ reply:
   }));
 
   const percakapan: ChatMessage[] = [
-    { role: 'system', content: `${ATURAN}\n\nDATA:\n${susunFakta(harian, pekan, profil)}` },
+    { role: 'system', content: `${ATURAN}\n\nDATA:\n${susunFakta(harian, pekan, profil, badan)}` },
     ...sebelumnya,
     { role: 'user', content: pesanBaru },
   ];

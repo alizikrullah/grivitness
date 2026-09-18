@@ -5,7 +5,6 @@ import {
   FootprintsIcon,
   ForkKnifeIcon,
   MoonStarsIcon,
-  RulerIcon,
   ScalesIcon,
   SmileyIcon,
   WatchIcon,
@@ -17,7 +16,6 @@ import { colors, metricColors } from '@/constants/colors';
 import { BodyPhotoPanel } from './BodyPhotoPanel';
 import { DeviceEnergyPanel } from './DeviceEnergyPanel';
 import { FoodPanel } from './FoodPanel';
-import { MeasurementsPanel } from './MeasurementsPanel';
 import { MoodPanel } from './MoodPanel';
 import { SleepPanel } from './SleepPanel';
 import { StepsPanel } from './StepsPanel';
@@ -78,19 +76,15 @@ const JENIS: JenisCatat[] = [
     color: metricColors.sleep,
     Panel: SleepPanel,
   },
-  {
-    slug: 'measurements',
-    label: 'Ukuran',
-    icon: RulerIcon,
-    color: metricColors.measurements,
-    Panel: MeasurementsPanel,
-  },
   { slug: 'mood', label: 'Mood', icon: SmileyIcon, color: metricColors.mood, Panel: MoodPanel },
+  // Foto badan dan lingkar pinggang jadi satu panel, irama 2-4 minggu sekali.
+  // Panel ukuran badan yang lama (tujuh lingkar) dicabut: tidak dipakai
+  // hitungan mana pun dan cuma jadi beban isian.
   {
     slug: 'body-photo',
-    label: 'Foto',
+    label: 'Foto & pinggang',
     icon: CameraIcon,
-    color: metricColors.weight,
+    color: metricColors.measurements,
     Panel: BodyPhotoPanel,
   },
 ];

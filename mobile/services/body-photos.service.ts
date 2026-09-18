@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, del, get, unwrap } from '@/lib/api';
 import { invalidateAfterLog, qk } from '@/lib/query';
 import { todayWIB } from '@/utils/date';
-import type { BodyPhoto } from '@/types';
+import type { BodyComparison, BodyComparisonView, BodyPhoto } from '@/types';
 import { asFilePart } from './food.service';
 
 export const useBodyPhotoToday = () =>
@@ -88,6 +88,47 @@ export const useDeleteBodyPhoto = () => {
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['body-photos'] });
       invalidateAfterLog(client);
+    },
+  });
+};
+
+// ============================================================
+// PERBANDINGAN DUA TANGGAL
+// ============================================================
+
+/**
+ * Tampilan dua tanggal berdampingan: foto dan lingkar pinggang masing-masing,
+ * plus pendapat AI yang tersimpan kalau pernah diminta. Deterministik dan
+ * murah, aman dipanggil tiap layar dibuka.
+ */
+export const useBodyComparison = (from: string | null, to: string | null) =>
+  useQuery({
+    queryKey: qk.bodyCompare(from ?? '', to ?? ''),
+    queryFn: () => get<BodyComparisonView>('/api/body-photos/compare', { params: { from, to } }),
+    enabled: from !== null && to !== null && from < to,
+  });
+
+/** Semua pendapat AI yang pernah diminta, yang terbaru dulu. */
+export const useBodyComparisons = () =>
+  useQuery({
+    queryKey: qk.bodyComparisons,
+    queryFn: () => get<BodyComparison[]>('/api/body-photos/comparisons'),
+  });
+
+/**
+ * Minta kesan AI atas dua tanggal. HANYA saat user menekan tombolnya: empat
+ * foto diunduh, digabung, dan dikirim ke model. Minta ulang menimpa pendapat
+ * lama untuk pasangan tanggal yang sama.
+ */
+export const useRequestComparison = () => {
+  const client = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: { from: string; to: string }) =>
+      unwrap<BodyComparison>(api.post('/api/body-photos/compare', body, { timeout: 180_000 })),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ['body-photos', 'compare'] });
+      void client.invalidateQueries({ queryKey: qk.bodyComparisons });
     },
   });
 };

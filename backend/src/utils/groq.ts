@@ -7,14 +7,16 @@ import { logger } from './logger.js';
 /**
  * Klien Groq Vision sesuai CLAUDE.md section 7.
  *
- * Batas yang ditetapkan Groq: maksimal 5 gambar dan 20MB per request.
+ * Batas yang ditetapkan Groq untuk model vision ini: maksimal 3 gambar dan
+ * 20MB per request. Dulu tertulis 5, dan permintaan empat gambar ditolak
+ * dengan "This model supports up to 3 images".
  * Keduanya diperiksa di sini supaya kegagalannya muncul sebagai pesan yang
  * jelas, bukan sebagai error mentah dari API di tengah proses upload.
  */
 
 const ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
 
-const MAKS_GAMBAR = 5;
+const MAKS_GAMBAR = 3;
 const MAKS_TOTAL_BYTES = 20 * 1024 * 1024;
 
 /** Analisa AI bisa lambat, tapi tidak boleh menggantung request selamanya. */
@@ -432,15 +434,55 @@ Rules:
 - Never rename, merge, split, add, or drop items.${aturanFoto}`;
 };
 
-/** Prompt analisa foto badan, sesuai CLAUDE.md section 7. */
+/**
+ * Prompt analisa foto badan satu tanggal.
+ *
+ * Tidak ada lagi estimated_body_fat_percent. Itu tebakan visual yang tampil
+ * seperti angka resmi, tidak dipakai hitungan mana pun, dan bisa loncat
+ * beberapa persen cuma karena pencahayaan atau pose. Yang tersisa kesan
+ * berupa kalimat, dan pengukuran yang sesungguhnya datang dari pita di
+ * pinggang, bukan dari model.
+ */
 export const BODY_PROMPT = `Analyze the body in these two images (front and side view). Return ONLY a JSON object with this exact structure:
 {
   "posture_notes": "string",
   "visible_changes": "string",
-  "estimated_body_fat_percent": number | null,
   "recommendations": ["string"]
 }
-Write posture_notes, visible_changes, and recommendations in Indonesian. Set estimated_body_fat_percent to null if you cannot estimate it with reasonable confidence.`;
+Write everything in Indonesian, addressed to the person in the photo as "kamu". Do NOT estimate body fat percentage, weight, or any number. Describe what is visible, not what you infer.`;
+
+/**
+ * Prompt membandingkan foto badan DUA tanggal: dua gambar gabungan, masing-
+ * masing "sebelum | sesudah" untuk tampak depan dan tampak samping. Digabung
+ * karena model vision Groq membatasi tiga gambar per permintaan.
+ *
+ * Yang diminta PENDAPAT, bukan pengukuran. Model lebih andal menilai "mana
+ * yang lebih ramping" daripada "berapa persen", tapi untuk selisih 1-3 kg
+ * dalam sebulan bedanya halus dan gampang kalah oleh pencahayaan, jarak
+ * kamera, pose, dan perut yang kembung. Karena itu hasilnya disimpan sebagai
+ * kalimat dan label arah, tidak pernah sebagai angka, dan user diminta menilai
+ * fotonya sendiri dengan pendapat ini sebagai suara kedua.
+ *
+ * Lingkar pinggang SENGAJA tidak dikirim ke model. Kalau dikirim, model
+ * tinggal mengulang angkanya, dan pendapat visualnya berhenti jadi suara
+ * kedua yang berdiri sendiri.
+ */
+export const bodyComparePrompt = (
+  fromDate: string,
+  toDate: string,
+): string => `You are shown two side-by-side comparison images of the same person. In each image, the LEFT half is from ${fromDate} and the RIGHT half is from ${toDate} (later date). Image 1 is the front view, image 2 is the side view.
+
+Compare the RIGHT (later) halves against the LEFT (earlier) halves. Judge only what is visible: waistline, belly, face, arms, overall silhouette, posture. Be honest about limits: different lighting, distance, pose, clothing, or time of day can fake or hide changes, and you must say so when it applies.
+
+Return ONLY a JSON object with this exact structure:
+{
+  "direction": "leaner" | "same" | "fuller" | "unclear",
+  "opinion": "string"
+}
+
+Rules:
+- direction: "leaner" if the later photos look visibly slimmer, "fuller" if visibly bigger, "same" if no visible change, "unclear" if the photos are not comparable (different framing, lighting, pose, clothing).
+- opinion: 2 to 4 sentences in Indonesian, addressed as "kamu". Say what changed and where, and name the biggest reason the comparison could be misleading. Do NOT estimate body fat, weight, or any number. This is an impression, not a measurement, and must read like one.`;
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';

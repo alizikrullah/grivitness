@@ -6,7 +6,6 @@ import {
   FootprintsIcon,
   ForkKnifeIcon,
   MoonStarsIcon,
-  RulerIcon,
   ScalesIcon,
   SmileyIcon,
   WatchIcon,
@@ -31,6 +30,8 @@ interface LogEntry {
   /** Keterangan keadaan hari ini, diisi dari ringkasan harian. */
   status: string;
   done: boolean;
+  /** Bukan catatan harian, jadi tidak ikut hitungan "sudah tercatat hari ini". */
+  berkala?: boolean;
 }
 
 export default function LogHubScreen() {
@@ -112,25 +113,23 @@ export default function LogHubScreen() {
       status: d?.mood_score != null ? 'Skor ' + d.mood_score + '/5' : 'Belum dicatat',
       done: d?.mood_score != null,
     },
+    // Foto badan dan lingkar pinggang jadi satu layar, irama 2-4 minggu
+    // sekali. Sengaja tidak dihitung ke "selesai" harian: ini bukan PR harian,
+    // dan menampilkannya sebagai belum selesai tiap hari persis yang bikin
+    // fitur ini dulu terasa mengganggu.
     {
       href: '/log/body-photo',
-      label: 'Foto badan',
+      label: 'Foto badan & pinggang',
       Icon: CameraIcon,
       color: metricColors.measurement,
-      status: d?.has_body_photo ? 'Sudah difoto' : 'Belum dicatat',
+      status: d?.has_body_photo ? 'Sudah difoto' : 'Cek 2-4 minggu sekali',
       done: d?.has_body_photo ?? false,
-    },
-    {
-      href: '/log/measurements',
-      label: 'Ukuran badan',
-      Icon: RulerIcon,
-      color: metricColors.measurement,
-      status: 'Catat berkala',
-      done: false,
+      berkala: true,
     },
   ];
 
-  const selesai = entries.filter((e) => e.done).length;
+  const harian = entries.filter((e) => !e.berkala);
+  const selesai = harian.filter((e) => e.done).length;
 
   return (
     <Screen bottomInset refreshing={summary.isRefetching} onRefresh={() => void summary.refetch()}>
@@ -140,7 +139,7 @@ export default function LogHubScreen() {
         </Text>
         <HeroTitle text="Belum lengkap" highlight="lengkap" size="h1" />
         <Text variant="body" tone="secondary">
-          {selesai} dari {entries.length} sudah tercatat hari ini.
+          {selesai} dari {harian.length} sudah tercatat hari ini.
         </Text>
       </View>
 

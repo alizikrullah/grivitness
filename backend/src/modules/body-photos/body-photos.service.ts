@@ -1,13 +1,16 @@
+import type { BodyDirection } from '../../constants/enums.js';
 import { forUser } from '../../data/scoped.js';
 import { unitOfWork } from '../../data/unit-of-work.js';
-import type { BodyPhotoRecord } from '../../types/directus-schema.js';
+import type { BodyComparisonRecord, BodyPhotoRecord } from '../../types/directus-schema.js';
+import { AppError } from '../../utils/api-error.js';
 import { dailyKey, todayInJakarta } from '../../utils/daily-key.js';
-import { removeFileSafely, uploadWebP } from '../../utils/directus-files.js';
-import { analyzeImages, BODY_PROMPT } from '../../utils/groq.js';
+import { downloadFile, removeFileSafely, uploadWebP } from '../../utils/directus-files.js';
+import { analyzeImages, BODY_PROMPT, bodyComparePrompt } from '../../utils/groq.js';
+import { logger } from '../../utils/logger.js';
 import { type DateRangeDto, dateRangeFilter } from '../../utils/query.js';
-import { convertToWebP, toAnalysisBuffer } from '../../utils/sharp.js';
+import { convertToWebP, sideBySide, toAnalysisBuffer } from '../../utils/sharp.js';
 import { recordActivitySafely } from '../streaks/streaks.service.js';
-import type { CreateBodyPhotoDto } from './body-photos.validation.js';
+import type { ComparePhotosDto, CreateBodyPhotoDto } from './body-photos.validation.js';
 
 /**
  * Mencatat foto badan tampak depan dan samping.
@@ -105,4 +108,154 @@ export const remove = async (userId: string, logId: string): Promise<void> => {
   );
 
   await repo.remove('body_photos', logId);
+};
+
+// ============================================================
+// PERBANDINGAN DUA TANGGAL
+// ============================================================
+
+/**
+ * Satu sisi perbandingan: foto hari itu (kalau ada) dan lingkar pinggangnya
+ * (kalau diukur). Pinggang dari pita adalah angka kerasnya; fotonya untuk
+ * dilihat sendiri; pendapat AI di bawahnya cuma suara kedua.
+ */
+export interface SisiPerbandingan {
+  date: string;
+  photo: BodyPhotoRecord | null;
+  waist_cm: string | null;
+}
+
+export interface BodyComparisonView {
+  from: SisiPerbandingan;
+  to: SisiPerbandingan;
+  /** Pendapat AI yang tersimpan untuk pasangan tanggal ini, kalau pernah diminta. */
+  comparison: BodyComparisonRecord | null;
+}
+
+const sisi = async (userId: string, date: string): Promise<SisiPerbandingan> => {
+  const repo = forUser(userId);
+
+  const [photo, ukuran] = await Promise.all([
+    repo.findOne('body_photos', { filter: { logged_at: { _eq: date } } }),
+    repo.findOne('body_measurements', { filter: { logged_at: { _eq: date } } }),
+  ]);
+
+  return { date, photo, waist_cm: ukuran?.waist_cm ?? null };
+};
+
+const pairKey = (userId: string, from: string, to: string): string => `${userId}:${from}:${to}`;
+
+/**
+ * Tampilan perbandingan: dua tanggal berdampingan. Deterministik, tanpa AI.
+ * Inilah fungsi asli progress photo: user melihat sendiri.
+ */
+export const getComparison = async (
+  userId: string,
+  data: ComparePhotosDto,
+): Promise<BodyComparisonView> => {
+  const [from, to, comparison] = await Promise.all([
+    sisi(userId, data.from),
+    sisi(userId, data.to),
+    forUser(userId).findOne('body_comparisons', {
+      filter: { pair_key: { _eq: pairKey(userId, data.from, data.to) } },
+    }),
+  ]);
+
+  return { from, to, comparison };
+};
+
+/** Semua pendapat yang pernah diminta, yang terbaru dulu. Riwayat untuk dibaca urut. */
+export const listComparisons = async (userId: string): Promise<BodyComparisonRecord[]> =>
+  forUser(userId).list('body_comparisons', { sort: ['-to_date', '-created_at'], limit: -1 });
+
+const ARAH: Record<string, BodyDirection> = {
+  leaner: 'LEANER',
+  same: 'SAME',
+  fuller: 'FULLER',
+  unclear: 'UNCLEAR',
+};
+
+/**
+ * Meminta kesan AI atas dua tanggal, lalu menyimpannya.
+ *
+ * HANYA dipanggil saat user menekan tombolnya, bukan tiap layar dibuka: empat
+ * gambar per panggilan, dan ini fitur 2-4 minggu sekali. Satu pendapat per
+ * pasangan tanggal; meminta ulang menimpa yang lama.
+ *
+ * Hasilnya disimpan sebagai TEKS dan label arah. Tidak ada persen, tidak ada
+ * angka, dan tidak pernah masuk ke hitungan mana pun. Yang disimpan bersamanya
+ * lingkar pinggang kedua tanggal saat itu, supaya riwayat pendapatnya bisa
+ * dibaca berdampingan dengan angka kerasnya nanti.
+ */
+export const compare = async (
+  userId: string,
+  data: ComparePhotosDto,
+): Promise<BodyComparisonRecord> => {
+  const tampilan = await getComparison(userId, data);
+
+  const fotoDari = tampilan.from.photo;
+  const fotoKe = tampilan.to.photo;
+
+  if (!fotoDari || !fotoKe) {
+    throw AppError.badRequest(
+      `Kedua tanggal harus punya foto badan. ${!fotoDari ? data.from : data.to} belum ada fotonya.`,
+    );
+  }
+
+  const berkas = {
+    depanDari: fotoDari.front_directus_file_id,
+    sampingDari: fotoDari.side_directus_file_id,
+    depanKe: fotoKe.front_directus_file_id,
+    sampingKe: fotoKe.side_directus_file_id,
+  };
+
+  if (!berkas.depanDari || !berkas.sampingDari || !berkas.depanKe || !berkas.sampingKe) {
+    throw AppError.badRequest('Sebagian foto sudah tidak ada di storage, tidak bisa dibandingkan');
+  }
+
+  // Empat berkas diunduh bersamaan, lalu digabung jadi DUA gambar berdampingan:
+  // depan (sebelum | sesudah) dan samping (sebelum | sesudah). Model vision
+  // Groq membatasi tiga gambar per permintaan, jadi empat tidak bisa dikirim
+  // apa adanya, dan berdampingan memang cara membandingkan yang benar.
+  const [depanDari, sampingDari, depanKe, sampingKe] = await Promise.all([
+    downloadFile(berkas.depanDari),
+    downloadFile(berkas.sampingDari),
+    downloadFile(berkas.depanKe),
+    downloadFile(berkas.sampingKe),
+  ]);
+
+  const [depan, samping] = await Promise.all([
+    sideBySide(depanDari, depanKe),
+    sideBySide(sampingDari, sampingKe),
+  ]);
+
+  const mentah = await analyzeImages([depan, samping], bodyComparePrompt(data.from, data.to));
+
+  const arah =
+    typeof mentah.direction === 'string' ? ARAH[mentah.direction.toLowerCase()] : undefined;
+  const pendapat = typeof mentah.opinion === 'string' ? mentah.opinion.trim() : '';
+
+  if (!arah || pendapat === '') {
+    logger.warn({ mentah }, 'Balasan perbandingan foto badan tidak sesuai format');
+    throw AppError.upstream('Hasil perbandingan AI tidak bisa dibaca. Coba lagi.');
+  }
+
+  const repo = forUser(userId);
+  const kunci = pairKey(userId, data.from, data.to);
+
+  const isi = {
+    from_date: data.from,
+    to_date: data.to,
+    direction: arah,
+    opinion: pendapat,
+    waist_from_cm: tampilan.from.waist_cm,
+    waist_to_cm: tampilan.to.waist_cm,
+    ai_raw: mentah,
+  };
+
+  const lama = tampilan.comparison;
+
+  return lama
+    ? repo.update('body_comparisons', lama.id, isi)
+    : repo.create('body_comparisons', { ...isi, pair_key: kunci });
 };

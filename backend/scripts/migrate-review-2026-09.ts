@@ -221,12 +221,14 @@ const isiAsalKalori = async (): Promise<void> => {
 };
 
 /**
- * Kolom food_logs yang dilonggarkan di tahap siapkan tapi TETAP wajib di kode
- * baru (backend selalu menghitung total dan makro, dengan atau tanpa foto).
- * Dikencangkan kembali setelah tabelnya kosong, supaya jaminannya kembali ke
- * database dan schema:check tidak melaporkan selisih.
+ * Kolom yang harus WAJIB di kode baru tapi masih nullable di database: yang
+ * dilonggarkan di tahap siapkan, dan waist_cm yang dulu memang opsional.
+ * Dikencangkan setelah tabelnya kosong, supaya jaminannya kembali ke database
+ * dan schema:check tidak melaporkan selisih.
  */
 const KOLOM_DIKENCANGKAN: readonly (readonly [string, string])[] = [
+  // Pinggang jadi satu-satunya kolom ukuran, dan karena itu wajib.
+  ['body_measurements', 'waist_cm'],
   ['food_logs', 'ai_analysis'],
   ['food_logs', 'total_calories'],
   ['food_logs', 'protein_g'],

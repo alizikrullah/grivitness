@@ -5,18 +5,31 @@ import { type DateRangeDto, dateRangeFilter } from '../../utils/query.js';
 import { recordActivitySafely } from '../streaks/streaks.service.js';
 import type { CreateMeasurementDto, UpdateMeasurementDto } from './measurements.validation.js';
 
+/**
+ * Menyimpan lingkar pinggang hari itu, menimpa kalau sudah ada.
+ *
+ * Sengaja upsert. Ini pengukuran 2-4 minggu sekali yang dilakukan bersama
+ * foto badan, dan salah baca pita lalu mengukur ulang itu wajar. Memaksa user
+ * menghapus dulu baru mencatat ulang cuma menambah langkah.
+ */
 export const create = async (
   userId: string,
   data: CreateMeasurementDto,
 ): Promise<BodyMeasurementRecord> => {
-  const { logged_at: loggedAtInput, ...ukuran } = data;
-  const loggedAt = loggedAtInput ?? todayInJakarta();
+  const loggedAt = data.logged_at ?? todayInJakarta();
+  const repo = forUser(userId);
 
-  const log = await forUser(userId).create('body_measurements', {
-    ...ukuran,
-    logged_at: loggedAt,
-    user_date_key: dailyKey(userId, loggedAt),
+  const adaSebelumnya = await repo.findOne('body_measurements', {
+    filter: { logged_at: { _eq: loggedAt } },
   });
+
+  const log = adaSebelumnya
+    ? await repo.update('body_measurements', adaSebelumnya.id, { waist_cm: data.waist_cm })
+    : await repo.create('body_measurements', {
+        waist_cm: data.waist_cm,
+        logged_at: loggedAt,
+        user_date_key: dailyKey(userId, loggedAt),
+      });
 
   await recordActivitySafely(userId);
 

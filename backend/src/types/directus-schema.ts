@@ -296,18 +296,16 @@ export interface WaterLogRecord {
   created_at: TimestampString | null;
 }
 
-/** Ukuran lingkar badan. Semua kolom nullable karena user boleh isi sebagian saja. */
+/**
+ * Lingkar pinggang, diukur 2-4 minggu sekali bersama foto badan. Satu baris per user per
+ * hari.
+ */
 export interface BodyMeasurementRecord {
   id: string;
   /** Pemilik data ini */
   user_id: string;
-  waist_cm: DecimalString | null;
-  hips_cm: DecimalString | null;
-  chest_cm: DecimalString | null;
-  left_arm_cm: DecimalString | null;
-  right_arm_cm: DecimalString | null;
-  left_thigh_cm: DecimalString | null;
-  right_thigh_cm: DecimalString | null;
+  /** Lingkar pinggang dalam cm, diukur setinggi pusar */
+  waist_cm: DecimalString;
   /** Tanggal log dalam format YYYY-MM-DD */
   logged_at: DateString;
   /**
@@ -315,6 +313,37 @@ export interface BodyMeasurementRecord {
    * Directus. Diisi backend, jangan diedit manual.
    */
   user_date_key: string;
+  /** Diisi otomatis oleh Directus saat item dibuat */
+  created_at: TimestampString | null;
+}
+
+/**
+ * Kesan AI saat membandingkan foto badan dua tanggal. Pendapat berupa teks, BUKAN angka,
+ * dan tidak pernah masuk hitungan.
+ */
+export interface BodyComparisonRecord {
+  id: string;
+  /** Pemilik data ini */
+  user_id: string;
+  /** Tanggal foto yang lebih lama */
+  from_date: DateString;
+  /** Tanggal foto yang lebih baru */
+  to_date: DateString;
+  /** Arah perubahan menurut model. Label, bukan ukuran. */
+  direction: 'LEANER' | 'SAME' | 'FULLER' | 'UNCLEAR';
+  /** Kesan model dalam bahasa Indonesia, beberapa kalimat */
+  opinion: string;
+  /** Lingkar pinggang pada from_date saat perbandingan dibuat, untuk riwayat */
+  waist_from_cm: DecimalString | null;
+  /** Lingkar pinggang pada to_date saat perbandingan dibuat, untuk riwayat */
+  waist_to_cm: DecimalString | null;
+  /** Balasan model utuh, untuk ditelusuri */
+  ai_raw: Record<string, unknown> | null;
+  /**
+   * "{user_id}:{from_date}:{to_date}". Satu pendapat per pasangan tanggal, diperbarui kalau
+   * diminta ulang.
+   */
+  pair_key: string;
   /** Diisi otomatis oleh Directus saat item dibuat */
   created_at: TimestampString | null;
 }
@@ -450,6 +479,7 @@ export type UserOwnedCollection =
   | 'sleep_logs'
   | 'water_logs'
   | 'body_measurements'
+  | 'body_comparisons'
   | 'mood_logs'
   | 'chat_messages'
   | 'streaks'
@@ -471,6 +501,7 @@ export interface DirectusSchema {
   sleep_logs: SleepLogRecord[];
   water_logs: WaterLogRecord[];
   body_measurements: BodyMeasurementRecord[];
+  body_comparisons: BodyComparisonRecord[];
   mood_logs: MoodLogRecord[];
   chat_messages: ChatMessageRecord[];
   streaks: StreakRecord[];
