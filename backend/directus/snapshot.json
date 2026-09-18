@@ -584,9 +584,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -957,9 +955,7 @@
         "required": false,
         "searchable": true,
         "sort": 9,
-        "special": [
-          "cast-json"
-        ],
+        "special": ["cast-json"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -1047,9 +1043,7 @@
         "required": false,
         "searchable": true,
         "sort": 11,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -1093,9 +1087,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -1315,9 +1307,7 @@
         "required": false,
         "searchable": true,
         "sort": 12,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -1361,9 +1351,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -1539,9 +1527,7 @@
         "required": false,
         "searchable": true,
         "sort": 5,
-        "special": [
-          "file"
-        ],
+        "special": ["file"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -1585,9 +1571,7 @@
         "required": false,
         "searchable": true,
         "sort": 6,
-        "special": [
-          "file"
-        ],
+        "special": ["file"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -1631,9 +1615,7 @@
         "required": false,
         "searchable": true,
         "sort": 7,
-        "special": [
-          "cast-json"
-        ],
+        "special": ["cast-json"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -1765,9 +1747,7 @@
         "required": false,
         "searchable": true,
         "sort": 10,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -1811,9 +1791,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -2000,9 +1978,7 @@
         "required": false,
         "searchable": true,
         "sort": 5,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -2046,9 +2022,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -2335,9 +2309,7 @@
         "required": false,
         "searchable": true,
         "sort": 7,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -2381,9 +2353,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -2691,9 +2661,7 @@
         "required": false,
         "searchable": true,
         "sort": 8,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -2825,9 +2793,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -2915,9 +2881,7 @@
         "required": false,
         "searchable": true,
         "sort": 4,
-        "special": [
-          "file"
-        ],
+        "special": ["file"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -3024,9 +2988,7 @@
         "required": true,
         "searchable": true,
         "sort": 6,
-        "special": [
-          "cast-json"
-        ],
+        "special": ["cast-json"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -3290,9 +3252,7 @@
         "required": false,
         "searchable": true,
         "sort": 13,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -3336,9 +3296,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -3602,9 +3560,7 @@
         "required": false,
         "searchable": true,
         "sort": 7,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -3648,9 +3604,7 @@
         "required": false,
         "searchable": true,
         "sort": 8,
-        "special": [
-          "date-updated"
-        ],
+        "special": ["date-updated"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -3694,9 +3648,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -4004,9 +3956,7 @@
         "required": false,
         "searchable": true,
         "sort": 8,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -4050,9 +4000,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -4536,9 +4484,7 @@
         "required": false,
         "searchable": true,
         "sort": 12,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -4582,9 +4528,7 @@
         "required": false,
         "searchable": true,
         "sort": 13,
-        "special": [
-          "date-updated"
-        ],
+        "special": ["date-updated"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -4628,9 +4572,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -4894,9 +4836,7 @@
         "required": false,
         "searchable": true,
         "sort": 7,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -4940,9 +4880,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -5294,9 +5232,7 @@
         "required": false,
         "searchable": true,
         "sort": 9,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -5340,9 +5276,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -5606,9 +5540,7 @@
         "required": false,
         "searchable": true,
         "sort": 8,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -5652,9 +5584,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -5874,9 +5804,7 @@
         "required": false,
         "searchable": true,
         "sort": 6,
-        "special": [
-          "date-updated"
-        ],
+        "special": ["date-updated"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -5920,9 +5848,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -6224,9 +6150,7 @@
         "required": false,
         "searchable": true,
         "sort": 7,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -6270,9 +6194,7 @@
         "required": false,
         "searchable": true,
         "sort": 8,
-        "special": [
-          "date-updated"
-        ],
+        "special": ["date-updated"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -6316,9 +6238,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -6538,9 +6458,7 @@
         "required": false,
         "searchable": true,
         "sort": 6,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -6584,9 +6502,7 @@
         "required": false,
         "searchable": true,
         "sort": 7,
-        "special": [
-          "date-updated"
-        ],
+        "special": ["date-updated"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -6630,9 +6546,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -6808,9 +6722,7 @@
         "required": false,
         "searchable": true,
         "sort": 5,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -6854,9 +6766,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -7120,9 +7030,7 @@
         "required": false,
         "searchable": true,
         "sort": 7,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -7166,9 +7074,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -7411,9 +7317,7 @@
         "required": false,
         "searchable": true,
         "sort": 6,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -7501,9 +7405,7 @@
         "required": false,
         "searchable": true,
         "sort": 1,
-        "special": [
-          "uuid"
-        ],
+        "special": ["uuid"],
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -7958,9 +7860,7 @@
         "required": false,
         "searchable": true,
         "sort": 11,
-        "special": [
-          "date-created"
-        ],
+        "special": ["date-created"],
         "translations": null,
         "validation": null,
         "validation_message": null,
