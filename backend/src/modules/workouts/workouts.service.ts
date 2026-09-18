@@ -1,6 +1,7 @@
 import { readItems } from '@directus/sdk';
 
 import { directus } from '../../config/directus.js';
+import type { CalorieSource } from '../../constants/enums.js';
 import { withRetry } from '../../data/retry.js';
 import { forUser } from '../../data/scoped.js';
 import { loadUserMetrics } from '../../data/user-metrics.js';
@@ -70,16 +71,37 @@ const beratUntukEstimasi = async (userId: string): Promise<number> =>
 interface SumberOlahraga {
   workout_name: string;
   calories_burned: number;
+  calories_source: CalorieSource;
 }
 
 /**
  * Menentukan nama dan kalori berdasarkan sumber olahraganya.
  *
- * Untuk sumber library dan custom, kalorinya dihitung backend dan nilai
- * calories_burned dari client diabaikan, kalau tidak, client bisa mengarang
- * angka kalori yang tidak sesuai dengan durasi dan berat badannya.
+ * Nama selalu dari sumbernya. Kalori: kalau user mengisi sendiri, angka itu
+ * yang dipakai untuk sumber apa pun dan ditandai MANUAL. Kalau tidak, dihitung
+ * dari MET library/custom dan ditandai MET.
+ *
+ * Dulu angka dari client diabaikan untuk library/custom, dengan alasan client
+ * bisa mengarang. Itu dicabut: yang mengisi adalah pemilik datanya sendiri,
+ * dan angka jam tangan untuk satu sesi jalan kaki jauh lebih dekat ke kenyataan
+ * daripada taksiran MET. Yang dijaga sekarang adalah ASALNYA tercatat, supaya
+ * angka manual tidak pernah dihitung ulang diam-diam.
  */
 const resolveSumber = async (userId: string, data: CreateWorkoutDto): Promise<SumberOlahraga> => {
+  const manual = data.calories_burned;
+
+  const dariMet = (kkalPerMenit: string, weightKg: number): Omit<SumberOlahraga, 'workout_name'> =>
+    manual === undefined
+      ? {
+          calories_burned: caloriesFromWorkout(
+            toNumber(kkalPerMenit),
+            data.duration_minutes,
+            weightKg,
+          ),
+          calories_source: 'MET',
+        }
+      : { calories_burned: manual, calories_source: 'MANUAL' };
+
   if (data.workout_library_id) {
     const [library, weightKg] = await Promise.all([
       withRetry(
@@ -100,14 +122,7 @@ const resolveSumber = async (userId: string, data: CreateWorkoutDto): Promise<Su
       throw AppError.notFound('Olahraga tidak ditemukan di library');
     }
 
-    return {
-      workout_name: item.name,
-      calories_burned: caloriesFromWorkout(
-        toNumber(item.calories_burned_per_minute),
-        data.duration_minutes,
-        weightKg,
-      ),
-    };
+    return { workout_name: item.name, ...dariMet(item.calories_burned_per_minute, weightKg) };
   }
 
   if (data.custom_workout_id) {
@@ -117,29 +132,22 @@ const resolveSumber = async (userId: string, data: CreateWorkoutDto): Promise<Su
       beratUntukEstimasi(userId),
     ]);
 
-    return {
-      workout_name: custom.name,
-      calories_burned: caloriesFromWorkout(
-        toNumber(custom.calories_burned_per_minute),
-        data.duration_minutes,
-        weightKg,
-      ),
-    };
+    return { workout_name: custom.name, ...dariMet(custom.calories_burned_per_minute, weightKg) };
   }
 
   // Input manual. Zod sudah memastikan kedua field ini terisi ketika tidak ada
   // sumber yang dirujuk, tapi diperiksa ulang di sini daripada memaksa tipe
   // dengan cast. Kalau aturan validasinya berubah suatu saat, yang muncul
   // adalah error yang jelas, bukan undefined yang diam-diam masuk database.
-  const { workout_name: nama, calories_burned: kalori } = data;
+  const nama = data.workout_name;
 
-  if (nama === undefined || kalori === undefined) {
+  if (nama === undefined || manual === undefined) {
     throw AppError.badRequest(
       'Olahraga manual butuh workout_name dan calories_burned, atau pilih dari library / custom workout',
     );
   }
 
-  return { workout_name: nama, calories_burned: kalori };
+  return { workout_name: nama, calories_burned: manual, calories_source: 'MANUAL' };
 };
 
 export const create = async (userId: string, data: CreateWorkoutDto): Promise<WorkoutLogRecord> => {
@@ -151,6 +159,7 @@ export const create = async (userId: string, data: CreateWorkoutDto): Promise<Wo
     workout_name: sumber.workout_name,
     duration_minutes: data.duration_minutes,
     calories_burned: sumber.calories_burned,
+    calories_source: sumber.calories_source,
     intensity: data.intensity,
     tracked_by_device: data.tracked_by_device ?? false,
     notes: data.notes ?? null,
@@ -196,13 +205,18 @@ export const getRange = async (userId: string, range: DateRangeDto): Promise<Wor
 /**
  * Mengoreksi log olahraga.
  *
- * Ketika durasinya berubah dan user tidak menyebut kalorinya sendiri, kalori
- * diskalakan proporsional dari nilai lama. Cara ini dipilih daripada menghitung
- * ulang dari library karena berlaku untuk ketiga sumber sekaligus, termasuk
- * olahraga yang diinput manual, yang tidak punya nilai per menit untuk dirujuk.
+ * Ketika durasinya berubah dan user tidak menyebut kalorinya sendiri, apa yang
+ * terjadi pada kalori bergantung ASALNYA:
  *
- * Membiarkan durasi berubah tanpa menyentuh kalori akan meninggalkan angka yang
- * saling bertentangan: lari 20 menit dengan kalori milik sesi 60 menit.
+ *   MET     diskalakan proporsional dari nilai lama, karena nilai lama memang
+ *           turunan dari durasi. Lari 20 menit dengan kalori milik sesi 60 menit
+ *           adalah dua angka yang saling bertentangan.
+ *   MANUAL  DIBIARKAN. Angka itu pengukuran jam tangan (atau ketikan user),
+ *           bukan turunan dari durasi. Kalau user cuma membetulkan durasi yang
+ *           salah ketik, angka jamnya tidak boleh ikut bergeser diam-diam.
+ *
+ * Kalau user menyebut kalorinya sendiri, angka itu yang dipakai dan asalnya
+ * jadi MANUAL, apa pun asal sebelumnya.
  */
 export const update = async (
   userId: string,
@@ -224,7 +238,11 @@ export const update = async (
   if (data.duration_minutes !== undefined) {
     perubahan.duration_minutes = data.duration_minutes;
 
-    if (data.calories_burned === undefined && log.duration_minutes > 0) {
+    // Baris lama dari sebelum kolom asalnya ada bernilai null. Semuanya dulu
+    // dihitung dari MET (angka client diabaikan), jadi null diperlakukan MET.
+    const dariMet = log.calories_source !== 'MANUAL';
+
+    if (data.calories_burned === undefined && dariMet && log.duration_minutes > 0) {
       perubahan.calories_burned = Math.round(
         (log.calories_burned / log.duration_minutes) * data.duration_minutes,
       );
@@ -232,7 +250,10 @@ export const update = async (
   }
 
   // Nilai dari user selalu menang atas hasil penskalaan di atas.
-  if (data.calories_burned !== undefined) perubahan.calories_burned = data.calories_burned;
+  if (data.calories_burned !== undefined) {
+    perubahan.calories_burned = data.calories_burned;
+    perubahan.calories_source = 'MANUAL';
+  }
 
   return repo.update('workout_logs', logId, perubahan);
 };

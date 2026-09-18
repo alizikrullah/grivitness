@@ -1,7 +1,16 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { Button, ChipGroup, ErrorNote, Input, Sheet, Stepper, Text } from '@/components/ui';
+import {
+  Button,
+  Checkbox,
+  ChipGroup,
+  ErrorNote,
+  Input,
+  Sheet,
+  Stepper,
+  Text,
+} from '@/components/ui';
 import { INTENSITY_LABEL, INTENSITY_OPTIONS } from '@/constants/labels';
 import { spacing } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
@@ -16,9 +25,11 @@ interface WorkoutEditSheetProps {
 /**
  * Mengoreksi sesi olahraga.
  *
- * Kalorinya sengaja tidak ikut disunting di sini. Backend menskalakannya ulang
- * secara proporsional begitu durasinya berubah, dan menawarkan dua kolom yang
- * saling memengaruhi hanya membuat user bertanya-tanya mana yang menang.
+ * Kalori ikut bisa disunting, sama seperti di form pencatatan. Yang perlu
+ * dijaga adalah ASALNYA: kalau user mengetik angkanya, itu dikirim dan backend
+ * menandainya MANUAL. Kalau dibiarkan, tidak dikirim, dan backend memutuskan
+ * sendiri: taksiran MET diskalakan mengikuti durasi baru, angka manual
+ * dibiarkan apa adanya.
  */
 export const WorkoutEditSheet = ({ log, onClose }: WorkoutEditSheetProps) => {
   const update = useUpdateWorkout();
@@ -26,12 +37,31 @@ export const WorkoutEditSheet = ({ log, onClose }: WorkoutEditSheetProps) => {
   const [durasi, setDurasi] = useState(log.duration_minutes);
   const [intensitas, setIntensitas] = useState<WorkoutIntensity>(log.intensity);
   const [catatan, setCatatan] = useState(log.notes ?? '');
+  const [terekam, setTerekam] = useState(log.tracked_by_device);
   const [error, setError] = useState<string | null>(null);
+
+  /** Null selama user belum menyentuh kolomnya. Lihat catatan di atas. */
+  const [kaloriDiketik, setKaloriDiketik] = useState<string | null>(null);
+
+  const manual = log.calories_source === 'MANUAL';
 
   const simpan = () => {
     if (durasi < 1) {
       setError('Durasi minimal 1 menit');
       return;
+    }
+
+    let kalori: number | undefined;
+
+    if (kaloriDiketik !== null) {
+      const angka = Number(kaloriDiketik);
+
+      if (kaloriDiketik.trim() === '' || !Number.isFinite(angka) || angka < 0) {
+        setError('Isi kalori terbakar');
+        return;
+      }
+
+      kalori = Math.round(angka);
     }
 
     setError(null);
@@ -42,6 +72,8 @@ export const WorkoutEditSheet = ({ log, onClose }: WorkoutEditSheetProps) => {
         duration_minutes: durasi,
         intensity: intensitas,
         notes: catatan.trim() === '' ? null : catatan.trim(),
+        tracked_by_device: terekam,
+        ...(kalori === undefined ? {} : { calories_burned: kalori }),
       },
       { onSuccess: onClose, onError: (e) => setError(toApiError(e).message) },
     );
@@ -61,10 +93,22 @@ export const WorkoutEditSheet = ({ log, onClose }: WorkoutEditSheetProps) => {
           Durasi
         </Text>
         <Stepper value={durasi} onChange={setDurasi} step={5} min={1} max={1440} suffix="menit" />
-        <Text variant="caption" tone="tertiary">
-          Kalori dihitung ulang otomatis mengikuti durasi.
-        </Text>
       </View>
+
+      <Input
+        label="Kalori terbakar"
+        value={kaloriDiketik ?? String(log.calories_burned)}
+        onChangeText={setKaloriDiketik}
+        keyboardType="number-pad"
+        suffix="kkal"
+        hint={
+          kaloriDiketik !== null
+            ? 'Angka ini disimpan apa adanya dan tidak dihitung ulang.'
+            : manual
+              ? 'Angka yang kamu isi sendiri. Tidak ikut berubah kalau durasinya diubah.'
+              : 'Taksiran. Ikut menyesuaikan kalau durasinya diubah, kecuali kamu ketik sendiri.'
+        }
+      />
 
       <View style={styles.group}>
         <Text variant="label" tone="secondary">
@@ -78,6 +122,13 @@ export const WorkoutEditSheet = ({ log, onClose }: WorkoutEditSheetProps) => {
           wrap
         />
       </View>
+
+      <Checkbox
+        label="Sesi ini terekam jam tangan"
+        checked={terekam}
+        onChange={setTerekam}
+        hint="Kalorinya sudah ada di dalam angka aktif jam hari itu, jadi tidak ditambah lagi."
+      />
 
       <Input
         label="Catatan"

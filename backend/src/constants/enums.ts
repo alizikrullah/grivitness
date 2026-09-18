@@ -19,8 +19,9 @@ export type Gender = (typeof GENDER)[number];
  *
  * PERHATIAN, artinya berubah sejak metode faktorial dipakai. Ini BUKAN lagi
  * "seberapa aktif kamu secara keseluruhan", melainkan "seberapa aktif kamu di
- * luar tidur, berjalan, dan olahraga", praktisnya: seperti apa pekerjaanmu.
- * Tidur, langkah, dan olahraga sudah punya potongan waktunya sendiri.
+ * luar tidur dan olahraga", praktisnya: seperti apa pekerjaanmu. Tidur dan
+ * olahraga sudah punya potongan waktunya sendiri. Jalan-jalan kecil sepanjang
+ * hari termasuk di sini.
  */
 export const ACTIVITY_LEVEL = [
   'SEDENTARY',
@@ -45,8 +46,19 @@ export const WORKOUT_CATEGORY = ['CARDIO', 'STRENGTH', 'FLEXIBILITY', 'SPORTS', 
 export type WorkoutCategory = (typeof WORKOUT_CATEGORY)[number];
 
 /**
+ * Asal angka kalori sebuah log olahraga.
+ *
+ * MET     dihitung backend dari nilai library/custom, durasi, dan berat user.
+ * MANUAL  diketik user, biasanya angka dari jam tangannya. Tidak boleh dihitung
+ *         ulang diam-diam ketika durasi atau berat badannya berubah: angka itu
+ *         pengukuran (sekasar apa pun), bukan turunan.
+ */
+export const CALORIE_SOURCE = ['MET', 'MANUAL'] as const;
+export type CalorieSource = (typeof CALORIE_SOURCE)[number];
+
+/**
  * PAR (Physical Activity Ratio) untuk SISA hari, jam yang tidak terpakai untuk
- * tidur, berjalan, atau olahraga.
+ * tidur atau olahraga.
  *
  * Kenapa bukan pengali 1.2/1.375/1.55/1.725/1.9 seperti dulu: angka-angka itu
  * konvensi yang beredar turun-temurun tanpa sumber primer, dan lebih parah lagi,
@@ -60,9 +72,13 @@ export type WorkoutCategory = (typeof WORKOUT_CATEGORY)[number];
  * dihindari, memang tidak mungkin terjadi.
  *
  * Nilai di bawah adalah rata-rata tertimbang dari kegiatan yang mengisi sisa
- * hari: kerja, makan, memasak, mandi, beres-beres, bersantai. Dikalibrasi
- * supaya hari tanpa olahraga dengan langkah seadanya mendarat di 1.42, pas di
- * pita "sedentary or light activity lifestyle" (1.40–1.69) versi FAO/WHO.
+ * hari: kerja, makan, memasak, mandi, beres-beres, bersantai, TERMASUK
+ * jalan-jalan kecil sepanjang hari. Langkah tidak lagi punya potongan sendiri,
+ * jadi PAR inilah yang menanggungnya, seperti tabel PAR pekerjaan FAO/WHO
+ * yang memang sudah memuat gerak insidental. Hari kantor tanpa olahraga dengan
+ * tidur 8 jam mendarat di 1.40, tepat di dasar pita "sedentary or light
+ * activity lifestyle" (1.40–1.69). Sengaja di dasar: untuk aplikasi penurunan
+ * berat badan, salah taksir ke bawah lebih aman daripada ke atas.
  */
 export const ACTIVITY_PAR: Record<ActivityLevel, number> = {
   SEDENTARY: 1.6,

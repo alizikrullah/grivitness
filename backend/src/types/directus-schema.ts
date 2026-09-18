@@ -181,8 +181,16 @@ export interface WorkoutLogRecord {
   /** Selalu diisi sebagai display name, walau kedua FK di atas kosong */
   workout_name: string;
   duration_minutes: number;
-  /** calories_per_minute * durasi * (berat_user / 70) */
+  /**
+   * MET: kkal_per_menit * durasi * (berat_user / 70). MANUAL: angka yang diketik user, mis.
+   * dari jam tangan.
+   */
   calories_burned: number;
+  /**
+   * Asal angka calories_burned. MANUAL tidak boleh dihitung ulang diam-diam saat durasi atau
+   * berat berubah.
+   */
+  calories_source: 'MET' | 'MANUAL';
   intensity: WorkoutIntensity;
   /**
    * true kalau sesi ini SUDAH ikut terhitung di angka device_energy_logs hari itu. Dipakai
@@ -203,10 +211,8 @@ export interface StepLogRecord {
   /** Pemilik data ini */
   user_id: string;
   steps: number;
-  /** Estimasi: steps * 0.0008 */
+  /** Estimasi dari tinggi badan: steps * tinggi_cm * 0.415 / 100000 */
   distance_km: DecimalString;
-  /** Estimasi: steps * berat_kg * 0.0005 */
-  calories_burned: number;
   /** Tanggal log dalam format YYYY-MM-DD */
   logged_at: DateString;
   /**

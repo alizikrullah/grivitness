@@ -1,6 +1,7 @@
 export { BarChart, type BarDatum } from './BarChart';
 export { Button } from './Button';
 export { Card } from './Card';
+export { Checkbox } from './Checkbox';
 export { Chip, ChipGroup } from './Chip';
 export { ConfirmDialog } from './ConfirmDialog';
 export { DateField, TimeField } from './DateField';

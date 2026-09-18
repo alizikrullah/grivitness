@@ -104,9 +104,7 @@ export const DeviceEnergyPanel = () => {
    * dirinya sendiri.
    */
   const energi = ringkasan?.energy;
-  const rumus = energi
-    ? Math.round(energi.baseline + energi.step_calories + energi.workout_calories)
-    : null;
+  const rumus = energi ? Math.round(energi.baseline + energi.workout_calories) : null;
 
   const angka = Number(kalori.trim());
   const angkaValid = kalori.trim() !== '' && Number.isFinite(angka) && angka >= 0;

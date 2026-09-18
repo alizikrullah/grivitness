@@ -51,8 +51,8 @@ export interface Profile {
    * Penjelasan activity_level dari backend, berupa contoh profesi.
    *
    * Sejak TDEE memakai metode faktorial, activity_level TIDAK lagi berarti
-   * "seberapa aktif kamu", tidur, langkah, dan olahraga sudah punya potongan
-   * waktunya sendiri. Yang ditanyakan sekarang seperti apa sisa harimu.
+   * "seberapa aktif kamu", tidur dan olahraga sudah punya potongan waktunya
+   * sendiri. Yang ditanyakan sekarang seperti apa sisa harimu.
    */
   activity_label: string;
   age: number;
@@ -151,11 +151,11 @@ export interface WeightLog {
   created_at: string | null;
 }
 
+/** Langkah adalah pantauan, bukan bahan hitung kalori. Tidak ada kolom kalori. */
 export interface StepLog {
   id: string;
   steps: number;
   distance_km: DecimalString;
-  calories_burned: number;
   logged_at: DateString;
   created_at: string | null;
 }
@@ -300,6 +300,12 @@ export interface WorkoutLog {
   workout_name: string;
   duration_minutes: number;
   calories_burned: number;
+  /**
+   * Asal angka kalorinya. MET dihitung backend dari library; MANUAL diketik
+   * user, biasanya dari jam tangan, dan tidak pernah dihitung ulang diam-diam.
+   * Null cuma pada baris lama dari sebelum kolom ini ada, artinya MET.
+   */
+  calories_source: 'MET' | 'MANUAL' | null;
   intensity: WorkoutIntensity;
   /** true kalau sesi ini sudah ikut terhitung di angka smartwatch hari itu. */
   tracked_by_device: boolean;
@@ -372,13 +378,18 @@ export interface NotificationSettings {
   photo_reminder_time: string;
 }
 
-/** Rincian dari mana pengeluaran energi hari itu datang. */
+/**
+ * Rincian dari mana pengeluaran energi hari itu datang.
+ *
+ * Langkah tidak dirinci karena tidak dihitung: jalan-jalan kecil sepanjang
+ * hari sudah terwakili di baseline lewat PAR pekerjaan, dan jalan kaki yang
+ * sungguhan dicatat sebagai olahraga. Langkah cuma pantauan.
+ */
 export interface EnergyBreakdown {
   /** Physical Activity Level hari itu, TDEE dibagi BMR. */
   pal: number;
   /** Metabolisme basal dikali PAL: hidup dan kegiatan sehari-hari. */
   baseline: number;
-  step_calories: number;
   workout_calories: number;
 }
 

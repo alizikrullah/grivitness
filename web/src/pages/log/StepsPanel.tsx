@@ -157,10 +157,7 @@ export const StepsPanel = () => {
 
             <span className="flex-1">
               <span className="t-body-medium">{thousands(today.data.steps)} langkah</span>
-              <span className="t-caption c-tertiary">
-                {' '}
-                · {today.data.distance_km} km · {today.data.calories_burned} kkal
-              </span>
+              <span className="t-caption c-tertiary"> · {today.data.distance_km} km</span>
             </span>
 
             <LogActions

@@ -5,11 +5,17 @@ import { dateString } from '../../utils/query.js';
 
 /**
  * Sebuah log olahraga bisa bersumber dari tiga tempat, dan sumbernya menentukan
- * dari mana nama serta kalorinya berasal:
+ * dari mana NAMANYA berasal:
  *
  *   workout_library_id -> dipilih dari library global
  *   custom_workout_id  -> dipilih dari custom workout milik user
- *   keduanya kosong     -> input manual, user mengisi nama dan kalorinya sendiri
+ *   keduanya kosong     -> input manual, user mengisi namanya sendiri
+ *
+ * KALORINYA urusan terpisah. Untuk library dan custom, backend menghitungnya
+ * dari MET kalau user tidak mengisi; kalau user mengisi, angka user yang
+ * dipakai dan ditandai MANUAL. Ini yang memungkinkan angka jam tangan untuk
+ * satu sesi dicatat apa adanya, tanpa harus memilih "olahraga manual" dan
+ * kehilangan kaitannya ke library.
  *
  * Aturan itu ditegakkan di sini supaya service tidak menerima kombinasi yang
  * tidak masuk akal, misalnya dua sumber sekaligus atau tidak ada sumber sama
@@ -29,7 +35,10 @@ export const CreateWorkoutSchema = z
       .min(1, 'Durasi minimal 1 menit')
       .max(1440, 'Durasi maksimal 1440 menit'),
 
-    /** Wajib untuk input manual. Kalau dari library atau custom, dihitung backend. */
+    /**
+     * Wajib untuk input manual. Untuk library dan custom OPSIONAL: kosong
+     * berarti dihitung backend dari MET, terisi berarti angka user yang dipakai.
+     */
     calories_burned: z
       .number({ message: 'Kalori harus berupa angka' })
       .int('Kalori harus bilangan bulat')
@@ -45,6 +54,11 @@ export const CreateWorkoutSchema = z
      * Menentukan apakah kalorinya boleh ditambahkan di atas angka perangkat.
      * Jalan santai dan berkebun yang dilakukan sambil memakai jam tangan sudah
      * masuk di sana; berenang atau sesi yang jamnya dilepas belum.
+     *
+     * Terpisah dari calories_burned dengan sengaja. "Kalorinya diisi manual"
+     * dan "sesinya terekam jam" adalah dua fakta berbeda: renang bisa diisi
+     * manual tanpa jam, jalan kaki bisa terekam jam tanpa user mengetik apa pun.
+     * Menyatukan keduanya jadi satu kolom pernah diusulkan dan salah.
      */
     tracked_by_device: z.boolean().optional(),
 
