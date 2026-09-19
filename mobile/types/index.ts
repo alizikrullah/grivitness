@@ -447,11 +447,8 @@ export interface SleepTarget {
 }
 
 export interface StepTarget {
+  /** Total yang dianjurkan hari ini: 8.000, atau 6.000 untuk usia 60+. Angka kesehatan saja. */
   steps: number;
-  /** Bagian yang murni untuk kesehatan, terlepas dari target berat badan. */
-  baseline: number;
-  /** Bagian tambahan yang khusus menutup defisit target berat badan. */
-  for_goal: number;
 }
 
 export interface MacroTarget {
