@@ -47,6 +47,8 @@ export interface Profile {
   birth_date: DateString;
   gender: Gender;
   activity_level: ActivityLevel;
+  /** Target langkah pilihan user, null berarti bawaan. */
+  step_target: number | null;
   /**
    * Penjelasan activity_level dari backend, berupa contoh profesi.
    *
@@ -423,6 +425,8 @@ export interface NotificationSettings {
   workout_reminder_enabled: boolean;
   workout_reminder_time: string;
   photo_reminder_enabled: boolean;
+  /** Tanggal dalam bulan (1-28). Foto badan diingatkan bulanan, bukan harian. */
+  photo_reminder_day: number;
   photo_reminder_time: string;
 }
 
@@ -447,8 +451,10 @@ export interface SleepTarget {
 }
 
 export interface StepTarget {
-  /** Total yang dianjurkan hari ini: 8.000, atau 6.000 untuk usia 60+. Angka kesehatan saja. */
+  /** Total yang dianjurkan hari ini. Bawaan 8.000 (6.000 untuk 60+), atau pilihan user. */
   steps: number;
+  /** true kalau angkanya pilihan user sendiri. */
+  custom: boolean;
 }
 
 export interface MacroTarget {

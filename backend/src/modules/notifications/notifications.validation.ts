@@ -28,6 +28,17 @@ export const UpdateNotificationSettingsSchema = z
     workout_reminder_time: jam.optional(),
 
     photo_reminder_enabled: z.boolean().optional(),
+    /**
+     * Bulanan. Dibatasi 1-28 supaya tidak ada bulan yang terlewat: tanggal 29,
+     * 30, dan 31 tidak ada di semua bulan, dan pengingat yang diam-diam absen di
+     * Februari lebih buruk daripada tidak ada pilihan tanggal 31.
+     */
+    photo_reminder_day: z
+      .number({ message: 'Tanggal harus berupa angka' })
+      .int('Tanggal harus bilangan bulat')
+      .min(1, 'Tanggal minimal 1')
+      .max(28, 'Tanggal maksimal 28 supaya tiap bulan pasti ada')
+      .optional(),
     photo_reminder_time: jam.optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {

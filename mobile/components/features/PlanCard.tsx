@@ -18,6 +18,17 @@ interface PlanCardProps {
 const kgPerMinggu = (n: number): string => Math.abs(n).toFixed(2).replace('.', ',') + ' kg';
 
 /**
+ * Batas anjuran langkah tambahan yang masih bisa dijalankan.
+ *
+ * Di atas ini anjurannya bukan lagi saran, tapi angka mustahil: "tambah
+ * 40.000 langkah per hari" pernah benar-benar tampil. Kalau selisih
+ * defisitnya sebesar itu, yang jujur adalah bilang target tanggalnya tidak
+ * realistis dan sebaiknya digeser, bukan menyodorkan angka yang tidak akan
+ * dikejar siapa pun.
+ */
+const LANGKAH_TAMBAHAN_MAKS = 6000;
+
+/**
  * Menjelaskan rencana penurunan berat badan dengan angka yang bisa dijalankan.
  *
  * Yang paling penting di kartu ini adalah bagian peringatannya. Target yang
@@ -124,8 +135,13 @@ export const PlanCard = ({ goal, targets }: PlanCardProps) => {
                     style={styles.stepsIcon}
                   />
                   <Text variant="caption" tone="secondary" style={styles.stepsText}>
-                    Tambah {thousands(plan.extra_steps_needed)} langkah per hari untuk mengejar
-                    tanggal aslinya.
+                    {plan.extra_steps_needed <= LANGKAH_TAMBAHAN_MAKS
+                      ? 'Tambah ' +
+                        thousands(plan.extra_steps_needed) +
+                        ' langkah per hari kalau mau mengejar tanggal aslinya.'
+                      : 'Selisihnya setara ' +
+                        thousands(plan.extra_steps_needed) +
+                        ' langkah per hari, dan itu tidak realistis dikejar lewat gerak. Tanggal targetnya yang perlu digeser, bukan usahamu yang kurang.'}
                   </Text>
                 </View>
               ) : null}

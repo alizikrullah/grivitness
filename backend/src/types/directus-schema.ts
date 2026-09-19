@@ -76,6 +76,11 @@ export interface UserProfileRecord {
   gender: Gender;
   /** Menentukan activity multiplier pada kalkulasi TDEE */
   activity_level: ActivityLevel;
+  /**
+   * Target langkah harian pilihan user. Kosong berarti bawaan 8.000 (6.000 untuk 60+).
+   * Langkah cuma pantauan, jadi targetnya milik user, bukan rumus.
+   */
+  step_target: number | null;
   /** Diisi otomatis oleh Directus saat item dibuat */
   created_at: TimestampString | null;
   /** Diisi otomatis oleh Directus setiap item diubah */
@@ -416,6 +421,11 @@ export interface NotificationSettingsRecord {
   /** Format HH:mm, timezone WIB */
   workout_reminder_time: string;
   photo_reminder_enabled: boolean;
+  /**
+   * Tanggal dalam bulan (1-28) pengingat foto badan berbunyi. Bulanan, bukan harian: foto
+   * badan berguna 2-4 minggu sekali, dan pengingat harian untuk itu cuma jadi gangguan.
+   */
+  photo_reminder_day: number;
   /** Format HH:mm, timezone WIB */
   photo_reminder_time: string;
   /** Diisi otomatis oleh Directus saat item dibuat */

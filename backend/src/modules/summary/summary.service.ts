@@ -229,6 +229,7 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
       calorieBudget: budget,
       isDeficit: budget !== null && energi !== null && budget < energi.tdee,
       workoutMinutes: workoutMenit,
+      customStepTarget: metrics.stepTarget,
     }),
   };
 };

@@ -8,6 +8,7 @@ import {
   DateField,
   ErrorNote,
   Loading,
+  Modal,
   ProgressBar,
   SectionHeader,
   Stepper,
@@ -15,6 +16,7 @@ import {
 import { metricColors } from '@/constants/colors';
 import { toApiError } from '@/lib/api';
 import { useDailySummary } from '@/services/misc.service';
+import { useSaveProfile } from '@/services/users.service';
 import {
   useDeleteSteps,
   useSaveSteps,
@@ -28,6 +30,7 @@ import { LogActions } from './LogActions';
 export const StepsPanel = () => {
   /** Tanggal yang sedang dilihat. Bawaannya hari ini. */
   const [tanggal, setTanggal] = useState(todayWIB());
+  const [ubahTarget, setUbahTarget] = useState(false);
 
   // Chart tetap berlabuh pada hari ini apa pun tanggal yang sedang dibuka.
   const hariIni = todayWIB();
@@ -105,7 +108,9 @@ export const StepsPanel = () => {
 
           <div className="stack-xs">
             <div className="row-between">
-              <span className="t-caption c-secondary">Target harian</span>
+              <span className="t-caption c-secondary">
+                {target?.custom ? 'Target harian (pilihanmu)' : 'Target harian'}
+              </span>
               <span className="t-label">
                 {thousands(langkah)}
                 <span className="c-tertiary"> / {thousands(target?.steps ?? 0)}</span>
@@ -122,6 +127,15 @@ export const StepsPanel = () => {
               tidak masuk hitungan kalori, jadi tidak ada lapisan "tambahan untuk
               target berat" yang dulu bisa menggelembung sampai 20.000.
             */}
+            {/* Target milik user: langkah cuma pantauan, jadi angka realistisnya dia yang tahu. */}
+            <button
+              type="button"
+              className="link-btn t-label c-accent"
+              onClick={() => setUbahTarget(true)}
+            >
+              Ubah target
+            </button>
+
             <span className="t-caption c-tertiary">
               Langkah untuk memantau seberapa banyak kamu bergerak, bukan bahan hitung kalori. Jalan
               kaki yang sungguhan dicatat sebagai olahraga.
@@ -168,6 +182,85 @@ export const StepsPanel = () => {
           </div>
         </Card>
       ) : null}
+
+      {ubahTarget && target ? (
+        <StepTargetModal
+          current={target.steps}
+          custom={target.custom}
+          onClose={() => setUbahTarget(false)}
+        />
+      ) : null}
     </>
+  );
+};
+
+/**
+ * Mengubah target langkah harian. Padanan StepTargetSheet di mobile.
+ *
+ * Langkah cuma pantauan perilaku, tidak masuk hitungan kalori, jadi targetnya
+ * milik user. Disimpan di profil (step_target) dan dipakai backend saat
+ * menyusun target harian.
+ */
+const StepTargetModal = ({
+  current,
+  custom,
+  onClose,
+}: {
+  current: number;
+  custom: boolean;
+  onClose: () => void;
+}) => {
+  const simpan = useSaveProfile('update');
+  const [nilai, setNilai] = useState(current);
+  const [error, setError] = useState<string | null>(null);
+
+  const kirim = (target: number | null) => {
+    setError(null);
+    simpan.mutate(
+      { step_target: target },
+      { onSuccess: onClose, onError: (e) => setError(toApiError(e).message) },
+    );
+  };
+
+  return (
+    <Modal
+      open
+      title="Target langkah harian"
+      onClose={onClose}
+      footer={
+        <div className="stack-xs">
+          {custom ? (
+            <Button
+              label="Kembali ke bawaan (8.000)"
+              variant="secondary"
+              full
+              onClick={() => kirim(null)}
+              loading={simpan.isPending}
+            />
+          ) : null}
+          <Button
+            label="Simpan target"
+            size="lg"
+            full
+            onClick={() => kirim(nilai)}
+            loading={simpan.isPending}
+          />
+        </div>
+      }
+    >
+      <Stepper
+        value={nilai}
+        onChange={setNilai}
+        step={500}
+        min={1000}
+        max={40_000}
+        suffix="langkah"
+      />
+      <span className="t-caption c-tertiary">
+        Pilih angka yang benar-benar bisa kamu capai. Bawaannya 8.000, titik di mana manfaat
+        kesehatannya mendatar menurut penelitian.
+      </span>
+      {error ? <ErrorNote message={error} /> : null}
+    </Modal>
   );
 };

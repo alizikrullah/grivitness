@@ -44,13 +44,18 @@ export const ReminderSheet = ({ kind, settings, onClose }: ReminderSheetProps) =
     kind === 'water' ? '' : ((settings[FIELD_JAM[kind]] as string | undefined) ?? '07:00'),
   );
   const [jarak, setJarak] = useState(settings.water_reminder_interval_hours);
+  const [tanggal, setTanggal] = useState(settings.photo_reminder_day);
   const [error, setError] = useState<string | null>(null);
 
   const simpan = () => {
     setError(null);
 
     const body =
-      kind === 'water' ? { water_reminder_interval_hours: jarak } : { [FIELD_JAM[kind]]: jam };
+      kind === 'water'
+        ? { water_reminder_interval_hours: jarak }
+        : kind === 'photo'
+          ? { photo_reminder_time: jam, photo_reminder_day: tanggal }
+          : { [FIELD_JAM[kind]]: jam };
 
     update.mutate(body, {
       onSuccess: onClose,
@@ -78,6 +83,23 @@ export const ReminderSheet = ({ kind, settings, onClose }: ReminderSheetProps) =
         </View>
       ) : (
         <View style={styles.group}>
+          {/*
+            Foto badan bulanan, bukan harian. Tanggalnya dipilih user, dibatasi
+            1-28 supaya tidak ada bulan yang terlewat.
+          */}
+          {kind === 'photo' ? (
+            <>
+              <Text variant="label" tone="secondary">
+                Setiap tanggal
+              </Text>
+              <Stepper value={tanggal} onChange={setTanggal} step={1} min={1} max={28} />
+              <Text variant="caption" tone="tertiary">
+                Sebulan sekali cukup. Perubahan bentuk badan baru kelihatan setelah beberapa minggu,
+                dan tanggal yang sama tiap bulan membuat fotonya sebanding.
+              </Text>
+            </>
+          ) : null}
+
           <TimeField
             label="Jam pengingat"
             value={jam}

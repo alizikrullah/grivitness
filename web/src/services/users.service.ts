@@ -10,6 +10,8 @@ export interface ProfileInput {
   birth_date: string;
   gender: Gender;
   activity_level: ActivityLevel;
+  /** Target langkah pilihan user. Null mengembalikan ke bawaan. */
+  step_target?: number | null;
 }
 
 export const useMe = () =>

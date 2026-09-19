@@ -32,6 +32,8 @@ export interface ProfileWithDerived {
   birth_date: string;
   gender: UserProfileRecord['gender'];
   activity_level: UserProfileRecord['activity_level'];
+  /** Target langkah pilihan user, null berarti bawaan 8.000 / 6.000. */
+  step_target: number | null;
   /**
    * Penjelasan activity_level dalam bahasa yang bisa dijawab user.
    *
@@ -128,6 +130,7 @@ const withDerived = (profile: UserProfileRecord, energy: EnergyProfile): Profile
     birth_date: profile.birth_date,
     gender: profile.gender,
     activity_level: profile.activity_level,
+    step_target: profile.step_target,
     activity_label: ACTIVITY_LEVEL_LABEL[profile.activity_level],
     age,
     current_weight_kg: weightKg,

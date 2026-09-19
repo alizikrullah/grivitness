@@ -28,6 +28,8 @@ export interface UserMetrics {
   age: number;
   gender: Gender;
   activityLevel: ActivityLevel;
+  /** Target langkah pilihan user, null berarti bawaan. */
+  stepTarget: number | null;
   /** Null selama profil belum diisi atau user belum pernah menimbang. */
   bmr: number | null;
   /** True kalau semua angka di atas benar-benar berasal dari data user. */
@@ -63,6 +65,7 @@ export const loadUserMetrics = async (userId: string): Promise<UserMetrics> => {
     age,
     gender,
     activityLevel,
+    stepTarget: profile?.step_target ?? null,
     bmr: weightKg === null || !profile ? null : calculateBMR({ weightKg, heightCm, age, gender }),
     complete: weightKg !== null && profile !== null,
     hasWeight: weightKg !== null,

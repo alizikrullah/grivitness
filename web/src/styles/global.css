@@ -237,3 +237,15 @@ svg {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Tombol yang tampil sebagai teks tautan, untuk aksi ringan di dalam kartu. */
+.link-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.link-btn:hover {
+  text-decoration: underline;
+}
