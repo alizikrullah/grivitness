@@ -9,15 +9,12 @@ config();
  * berhenti dengan pesan jelas, bukan meledak di tengah request nanti.
  */
 /**
- * Model Groq bawaan, dipakai kalau env tidak menyebut, DAN sebagai cadangan
- * kalau model yang disebut env ternyata sudah tidak ada.
+ * Model Groq bawaan, dipakai kalau env tidak menyebut.
  *
- * Groq mengganti nama model tanpa masa transisi: qwen/qwen3.6-27b lenyap dan
- * digantikan qwen/qwen3.8-27b, dan yang lama langsung membalas 404. Env di
- * server produksi ditulis tangan dan tidak ikut berubah saat kode berubah,
- * jadi nama yang mati di sana mematikan analisa foto sampai ada yang sadar.
- * Cadangan di sini membuat backend memakai nama yang masih hidup sambil
- * mencatat peringatan keras di log.
+ * Ini BUKAN cadangan saat model di env mati. Groq mengganti nama model tanpa
+ * masa transisi (qwen/qwen3.6-27b lenyap begitu saja), dan nama yang dikodekan
+ * di sini ikut basi dengan cara yang sama. Cadangannya dicari saat kejadian
+ * dari daftar model Groq, lihat cariModelPengganti() di utils/groq.ts.
  */
 export const GROQ_MODEL_BAWAAN = {
   vision: 'qwen/qwen3.8-27b',
