@@ -40,7 +40,24 @@ const profileFields = {
   activity_level: z.enum(ACTIVITY_LEVEL),
 };
 
-export const CreateProfileSchema = z.object(profileFields);
+/**
+ * Target langkah pilihan user. Null mengembalikan ke bawaan.
+ *
+ * Batasnya longgar dengan sengaja: ini target perilaku milik user, bukan angka
+ * rumus. Yang dijaga cuma salah ketik: 100 langkah bukan target, dan 100.000
+ * bukan target yang bisa dijalankan siapa pun.
+ */
+const targetLangkah = z
+  .number({ message: 'Target langkah harus berupa angka' })
+  .int('Target langkah harus bilangan bulat')
+  .min(1000, 'Target langkah minimal 1.000')
+  .max(40_000, 'Target langkah maksimal 40.000')
+  .nullable();
+
+export const CreateProfileSchema = z.object({
+  ...profileFields,
+  step_target: targetLangkah.optional(),
+});
 
 export const UpdateProfileSchema = z
   .object({
@@ -48,6 +65,7 @@ export const UpdateProfileSchema = z
     birth_date: profileFields.birth_date.optional(),
     gender: profileFields.gender.optional(),
     activity_level: profileFields.activity_level.optional(),
+    step_target: targetLangkah.optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: 'Tidak ada field yang diubah',

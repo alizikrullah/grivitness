@@ -59,6 +59,8 @@ interface Pengingat {
   jamWib: string;
   title: string;
   body: string;
+  /** Kalau diisi, pengingatnya bulanan pada tanggal ini, bukan harian. */
+  tanggal?: number;
 }
 
 const daftarPengingat = (s: NotificationSettings): Pengingat[] => {
@@ -81,10 +83,14 @@ const daftarPengingat = (s: NotificationSettings): Pengingat[] => {
   }
 
   if (s.photo_reminder_enabled) {
+    // Bulanan, bukan harian. Foto badan berguna 2-4 minggu sekali, dan
+    // pengingat harian untuk hal yang cuma perlu sebulan sekali persis jenis
+    // gangguan yang membuat aplikasi ini sempat ditinggal.
     hasil.push({
       jamWib: s.photo_reminder_time,
-      title: 'Foto progres',
-      body: 'Ambil foto badan hari ini untuk dibandingkan nanti.',
+      tanggal: s.photo_reminder_day,
+      title: 'Foto badan & pinggang bulan ini',
+      body: 'Waktunya foto depan-samping dan ukur pinggang, lalu bandingkan dengan bulan lalu.',
     });
   }
 
@@ -149,12 +155,16 @@ export const susunUlangPengingat = async (
 
     await N.scheduleNotificationAsync({
       content: { title: pengingat.title, body: pengingat.body, sound: true },
-      trigger: {
-        type: N.SchedulableTriggerInputTypes.DAILY,
-        channelId: CHANNEL_ID,
-        hour,
-        minute,
-      },
+      trigger:
+        pengingat.tanggal === undefined
+          ? { type: N.SchedulableTriggerInputTypes.DAILY, channelId: CHANNEL_ID, hour, minute }
+          : {
+              type: N.SchedulableTriggerInputTypes.MONTHLY,
+              channelId: CHANNEL_ID,
+              day: pengingat.tanggal,
+              hour,
+              minute,
+            },
     });
   }
 

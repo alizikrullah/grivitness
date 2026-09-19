@@ -63,8 +63,13 @@ describe('stepTarget', () => {
    * target langkah cuma angka kesehatan, apa pun target beratnya.
    */
   it('tidak punya lapisan target berat badan lagi', () => {
-    expect(Object.keys(stepTarget(30))).toEqual(['steps']);
-    expect(stepTarget(30).steps).toBeLessThanOrEqual(8000);
+    expect(stepTarget(30)).toEqual({ steps: 8000, custom: false });
+  });
+
+  /** Langkah cuma pantauan, jadi targetnya boleh milik user. */
+  it('memakai angka pilihan user kalau ada, dan menandainya', () => {
+    expect(stepTarget(30, 6000)).toEqual({ steps: 6000, custom: true });
+    expect(stepTarget(30, null)).toEqual({ steps: 8000, custom: false });
   });
 });
 
@@ -110,8 +115,8 @@ describe('dailyTargets', () => {
     gender: 'MALE' as const,
     calorieBudget: 2000,
     isDeficit: true,
-    extraStepsForGoal: 0,
     workoutMinutes: 0,
+    customStepTarget: null,
   };
 
   it('mengembalikan semua target sekaligus', () => {

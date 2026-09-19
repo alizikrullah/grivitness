@@ -95,6 +95,8 @@ const USIA_LANGKAH_LANSIA = 60;
 export interface StepTarget {
   /** Total yang dianjurkan hari ini. */
   steps: number;
+  /** true kalau angkanya pilihan user sendiri, bukan bawaan. */
+  custom: boolean;
 }
 
 /**
@@ -107,10 +109,19 @@ export interface StepTarget {
  * langkah tidak lagi masuk hitungan kalori (lihat calories.ts), lapisan itu
  * juga tidak punya arti mekanis. Anjuran "tambah sekian langkah" tetap ada di
  * kartu rencana sebagai saran, bukan sebagai target harian.
+ *
+ * Karena langkah cuma pantauan perilaku, targetnya boleh milik user: kalau
+ * dia tahu 6.000 yang realistis buat dia, memaksakan 8.000 cuma bikin angka
+ * merah yang diabaikan tiap hari. Bawaan tetap 8.000 untuk yang tidak
+ * mengatur.
  */
-export const stepTarget = (age: number): StepTarget => ({
-  steps: age >= USIA_LANGKAH_LANSIA ? LANGKAH_DASAR_LANSIA : LANGKAH_DASAR_MUDA,
-});
+export const stepTarget = (age: number, custom: number | null = null): StepTarget =>
+  custom === null
+    ? {
+        steps: age >= USIA_LANGKAH_LANSIA ? LANGKAH_DASAR_LANSIA : LANGKAH_DASAR_MUDA,
+        custom: false,
+      }
+    : { steps: custom, custom: true };
 
 // ============================================================
 // MAKRONUTRIEN
@@ -200,13 +211,15 @@ export interface TargetInput {
   isDeficit: boolean;
   /** Menit olahraga hari ini, menaikkan kebutuhan cairan. */
   workoutMinutes: number;
+  /** Target langkah pilihan user, null berarti bawaan. */
+  customStepTarget: number | null;
 }
 
 /** Semua target harian sekaligus, supaya layar tidak perlu menghitung apa pun. */
 export const dailyTargets = (input: TargetInput): DailyTargets => ({
   water_ml: waterTargetMl(input.weightKg, input.age, input.workoutMinutes),
   sleep: sleepTarget(input.age),
-  steps: stepTarget(input.age),
+  steps: stepTarget(input.age, input.customStepTarget),
   macros:
     input.calorieBudget === null
       ? null

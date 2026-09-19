@@ -290,6 +290,12 @@ export const collections: CollectionDef[] = [
       enumField('activity_level', ACTIVITY_LEVEL, {
         note: 'Menentukan activity multiplier pada kalkulasi TDEE',
       }),
+      {
+        field: 'step_target',
+        type: 'integer',
+        nullable: true,
+        note: 'Target langkah harian pilihan user. Kosong berarti bawaan 8.000 (6.000 untuk 60+). Langkah cuma pantauan, jadi targetnya milik user, bukan rumus.',
+      },
       createdAt(),
       updatedAt(),
     ],
@@ -739,6 +745,12 @@ export const collections: CollectionDef[] = [
         note: 'Format HH:mm, timezone WIB',
       },
       { field: 'photo_reminder_enabled', type: 'boolean', defaultValue: true },
+      {
+        field: 'photo_reminder_day',
+        type: 'integer',
+        defaultValue: 1,
+        note: 'Tanggal dalam bulan (1-28) pengingat foto badan berbunyi. Bulanan, bukan harian: foto badan berguna 2-4 minggu sekali, dan pengingat harian untuk itu cuma jadi gangguan.',
+      },
       {
         field: 'photo_reminder_time',
         type: 'string',

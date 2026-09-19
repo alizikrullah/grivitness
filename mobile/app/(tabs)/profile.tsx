@@ -220,8 +220,13 @@ export default function ProfileScreen() {
             />
             <ReminderRow
               icon={<CameraIcon size={18} color={colors.textSecondary} weight="duotone" />}
-              label="Foto badan"
-              value={settings.data.photo_reminder_time}
+              label="Foto badan & pinggang"
+              value={
+                'Tgl ' +
+                settings.data.photo_reminder_day +
+                ' · ' +
+                settings.data.photo_reminder_time
+              }
               enabled={settings.data.photo_reminder_enabled}
               onToggle={(v) => ubahReminder('photo_reminder_enabled', v)}
               onPressValue={() => setSheetReminder('photo')}

@@ -1,10 +1,11 @@
 import { Pedometer } from 'expo-sensors';
 import { DeviceMobileIcon, FootprintsIcon } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { LogActions } from '@/components/features/LogActions';
 import { GoalProgress } from '@/components/features/Metrics';
+import { StepTargetSheet } from '@/components/features/StepTargetSheet';
 import {
   BarChart,
   Button,
@@ -108,6 +109,7 @@ export default function StepsScreen() {
 
   const [langkah, setLangkah] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [ubahTarget, setUbahTarget] = useState(false);
   const [pesan, setPesan] = useState<string | null>(null);
 
   /**
@@ -193,7 +195,7 @@ export default function StepsScreen() {
               />
 
               <GoalProgress
-                label="Target harian"
+                label={target?.custom ? 'Target harian (pilihanmu)' : 'Target harian'}
                 value={nilai}
                 target={target?.steps ?? 0}
                 unit="langkah"
@@ -201,11 +203,17 @@ export default function StepsScreen() {
               />
 
               {/*
-                Target kesehatan saja. Paluch dkk. 2022 menunjukkan manfaatnya
-                mendatar sekitar 8.000, bukan 10.000. Langkah adalah pantauan,
-                tidak masuk hitungan kalori, jadi tidak ada lapisan "tambahan
-                untuk target berat" yang dulu bisa menggelembung sampai 20.000.
+                Target milik user. Langkah cuma pantauan, tidak masuk hitungan
+                kalori, jadi tidak ada alasan memaksakan angka rumus. Bawaan
+                8.000 dari Paluch dkk. 2022, titik di mana manfaatnya mendatar,
+                tapi yang tahu angka realistisnya adalah user.
               */}
+              <Pressable onPress={() => setUbahTarget(true)} hitSlop={8}>
+                <Text variant="label" tone="accent">
+                  Ubah target
+                </Text>
+              </Pressable>
+
               <Text variant="caption" tone="tertiary">
                 Langkah untuk memantau seberapa banyak kamu bergerak, bukan bahan hitung kalori.
                 Jalan kaki yang sungguhan dicatat sebagai olahraga.
@@ -254,6 +262,14 @@ export default function StepsScreen() {
           </Card>
         </>
       )}
+
+      {ubahTarget && target ? (
+        <StepTargetSheet
+          current={target.steps}
+          custom={target.custom}
+          onClose={() => setUbahTarget(false)}
+        />
+      ) : null}
     </Screen>
   );
 }
