@@ -1,6 +1,6 @@
 import axios, { type AxiosError } from 'axios';
 
-import { env, GROQ_MODEL_BAWAAN } from '../config/env.js';
+import { env } from '../config/env.js';
 import { AppError } from './api-error.js';
 import { logger } from './logger.js';
 
@@ -102,7 +102,7 @@ export const analyzeImages = async (
       messages: [{ role: 'user', content }],
       ...TANPA_NALAR,
     },
-    GROQ_MODEL_BAWAAN.vision,
+    'vision',
   );
 };
 
@@ -125,19 +125,19 @@ export const analyzeText = async (prompt: string): Promise<Record<string, unknow
       model: env.GROQ_CHAT_MODEL,
       messages: [{ role: 'user', content: prompt }],
     },
-    GROQ_MODEL_BAWAAN.chat,
+    'chat',
   );
 
 /**
  * Inti permintaan JSON ke Groq: kirim, paksa JSON, dan tiga jenis percobaan
  * ulang yang masing-masing menangani satu kegagalan khas.
  *
- * `modelBawaan` dipakai kalau model yang disebut env sudah tidak ada di Groq.
- * Lihat GROQ_MODEL_BAWAAN di config/env.ts untuk alasannya.
+ * `peran` menentukan model pengganti yang dicari kalau model di env sudah
+ * tidak ada di Groq. Lihat cariModelPengganti().
  */
 const mintaJson = async (
   payload: Record<string, unknown>,
-  modelBawaan: string,
+  peran: PeranModel,
 ): Promise<Record<string, unknown>> => {
   if (env.GROQ_API_KEY === '') {
     throw AppError.upstream('GROQ_API_KEY belum diisi di environment');
@@ -179,15 +179,25 @@ const mintaJson = async (
     /*
       Nama model yang disebut env sudah mati di Groq. Ini terjadi tanpa masa
       transisi (qwen/qwen3.6-27b lenyap begitu saja), dan env di server tidak
-      ikut berubah bersama kode. Dicoba sekali dengan nama bawaan yang masih
-      hidup, dengan peringatan keras di log supaya env-nya segera dibetulkan.
+      ikut berubah bersama kode. Penggantinya TIDAK dikodekan, karena nama yang
+      dikodekan ikut basi suatu hari; ia dicari dari daftar model yang Groq
+      sediakan saat itu juga, lalu dicatat keras di log supaya env dibetulkan.
     */
-    if (modelTidakAda(error) && model !== modelBawaan) {
+    if (modelTidakAda(error)) {
+      const pengganti = await cariModelPengganti(peran, model);
+
+      if (pengganti === null) {
+        logger.error({ model, peran }, 'Model Groq di env tidak ada dan tidak ada penggantinya');
+        throw AppError.upstream(
+          `Model AI "${model}" tidak tersedia di Groq. Perbaiki GROQ_${peran === 'vision' ? 'VISION' : 'CHAT'}_MODEL di env server.`,
+        );
+      }
+
       logger.error(
-        { model, modelBawaan },
-        'Model Groq di env sudah tidak ada. Memakai model bawaan. PERBAIKI env di server.',
+        { model, pengganti, peran },
+        'Model Groq di env sudah tidak ada. Memakai pengganti dari daftar model Groq. PERBAIKI env di server.',
       );
-      model = modelBawaan;
+      model = pengganti;
 
       try {
         return parseJsonResponse(await kirim(true));
@@ -238,6 +248,63 @@ const mintaJson = async (
       if (ulang instanceof AppError) throw ulang;
       throw translateAxiosError(ulang);
     }
+  }
+};
+
+type PeranModel = 'vision' | 'chat';
+
+/**
+ * Pola nama model per peran, dari yang paling disukai. Ini heuristik atas
+ * DAFTAR yang Groq kembalikan, bukan nama yang dikodekan: kalau Groq mengganti
+ * qwen3.8 jadi qwen4.0 besok, pola pertama tetap menangkapnya.
+ *
+ * Vision: keluarga Qwen 3.x 27B yang dipakai sekarang, lalu Llama 4 (Scout /
+ * Maverick) yang multimodal. Chat: gpt-oss 120b, lalu 20b, lalu Llama apa pun.
+ * Model whisper, guard, tts, dan compound tidak pernah cocok.
+ */
+const POLA_PENGGANTI: Record<PeranModel, RegExp[]> = {
+  vision: [/^qwen\/qwen\d[\d.]*-\d+b$/, /llama-4-(scout|maverick)/, /vision/],
+  chat: [/^openai\/gpt-oss-120b$/, /^openai\/gpt-oss-20b$/, /llama-4/, /llama-3/],
+};
+
+/** Hasil pencarian per peran diingat selama proses hidup, supaya /models tidak ditembak tiap analisa. */
+const penggantiDiingat = new Map<PeranModel, string>();
+
+/**
+ * Mencari model pengganti dari daftar yang Groq sediakan untuk API key ini.
+ * Null kalau tidak ada yang cocok atau daftarnya tidak bisa diambil.
+ */
+const cariModelPengganti = async (peran: PeranModel, modelMati: string): Promise<string | null> => {
+  const diingat = penggantiDiingat.get(peran);
+  if (diingat && diingat !== modelMati) return diingat;
+
+  try {
+    const { data } = await axios.get<{ data?: { id?: string }[] }>(
+      'https://api.groq.com/openai/v1/models',
+      { headers: { Authorization: `Bearer ${env.GROQ_API_KEY}` }, timeout: 10_000 },
+    );
+
+    const tersedia = (data.data ?? [])
+      .map((m) => m.id)
+      .filter((id): id is string => typeof id === 'string' && id !== modelMati)
+      // Urut mundur supaya versi yang lebih baru (angka lebih besar) menang
+      // di antara nama yang cocok dengan pola yang sama.
+      .sort()
+      .reverse();
+
+    for (const pola of POLA_PENGGANTI[peran]) {
+      const cocok = tersedia.find((id) => pola.test(id));
+      if (cocok) {
+        penggantiDiingat.set(peran, cocok);
+        return cocok;
+      }
+    }
+
+    logger.error({ peran, tersedia }, 'Tidak ada model Groq yang cocok untuk peran ini');
+    return null;
+  } catch (error) {
+    logger.error({ err: error }, 'Gagal mengambil daftar model Groq');
+    return null;
   }
 };
 
