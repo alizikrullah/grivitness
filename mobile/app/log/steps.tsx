@@ -201,18 +201,15 @@ export default function StepsScreen() {
               />
 
               {/*
-                Dua lapis, dan pemisahannya disengaja. Lapis pertama murni
-                kesehatan, Paluch dkk. 2022 menunjukkan manfaatnya mendatar
-                sekitar 8.000, bukan 10.000. Lapis kedua muncul cuma kalau
-                target beratmu tidak bisa dikejar dari makanan saja tanpa
-                menembus batas aman, jadi angkanya bisa dijelaskan.
+                Target kesehatan saja. Paluch dkk. 2022 menunjukkan manfaatnya
+                mendatar sekitar 8.000, bukan 10.000. Langkah adalah pantauan,
+                tidak masuk hitungan kalori, jadi tidak ada lapisan "tambahan
+                untuk target berat" yang dulu bisa menggelembung sampai 20.000.
               */}
-              {target && target.for_goal > 0 ? (
-                <Text variant="caption" tone="tertiary">
-                  {thousands(target.baseline)} untuk kesehatan, {thousands(target.for_goal)} sisanya
-                  untuk mengejar target beratmu.
-                </Text>
-              ) : null}
+              <Text variant="caption" tone="tertiary">
+                Langkah untuk memantau seberapa banyak kamu bergerak, bukan bahan hitung kalori.
+                Jalan kaki yang sungguhan dicatat sebagai olahraga.
+              </Text>
             </View>
           </Card>
 

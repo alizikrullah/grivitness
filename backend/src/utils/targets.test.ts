@@ -49,29 +49,22 @@ describe('sleepTarget', () => {
 
 describe('stepTarget', () => {
   /** Paluch dkk. 2022: manfaat mortalitas mendatar sekitar 8.000 langkah. */
-  it('memakai 8.000 sebagai dasar untuk di bawah 60 tahun', () => {
-    expect(stepTarget(30).baseline).toBe(8000);
+  it('memakai 8.000 untuk di bawah 60 tahun', () => {
+    expect(stepTarget(30).steps).toBe(8000);
   });
 
-  it('menurunkan dasar jadi 6.000 untuk 60 tahun ke atas', () => {
-    expect(stepTarget(65).baseline).toBe(6000);
+  it('menurunkan jadi 6.000 untuk 60 tahun ke atas', () => {
+    expect(stepTarget(65).steps).toBe(6000);
   });
 
-  /** Dua lapis, supaya angkanya bisa dijelaskan alih-alih cuma bulat. */
-  it('memisahkan bagian kesehatan dari bagian target berat badan', () => {
-    const hasil = stepTarget(30, 3200);
-
-    expect(hasil.baseline).toBe(8000);
-    expect(hasil.for_goal).toBe(3200);
-    expect(hasil.steps).toBe(11_200);
-  });
-
-  it('tidak menganjurkan angka yang mustahil jadi kebiasaan harian', () => {
-    expect(stepTarget(30, 100_000).steps).toBeLessThanOrEqual(20_000);
-  });
-
-  it('mengabaikan tambahan negatif', () => {
-    expect(stepTarget(30, -500).steps).toBe(8000);
+  /**
+   * Regresi: dulu ada lapisan "tambahan untuk target berat" yang pada target
+   * agresif mentok di 20.000 dan tampil sebagai "0 dari 20.000". Sekarang
+   * target langkah cuma angka kesehatan, apa pun target beratnya.
+   */
+  it('tidak punya lapisan target berat badan lagi', () => {
+    expect(Object.keys(stepTarget(30))).toEqual(['steps']);
+    expect(stepTarget(30).steps).toBeLessThanOrEqual(8000);
   });
 });
 

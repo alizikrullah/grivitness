@@ -92,40 +92,25 @@ const LANGKAH_DASAR_MUDA = 8000;
 const LANGKAH_DASAR_LANSIA = 6000;
 const USIA_LANGKAH_LANSIA = 60;
 
-/** Batas atas anjuran. Di atas ini target berhenti masuk akal sebagai kebiasaan harian. */
-const LANGKAH_MAKSIMAL = 20_000;
-
 export interface StepTarget {
   /** Total yang dianjurkan hari ini. */
   steps: number;
-  /** Bagian yang murni untuk kesehatan, terlepas dari target berat badan. */
-  baseline: number;
-  /** Bagian tambahan yang khusus menutup defisit target berat badan. */
-  for_goal: number;
 }
 
 /**
- * Target langkah harian.
+ * Target langkah harian: angka kesehatan saja.
  *
- * Dua lapis, dan pemisahan itu disengaja. Lapis pertama murni kesehatan dan
- * berlaku walau user tidak punya target berat badan. Lapis kedua muncul hanya
- * ketika target beratnya tidak bisa dicapai dari makanan saja tanpa menembus
- * batas aman, defisit yang tidak boleh datang dari piring masih boleh datang
- * dari kaki.
- *
- * Hasilnya angka yang bisa dijelaskan: "8.000 untuk kesehatan, 3.200 sisanya
- * untuk targetmu", bukan satu angka bulat yang tidak bisa dipertanggungjawabkan.
+ * Dulu ada lapisan kedua, tambahan langkah untuk menutup defisit target berat
+ * badan, dibatasi total 20.000. Pada target yang agresif lapisan itu mentok di
+ * batasnya dan layar menampilkan "0 dari 20.000": angka yang tidak akan
+ * pernah dikejar siapa pun dan cuma bikin orang berhenti melihatnya. Sejak
+ * langkah tidak lagi masuk hitungan kalori (lihat calories.ts), lapisan itu
+ * juga tidak punya arti mekanis. Anjuran "tambah sekian langkah" tetap ada di
+ * kartu rencana sebagai saran, bukan sebagai target harian.
  */
-export const stepTarget = (age: number, extraForGoal = 0): StepTarget => {
-  const dasar = age >= USIA_LANGKAH_LANSIA ? LANGKAH_DASAR_LANSIA : LANGKAH_DASAR_MUDA;
-  const tambahan = Math.max(extraForGoal, 0);
-
-  return {
-    steps: Math.min(dasar + tambahan, LANGKAH_MAKSIMAL),
-    baseline: dasar,
-    for_goal: Math.min(tambahan, LANGKAH_MAKSIMAL - dasar),
-  };
-};
+export const stepTarget = (age: number): StepTarget => ({
+  steps: age >= USIA_LANGKAH_LANSIA ? LANGKAH_DASAR_LANSIA : LANGKAH_DASAR_MUDA,
+});
 
 // ============================================================
 // MAKRONUTRIEN
@@ -213,8 +198,6 @@ export interface TargetInput {
   calorieBudget: number | null;
   /** True kalau budget itu memang di bawah TDEE. */
   isDeficit: boolean;
-  /** Langkah tambahan yang dibutuhkan target berat badan. */
-  extraStepsForGoal: number;
   /** Menit olahraga hari ini, menaikkan kebutuhan cairan. */
   workoutMinutes: number;
 }
@@ -223,7 +206,7 @@ export interface TargetInput {
 export const dailyTargets = (input: TargetInput): DailyTargets => ({
   water_ml: waterTargetMl(input.weightKg, input.age, input.workoutMinutes),
   sleep: sleepTarget(input.age),
-  steps: stepTarget(input.age, input.extraStepsForGoal),
+  steps: stepTarget(input.age),
   macros:
     input.calorieBudget === null
       ? null
