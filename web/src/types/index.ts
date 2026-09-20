@@ -225,6 +225,14 @@ export interface BodyMeasurement {
 /** Satuan berat atau volume satu porsi. Minuman ditakar ml. */
 export type FoodUnit = 'g' | 'ml';
 
+/** Nilai gizi SATU porsi yang dibaca user dari kemasan. Menang mutlak atas taksiran model. */
+export interface FoodLabel {
+  kcal: number;
+  protein_g?: number;
+  carbs_g?: number;
+  fat_g?: number;
+}
+
 /**
  * Satu makanan di dalam sesi makan, sesudah dihitung backend.
  *
@@ -239,6 +247,10 @@ export interface FoodItem {
   /** Berat atau volume SATU porsi. */
   weight_per_portion: number;
   weight_source: 'USER' | 'AI';
+  /** Dari mana nilai gizinya: taksiran model, atau kemasan yang dibaca user. */
+  nutrition_source: 'AI' | 'LABEL';
+  /** Angka kemasan per porsi yang dipakai, kalau nutrition_source LABEL. */
+  label: FoodLabel | null;
   /** Total yang dimakan: portions × weight_per_portion. */
   amount: number;
   kcal_per_100: number;

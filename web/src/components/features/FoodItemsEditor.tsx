@@ -17,6 +17,12 @@ export interface FoodItemDraft {
   portions: string;
   weight: string;
   unit: FoodUnit;
+  /** Bagian "dari kemasan" dibuka user. Isinya per SATU porsi. */
+  pakaiKemasan: boolean;
+  labelKcal: string;
+  labelProtein: string;
+  labelCarbs: string;
+  labelFat: string;
 }
 
 export const barisKosong = (): FoodItemDraft => ({
@@ -24,6 +30,11 @@ export const barisKosong = (): FoodItemDraft => ({
   portions: '1',
   weight: '',
   unit: 'g',
+  pakaiKemasan: false,
+  labelKcal: '',
+  labelProtein: '',
+  labelCarbs: '',
+  labelFat: '',
 });
 
 interface FoodItemsEditorProps {
@@ -98,22 +109,84 @@ export const FoodItemsEditor = ({
 
             <div className="food-item-berat">
               <Input
-                label={beratWajib ? 'Berat per porsi' : 'Berat per porsi (opsional)'}
+                label={
+                  beratWajib && !item.pakaiKemasan
+                    ? 'Berat per porsi'
+                    : 'Berat per porsi (opsional)'
+                }
                 inputMode="decimal"
                 value={item.weight}
                 onChange={(e) => ubah(i, { weight: e.target.value })}
-                placeholder={beratWajib ? '150' : 'AI menaksir'}
+                placeholder={
+                  beratWajib && !item.pakaiKemasan ? '150' : item.pakaiKemasan ? '' : 'AI menaksir'
+                }
                 suffix={item.unit}
                 disabled={disabled}
               />
             </div>
           </div>
 
-          {/* Dua chip, bukan dropdown: cuma ada dua pilihan. */}
+          {/* Dua chip satuan, bukan dropdown. Chip ketiga membuka isian dari kemasan. */}
           <div className="chip-group">
             <Chip label="gram" active={item.unit === 'g'} onClick={() => ubah(i, { unit: 'g' })} />
             <Chip label="ml" active={item.unit === 'ml'} onClick={() => ubah(i, { unit: 'ml' })} />
+            <Chip
+              label={item.pakaiKemasan ? 'Dari kemasan ✓' : 'Dari kemasan'}
+              active={item.pakaiKemasan}
+              onClick={() => ubah(i, { pakaiKemasan: !item.pakaiKemasan })}
+            />
           </div>
+
+          {/*
+            Angka kemasan menang mutlak atas taksiran AI. Diisi PER SATU porsi,
+            backend yang mengalikan dengan jumlah porsi.
+          */}
+          {item.pakaiKemasan ? (
+            <div className="food-kemasan">
+              <Input
+                label="Kalori per porsi (dari kemasan)"
+                inputMode="decimal"
+                value={item.labelKcal}
+                onChange={(e) => ubah(i, { labelKcal: e.target.value })}
+                placeholder="350"
+                suffix="kkal"
+                disabled={disabled}
+              />
+              <div className="grid-3">
+                <Input
+                  label="Protein"
+                  inputMode="decimal"
+                  value={item.labelProtein}
+                  onChange={(e) => ubah(i, { labelProtein: e.target.value })}
+                  placeholder="0"
+                  suffix="g"
+                  disabled={disabled}
+                />
+                <Input
+                  label="Karbo"
+                  inputMode="decimal"
+                  value={item.labelCarbs}
+                  onChange={(e) => ubah(i, { labelCarbs: e.target.value })}
+                  placeholder="0"
+                  suffix="g"
+                  disabled={disabled}
+                />
+                <Input
+                  label="Lemak"
+                  inputMode="decimal"
+                  value={item.labelFat}
+                  onChange={(e) => ubah(i, { labelFat: e.target.value })}
+                  placeholder="0"
+                  suffix="g"
+                  disabled={disabled}
+                />
+              </div>
+              <span className="t-caption c-tertiary">
+                Angka untuk satu porsi, persis seperti di kemasan. Jumlah porsinya dikalikan
+                otomatis. Makro boleh dikosongkan.
+              </span>
+            </div>
+          ) : null}
         </div>
       ))}
 
@@ -152,6 +225,30 @@ export const susunItem = (
       return { error: `Jumlah porsi ${nama} harus lebih dari nol` };
     }
 
+    // Angka kemasan, per satu porsi. Kalorinya wajib kalau bagiannya dibuka.
+    let label: FoodItemInput['label'];
+
+    if (item.pakaiKemasan) {
+      const kcal = Number(item.labelKcal.trim().replace(',', '.'));
+      if (item.labelKcal.trim() === '' || !Number.isFinite(kcal) || kcal < 0) {
+        return { error: `Isi kalori per porsi ${nama} dari kemasannya` };
+      }
+
+      const makro = (teks: string): number | undefined => {
+        const bersih = teks.trim().replace(',', '.');
+        if (bersih === '') return undefined;
+        const n = Number(bersih);
+        return Number.isFinite(n) && n >= 0 ? n : undefined;
+      };
+
+      label = {
+        kcal,
+        ...(makro(item.labelProtein) === undefined ? {} : { protein_g: makro(item.labelProtein) }),
+        ...(makro(item.labelCarbs) === undefined ? {} : { carbs_g: makro(item.labelCarbs) }),
+        ...(makro(item.labelFat) === undefined ? {} : { fat_g: makro(item.labelFat) }),
+      };
+    }
+
     const beratTeks = item.weight.trim().replace(',', '.');
     let weight: number | undefined;
 
@@ -160,7 +257,8 @@ export const susunItem = (
       if (!Number.isFinite(weight) || weight <= 0) {
         return { error: `Berat ${nama} harus lebih dari nol` };
       }
-    } else if (beratWajib) {
+    } else if (beratWajib && !label) {
+      // Item dari kemasan tidak butuh berat: kalorinya sudah per porsi.
       return {
         error: `Isi perkiraan berat ${nama}, atau lampirkan foto supaya ditaksir dari sana`,
       };
@@ -171,6 +269,7 @@ export const susunItem = (
       portions: porsi,
       unit: item.unit,
       ...(weight === undefined ? {} : { weight }),
+      ...(label === undefined ? {} : { label }),
     });
   }
 

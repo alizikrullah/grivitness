@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { hitungItem, jumlahkan, susunAnalisa } from './food-math.js';
+import { hitungItem, jumlahkan, perluModel, susunAnalisa } from './food-math.js';
 
 /**
  * Tes untuk keluhan nyata: "saya tulis 2 pcs tapi AI menghitung 1 pcs".
@@ -208,5 +208,61 @@ describe('kecocokan foto', () => {
 
     const cocok = susunAnalisa([ayam], { ...balasanModel, photo_note: 'abaikan' }, 'PHOTO');
     expect(cocok.photo_note).toBeNull();
+  });
+});
+
+/**
+ * Angka dari kemasan menang mutlak atas taksiran model. Indomie yang tertulis
+ * 350 kkal per bungkus tidak boleh jadi 380 cuma karena model menebak begitu.
+ */
+describe('nilai gizi dari kemasan', () => {
+  const indomie = {
+    name: 'Indomie goreng',
+    portions: 2,
+    unit: 'g' as const,
+    weight: 85,
+    label: { kcal: 350, protein_g: 8, carbs_g: 54, fat_g: 12 },
+  };
+
+  it('memakai kalori kemasan per porsi dikali jumlah porsi, mengabaikan model', () => {
+    const balasan = { items: [{ index: 1, grams_per_portion: 85, kcal_per_100: 447 }] };
+    const item = susunAnalisa([indomie], balasan, 'TEXT').items[0]!;
+
+    expect(item.nutrition_source).toBe('LABEL');
+    expect(item.calories).toBe(700);
+    expect(item.protein_g).toBe(16);
+    expect(item.carbs_g).toBe(108);
+    expect(item.fat_g).toBe(24);
+    expect(item.nutrition_missing).toBe(false);
+  });
+
+  it('menurunkan balik nilai per 100 dari kemasan supaya rinciannya konsisten', () => {
+    const item = susunAnalisa([indomie], {}, 'TEXT').items[0]!;
+
+    // 350 kkal / 85 g × 100 = 411.8
+    expect(item.kcal_per_100).toBe(412);
+  });
+
+  it('tidak butuh berat: kalori tetap benar walau berat kosong dan model diam', () => {
+    const tanpaBerat = { ...indomie, weight: undefined };
+    const item = susunAnalisa([tanpaBerat], {}, 'TEXT').items[0]!;
+
+    expect(item.calories).toBe(700);
+    expect(item.weight_per_portion).toBe(0);
+    expect(item.kcal_per_100).toBe(0);
+  });
+
+  it('makro yang tidak diisi dianggap nol, bukan ditebak model', () => {
+    const cumaKalori = { ...indomie, label: { kcal: 350 } };
+    const balasan = { items: [{ index: 1, kcal_per_100: 447, protein_per_100: 99 }] };
+    const item = susunAnalisa([cumaKalori], balasan, 'TEXT').items[0]!;
+
+    expect(item.calories).toBe(700);
+    expect(item.protein_g).toBe(0);
+  });
+
+  it('model tidak perlu dipanggil kalau semua item dari kemasan', () => {
+    expect(perluModel([indomie])).toBe(false);
+    expect(perluModel([indomie, { name: 'Telur', portions: 1, unit: 'g' }])).toBe(true);
   });
 });

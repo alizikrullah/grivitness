@@ -421,6 +421,8 @@ export interface FoodPromptItem {
   portions: number;
   weight?: number;
   unit: 'g' | 'ml';
+  /** Ada berarti gizinya dari kemasan; model cuma perlu menaksir beratnya kalau kosong. */
+  label?: unknown;
 }
 
 /**
@@ -451,7 +453,10 @@ export const foodPrompt = (items: FoodPromptItem[], denganFoto: boolean): string
         item.weight === undefined
           ? 'weight per portion: UNKNOWN, estimate it'
           : `weight per portion: ${item.weight} ${item.unit} (given by user, do not change)`;
-      return `${i + 1}. ${item.name}, ${porsi}, unit ${item.unit}, ${berat}`;
+      const kemasan = item.label
+        ? ', nutrition known from package label: skip nutrition for this item'
+        : '';
+      return `${i + 1}. ${item.name}, ${porsi}, unit ${item.unit}, ${berat}${kemasan}`;
     })
     .join('\n');
 
