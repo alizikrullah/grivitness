@@ -8,7 +8,7 @@ import {
   ScalesIcon,
   WarningCircleIcon,
 } from '@phosphor-icons/react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { MetricTile } from '@/components/features/MetricTile';
 import { Card, Loading, Ring, SectionHeader, StatPill } from '@/components/ui';
@@ -29,6 +29,7 @@ const rasio = (nilai: number, target: number | undefined): number =>
   target && target > 0 ? nilai / target : 0;
 
 export const DashboardPage = () => {
+  const navigate = useNavigate();
   const hariIni = todayWIB();
   const summary = useDailySummary(hariIni);
   const streak = useStreak();
@@ -58,7 +59,8 @@ export const DashboardPage = () => {
       ) : null}
 
       <div className="dash-top">
-        <Card>
+        {/* Kartu cincin membuka riwayat masuk vs keluar; beranda tetap hari ini. */}
+        <Card onClick={() => void navigate('/calorie-history')}>
           <div className="dash-ring">
             <Ring
               progress={budget ? ratio(data?.calories_in ?? 0, budget) : 0}
@@ -124,6 +126,9 @@ export const DashboardPage = () => {
                 olahraga
               </span>
             ) : null}
+            <span className="t-caption c-tertiary">
+              Klik untuk lihat riwayat masuk lawan keluar
+            </span>
           </div>
         </Card>
 

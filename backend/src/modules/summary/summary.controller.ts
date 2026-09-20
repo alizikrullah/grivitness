@@ -5,7 +5,12 @@ import { getAuthUser } from '../../types/index.js';
 import { todayInJakarta } from '../../utils/daily-key.js';
 import { sendSuccess } from '../../utils/response.js';
 import * as summaryService from './summary.service.js';
-import type { DailySummaryDto, MonthlySummaryDto, WeeklySummaryDto } from './summary.validation.js';
+import type {
+  DailySummaryDto,
+  HistorySummaryDto,
+  MonthlySummaryDto,
+  WeeklySummaryDto,
+} from './summary.validation.js';
 
 export const getDaily = async (req: Request, res: Response): Promise<void> => {
   const user = getAuthUser(req);
@@ -26,4 +31,11 @@ export const getMonthly = async (req: Request, res: Response): Promise<void> => 
   const { year, month } = getValidatedQuery<MonthlySummaryDto>(res);
 
   sendSuccess(res, await summaryService.getMonthly(user.id, year, month));
+};
+
+export const getHistory = async (req: Request, res: Response): Promise<void> => {
+  const user = getAuthUser(req);
+  const { days } = getValidatedQuery<HistorySummaryDto>(res);
+
+  sendSuccess(res, await summaryService.getHistory(user.id, days ?? 30));
 };

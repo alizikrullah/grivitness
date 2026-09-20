@@ -107,7 +107,12 @@ export default function HomeScreen() {
         <Loading />
       ) : (
         <>
-          <Card>
+          {/*
+            Seluruh kartu bisa disentuh dan membuka riwayat kalori. Beranda tetap
+            hari ini; pertanyaan "seminggu ini gua konsisten atau tidak" dijawab
+            di halaman itu, dengan defisit per hari dan rata-ratanya.
+          */}
+          <Card onPress={() => router.push('/calorie-history')}>
             <View style={styles.ringCard}>
               <CalorieRingChart
                 caloriesIn={data?.calories_in ?? 0}
@@ -156,6 +161,10 @@ export default function HomeScreen() {
                   olahraga
                 </Text>
               ) : null}
+
+              <Text variant="caption" tone="accent" align="center">
+                Sentuh untuk lihat riwayat masuk lawan keluar
+              </Text>
             </View>
           </Card>
 

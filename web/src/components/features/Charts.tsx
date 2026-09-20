@@ -5,6 +5,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -146,3 +147,49 @@ export const HighlightBarChart = ({
     </ResponsiveContainer>
   );
 };
+
+export interface BalanceDatum {
+  label: string;
+  /** Positif defisit, negatif surplus. Null berarti hari itu tidak tercatat. */
+  value: number | null;
+  caption?: string;
+}
+
+/**
+ * Batang dua arah di sekitar garis nol: defisit ke atas hijau, surplus ke
+ * bawah merah. Padanan BalanceChart di mobile. Recharts menangani nilai
+ * negatif sendiri, jadi yang perlu diatur cuma warna per batang dan garis nol.
+ */
+export const BalanceBarChart = ({
+  data,
+  height = 220,
+  formatValue = (v: number) => String(Math.round(v)),
+}: {
+  data: BalanceDatum[];
+  height?: number;
+  formatValue?: (value: number) => string;
+}) => (
+  <ResponsiveContainer width="100%" height={height}>
+    <BarChart data={data} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+      <CartesianGrid stroke={colors.border} vertical={false} />
+      <XAxis dataKey="label" {...AXIS} />
+      <YAxis {...AXIS} width={56} />
+      <ReferenceLine y={0} stroke={colors.textTertiary} />
+      <Tooltip
+        cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+        contentStyle={TOOLTIP_STYLE}
+        labelStyle={{ color: colors.textSecondary }}
+        formatter={(v, _n, item) => {
+          const caption = (item?.payload as BalanceDatum | undefined)?.caption;
+          if (caption) return [caption, ''];
+          return [typeof v === 'number' ? formatValue(v) : 'tidak tercatat', ''];
+        }}
+      />
+      <Bar dataKey="value" radius={[4, 4, 4, 4]} maxBarSize={28}>
+        {data.map((d, i) => (
+          <Cell key={i} fill={(d.value ?? 0) >= 0 ? colors.success : colors.danger} />
+        ))}
+      </Bar>
+    </BarChart>
+  </ResponsiveContainer>
+);

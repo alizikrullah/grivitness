@@ -1,3 +1,4 @@
+export { BalanceChart, type BalanceDatum } from './BalanceChart';
 export { BarChart, type BarDatum } from './BarChart';
 export { Button } from './Button';
 export { Card } from './Card';

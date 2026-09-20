@@ -29,6 +29,9 @@ const ProgressPage = lazy(() =>
 const ProfilePage = lazy(() =>
   import('@/pages/ProfilePage').then((m) => ({ default: m.ProfilePage })),
 );
+const CalorieHistoryPage = lazy(() =>
+  import('@/pages/CalorieHistoryPage').then((m) => ({ default: m.CalorieHistoryPage })),
+);
 
 /**
  * Gerbang autentikasi.
@@ -94,6 +97,14 @@ const Isi = () => {
             element={
               <Suspense fallback={<Loading />}>
                 <ProfilePage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="calorie-history"
+            element={
+              <Suspense fallback={<Loading />}>
+                <CalorieHistoryPage />
               </Suspense>
             }
           />

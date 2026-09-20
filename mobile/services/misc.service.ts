@@ -9,6 +9,7 @@ import type {
   NotificationSettings,
   PeriodSummary,
   Streak,
+  HistorySummary,
 } from '@/types';
 import { todayWIB } from '@/utils/date';
 
@@ -19,6 +20,13 @@ export const useDailySummary = (date: string = todayWIB()) =>
   useQuery({
     queryKey: qk.summaryDaily(date),
     queryFn: () => get<DailySummary>('/api/summary/daily', { params: { date } }),
+  });
+
+/** Riwayat masuk vs keluar per hari, untuk halaman kontrol defisit. */
+export const useCalorieHistory = (days: number) =>
+  useQuery({
+    queryKey: qk.summaryHistory(days),
+    queryFn: () => get<HistorySummary>('/api/summary/history', { params: { days } }),
   });
 
 export const useWeeklySummary = (from: string) =>
