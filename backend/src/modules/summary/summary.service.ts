@@ -2,7 +2,7 @@ import { forUser } from '../../data/scoped.js';
 import { loadEnergyProfile } from '../../data/energy-profile.js';
 import { AppError } from '../../utils/api-error.js';
 import { calculateTDEE } from '../../utils/calories.js';
-import { todayInJakarta } from '../../utils/daily-key.js';
+import { jakartaDate, todayInJakarta } from '../../utils/daily-key.js';
 import { toNumber } from '../../utils/number.js';
 import { dateRangeFilter, timestampDayFilter, timestampRangeFilter } from '../../utils/query.js';
 import { type DailyTargets, dailyTargets } from '../../utils/targets.js';
@@ -366,4 +366,187 @@ export const getMonthly = async (
   const to = new Date(Date.UTC(tahun, bulan, 0)).toISOString().slice(0, 10);
 
   return getPeriod(userId, from, to);
+};
+
+// ============================================================
+// RIWAYAT MASUK VS KELUAR PER HARI
+// ============================================================
+
+export interface HistoryDay {
+  date: string;
+  calories_in: number;
+  calories_out: number;
+  calories_out_source: 'formula' | 'device';
+  /** Jatah yang berlaku SEKARANG. Jatah lampau tidak disimpan, lihat catatan. */
+  calorie_budget: number | null;
+  /** keluar dikurangi masuk. Positif defisit, negatif surplus. */
+  balance: number;
+  /** Ada catatan makan hari itu. Tanpa ini, defisitnya semu: bukan tidak makan, tapi tidak mencatat. */
+  logged: boolean;
+}
+
+export interface HistorySummary {
+  from: string;
+  to: string;
+  days: HistoryDay[];
+  /** Dihitung HANYA dari hari yang tercatat makannya. */
+  summary: {
+    days_logged: number;
+    avg_calories_in: number;
+    avg_calories_out: number;
+    avg_balance: number;
+    /** Hari tercatat yang keluarnya lebih besar dari masuknya. */
+    deficit_days: number;
+  };
+}
+
+/**
+ * Riwayat kalori masuk vs keluar, satu baris per hari WIB.
+ *
+ * Dibangun dari LIMA query rentang lalu dikelompokkan di sini, bukan dengan
+ * memanggil getDaily() per hari: 30 hari x 13 query adalah 390 round-trip ke
+ * Directus, dan halaman ini dibuka untuk dilihat sekilas.
+ *
+ * Kalori keluar dihitung dengan aturan yang sama persis dengan getDaily():
+ * angka jam tangan MENGGANTIKAN rumus dan hanya olahraga tanpa jam yang
+ * ditambahkan; tanpa angka jam, metode faktorial dari tidur dan olahraga
+ * hari itu. Bedanya cuma BMR-nya memakai berat terakhir untuk semua hari,
+ * bukan berat pada hari itu, karena menarik berat per hari untuk 30 hari
+ * demi selisih beberapa kalori tidak sepadan.
+ *
+ * Jatah yang ditampilkan adalah jatah SEKARANG. Jatah tidak disimpan per
+ * hari, jadi hari-hari sebelum jatah berubah tampak dibandingkan dengan
+ * angka yang saat itu belum berlaku. Balance-nya sendiri tidak terpengaruh,
+ * itu murni keluar dikurangi masuk.
+ *
+ * Hari tanpa catatan makan ditandai, bukan dibuang, dan TIDAK ikut rata-rata.
+ * Nol kalori masuk pada hari yang tidak dicatat bukan defisit, cuma lupa
+ * membuka aplikasi, dan merata-ratakannya membuat defisitnya tampak jauh lebih
+ * besar dari kenyataan, persis arah kesalahan yang paling berbahaya di sini.
+ */
+export const getHistory = async (userId: string, days: number): Promise<HistorySummary> => {
+  const repo = forUser(userId);
+  const to = todayInJakarta();
+  const from = geserHari(to, -(days - 1));
+  const range = { from, to };
+
+  const [metrics, goal, makanan, olahraga, tidur, perangkat] = await Promise.all([
+    loadEnergyProfile(userId),
+    repo.findOne('goals', { filter: { is_active: { _eq: true } } }),
+    repo.list('food_logs', {
+      filter: timestampRangeFilter(range),
+      fields: ['logged_at', 'total_calories'],
+      limit: -1,
+    }),
+    repo.list('workout_logs', {
+      filter: dateRangeFilter(range),
+      fields: ['logged_at', 'duration_minutes', 'calories_burned', 'tracked_by_device'],
+      limit: -1,
+    }),
+    repo.list('sleep_logs', {
+      filter: dateRangeFilter(range),
+      fields: ['logged_at', 'duration_minutes'],
+      limit: -1,
+    }),
+    repo.list('device_energy_logs', {
+      filter: dateRangeFilter(range),
+      fields: ['logged_at', 'total_kcal'],
+      limit: -1,
+    }),
+  ]);
+
+  interface Harian {
+    masuk: number;
+    adaMakan: boolean;
+    tidur: number;
+    menitOlahraga: number;
+    kaloriOlahraga: number;
+    kaloriOlahragaTanpaJam: number;
+    perangkat: number | null;
+  }
+
+  const perHari = new Map<string, Harian>();
+  const ambil = (tanggal: string): Harian => {
+    let h = perHari.get(tanggal);
+    if (!h) {
+      h = {
+        masuk: 0,
+        adaMakan: false,
+        tidur: 0,
+        menitOlahraga: 0,
+        kaloriOlahraga: 0,
+        kaloriOlahragaTanpaJam: 0,
+        perangkat: null,
+      };
+      perHari.set(tanggal, h);
+    }
+    return h;
+  };
+
+  for (const m of makanan) {
+    // Dikelompokkan menurut tanggal WIB, bukan UTC, sama seperti energy-profile.
+    if (m.logged_at === null) continue;
+    const h = ambil(jakartaDate(m.logged_at));
+    h.masuk += m.total_calories;
+    h.adaMakan = true;
+  }
+  for (const o of olahraga) {
+    const h = ambil(o.logged_at);
+    h.menitOlahraga += o.duration_minutes;
+    h.kaloriOlahraga += o.calories_burned;
+    // Baris lama punya null, artinya tidak terekam jam, sama seperti di getDaily.
+    if (o.tracked_by_device !== true) h.kaloriOlahragaTanpaJam += o.calories_burned;
+  }
+  for (const t of tidur) ambil(t.logged_at).tidur += t.duration_minutes;
+  for (const p of perangkat) ambil(p.logged_at).perangkat = p.total_kcal;
+
+  const budget = goal?.daily_calorie_budget ?? null;
+
+  const hasil: HistoryDay[] = [];
+  for (let i = 0; i < days; i++) {
+    const tanggal = geserHari(from, i);
+    const h = ambil(tanggal);
+
+    const rumus =
+      metrics.bmr === null
+        ? null
+        : calculateTDEE({
+            bmr: metrics.bmr,
+            activityLevel: metrics.activityLevel,
+            sleepMinutes: h.tidur > 0 ? h.tidur : null,
+            workoutMinutes: h.menitOlahraga,
+            workoutCalories: h.kaloriOlahraga,
+          }).tdee;
+
+    const keluar =
+      h.perangkat === null ? (rumus ?? h.kaloriOlahraga) : h.perangkat + h.kaloriOlahragaTanpaJam;
+
+    hasil.push({
+      date: tanggal,
+      calories_in: Math.round(h.masuk),
+      calories_out: Math.round(keluar),
+      calories_out_source: h.perangkat === null ? 'formula' : 'device',
+      calorie_budget: budget,
+      balance: Math.round(keluar - h.masuk),
+      logged: h.adaMakan,
+    });
+  }
+
+  const tercatat = hasil.filter((d) => d.logged);
+  const n = tercatat.length;
+  const jumlah = (ambilNilai: (d: HistoryDay) => number) =>
+    tercatat.reduce((total, d) => total + ambilNilai(d), 0);
+
+  return {
+    from,
+    to,
+    days: hasil,
+    summary: {
+      days_logged: n,
+      avg_calories_in: n === 0 ? 0 : Math.round(jumlah((d) => d.calories_in) / n),
+      avg_calories_out: n === 0 ? 0 : Math.round(jumlah((d) => d.calories_out) / n),
+      avg_balance: n === 0 ? 0 : Math.round(jumlah((d) => d.balance) / n),
+      deficit_days: tercatat.filter((d) => d.balance > 0).length,
+    },
+  };
 };

@@ -24,3 +24,10 @@ export const MonthlySummarySchema = z.object({
 export type DailySummaryDto = z.infer<typeof DailySummarySchema>;
 export type WeeklySummaryDto = z.infer<typeof WeeklySummarySchema>;
 export type MonthlySummaryDto = z.infer<typeof MonthlySummarySchema>;
+
+export const HistorySummarySchema = z.object({
+  /** Berapa hari ke belakang sampai hari ini. Bawaan 30, maksimal 90. */
+  days: z.coerce.number().int().min(7).max(90).optional(),
+});
+
+export type HistorySummaryDto = z.infer<typeof HistorySummarySchema>;

@@ -517,6 +517,34 @@ export interface DailySummary {
   targets: DailyTargets;
 }
 
+/** Satu hari di riwayat masuk vs keluar. */
+export interface HistoryDay {
+  date: DateString;
+  calories_in: number;
+  calories_out: number;
+  calories_out_source: 'formula' | 'device';
+  /** Jatah yang berlaku SEKARANG; jatah lampau tidak disimpan. */
+  calorie_budget: number | null;
+  /** keluar dikurangi masuk. Positif defisit, negatif surplus. */
+  balance: number;
+  /** Ada catatan makan hari itu. Tanpa ini defisitnya semu dan tidak ikut rata-rata. */
+  logged: boolean;
+}
+
+export interface HistorySummary {
+  from: DateString;
+  to: DateString;
+  days: HistoryDay[];
+  /** Dihitung HANYA dari hari yang tercatat makannya. */
+  summary: {
+    days_logged: number;
+    avg_calories_in: number;
+    avg_calories_out: number;
+    avg_balance: number;
+    deficit_days: number;
+  };
+}
+
 export interface PeriodSummary {
   from: string;
   to: string;

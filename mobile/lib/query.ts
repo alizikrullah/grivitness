@@ -21,6 +21,7 @@ export const qk = {
 
   summaryDaily: (date: string) => ['summary', 'daily', date] as const,
   summaryWeekly: (from: string) => ['summary', 'weekly', from] as const,
+  summaryHistory: (days: number) => ['summary', 'history', days] as const,
   summaryMonthly: (year: number, month: number) => ['summary', 'monthly', year, month] as const,
 
   weightToday: ['weight', 'today'] as const,

@@ -92,6 +92,7 @@ const RootNavigator = () => {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
       <Stack.Screen name="log" />
+      <Stack.Screen name="calorie-history" />
     </Stack>
   );
 };
