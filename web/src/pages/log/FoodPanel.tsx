@@ -228,7 +228,12 @@ export const FoodPanel = () => {
                             <span className="t-caption c-secondary food-rincian-nama">
                               {item.name}
                             </span>
-                            <span className="t-caption c-tertiary">{ringkasJumlah(item)}</span>
+                            <span className="t-caption c-tertiary">
+                              {item.nutrition_source === 'LABEL'
+                                ? (item.weight_per_portion > 0 ? ringkasJumlah(item) + ' · ' : '') +
+                                  'kemasan'
+                                : ringkasJumlah(item)}
+                            </span>
                             <span
                               className={
                                 't-caption food-rincian-kkal' +
@@ -272,8 +277,13 @@ const FoodEditModal = ({ log, onClose }: { log: FoodLog; onClose: () => void }) 
     (log.ai_analysis?.items ?? []).map((item) => ({
       name: item.name,
       portions: String(item.portions),
-      weight: String(item.weight_per_portion),
+      weight: item.weight_per_portion > 0 ? String(item.weight_per_portion) : '',
       unit: item.unit,
+      pakaiKemasan: item.nutrition_source === 'LABEL',
+      labelKcal: item.label ? String(item.label.kcal) : '',
+      labelProtein: item.label?.protein_g ? String(item.label.protein_g) : '',
+      labelCarbs: item.label?.carbs_g ? String(item.label.carbs_g) : '',
+      labelFat: item.label?.fat_g ? String(item.label.fat_g) : '',
     })),
   );
   const [error, setError] = useState<string | null>(null);
@@ -292,8 +302,7 @@ const FoodEditModal = ({ log, onClose }: { log: FoodLog; onClose: () => void }) 
       {
         id: log.id,
         meal_type: jenis,
-        // Berat dijamin ada oleh susunItem dengan beratWajib = true.
-        items: susunan.items.map((item) => ({ ...item, weight: item.weight ?? 0 })),
+        items: susunan.items,
       },
       { onError: (e) => setError(toApiError(e).message), onSuccess: onClose },
     );
@@ -322,8 +331,9 @@ const FoodEditModal = ({ log, onClose }: { log: FoodLog; onClose: () => void }) 
       />
 
       <span className="t-caption c-tertiary">
-        Kalorinya dihitung ulang dari nilai gizi yang sudah ditaksir, tanpa memanggil AI lagi. Untuk
-        makanan yang belum ada di daftar, catat sebagai sesi baru.
+        Kalorinya dihitung ulang tanpa memanggil AI lagi. Kalau taksiran AI meleset dan kemasannya
+        ada, buka bagian Dari kemasan dan isi angkanya, itu yang dipakai. Untuk makanan yang belum
+        ada di daftar, catat sebagai sesi baru.
       </span>
 
       {error ? <ErrorNote message={error} /> : null}

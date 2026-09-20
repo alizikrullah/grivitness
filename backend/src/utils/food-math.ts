@@ -12,11 +12,25 @@ import { logger } from './logger.js';
  */
 
 /** Satu makanan seperti yang ditulis user. Sama dengan FoodItemDto. */
+/**
+ * Nilai gizi SATU porsi yang dibaca user dari kemasan.
+ *
+ * Kalau ada, ini menang mutlak atas taksiran model: kemasan Indomie lebih
+ * benar daripada tebakan apa pun. Makro opsional, kalorinya wajib.
+ */
+export interface FoodLabel {
+  kcal: number;
+  protein_g?: number;
+  carbs_g?: number;
+  fat_g?: number;
+}
+
 export interface FoodItemInput {
   name: string;
   portions: number;
   unit: FoodUnit;
   weight?: number;
+  label?: FoodLabel;
 }
 
 /**
@@ -33,6 +47,10 @@ export interface FoodItem {
   /** Berat atau volume SATU porsi. */
   weight_per_portion: number;
   weight_source: 'USER' | 'AI';
+  /** Dari mana nilai gizinya: taksiran model, atau kemasan yang dibaca user. */
+  nutrition_source: 'AI' | 'LABEL';
+  /** Angka kemasan per porsi yang dipakai, kalau nutrition_source LABEL. */
+  label: FoodLabel | null;
   /** Total yang dimakan: portions × weight_per_portion. */
   amount: number;
   kcal_per_100: number;
@@ -131,6 +149,9 @@ const per100Dari = (r: Record<string, unknown> | undefined): Per100 => {
  * Menghitung satu item. Nama, jumlah, dan satuan dari user apa adanya. Berat
  * dari user kalau ada, kalau tidak dari model. Perkalian di sini.
  */
+/** Batas kalori satu porsi dari kemasan. Di atas ini pasti salah baca satuan. */
+const MAKS_KKAL_LABEL_PER_PORSI = 5000;
+
 export const hitungItem = (
   item: FoodItemInput,
   beratModel: number | null,
@@ -139,15 +160,49 @@ export const hitungItem = (
   const dariUser = item.weight !== undefined;
   const beratPerPorsi = batas(item.weight ?? beratModel ?? 0, MAKS_BERAT_PER_PORSI);
   const jumlah = item.portions * beratPerPorsi;
-  const rasio = jumlah / 100;
 
-  return {
+  const dasar = {
     name: item.name,
     portions: item.portions,
     unit: item.unit,
     weight_per_portion: Math.round(beratPerPorsi),
-    weight_source: dariUser ? 'USER' : 'AI',
+    weight_source: dariUser ? ('USER' as const) : ('AI' as const),
     amount: Math.round(jumlah),
+  };
+
+  /*
+    Kemasan menang mutlak. Angkanya PER PORSI dan dikalikan jumlah porsi di
+    sini, sama seperti berat: user menulis satuannya, perkalian tidak pernah
+    diserahkan ke user maupun model. Nilai per 100 diturunkan balik dari
+    kemasan kalau beratnya diketahui, supaya rinciannya tetap konsisten.
+  */
+  if (item.label) {
+    const kcal = batas(item.label.kcal, MAKS_KKAL_LABEL_PER_PORSI);
+    const protein = item.label.protein_g ?? 0;
+    const carbs = item.label.carbs_g ?? 0;
+    const fat = item.label.fat_g ?? 0;
+    const per100 = beratPerPorsi > 0 ? 100 / beratPerPorsi : 0;
+
+    return {
+      ...dasar,
+      kcal_per_100: Math.round(kcal * per100),
+      protein_per_100: bulat(protein * per100, 1),
+      carbs_per_100: bulat(carbs * per100, 1),
+      fat_per_100: bulat(fat * per100, 1),
+      calories: Math.round(kcal * item.portions),
+      protein_g: bulat(protein * item.portions, 1),
+      carbs_g: bulat(carbs * item.portions, 1),
+      fat_g: bulat(fat * item.portions, 1),
+      nutrition_missing: false,
+      nutrition_source: 'LABEL',
+      label: { kcal, protein_g: protein, carbs_g: carbs, fat_g: fat },
+    };
+  }
+
+  const rasio = jumlah / 100;
+
+  return {
+    ...dasar,
     kcal_per_100: gizi.kcal,
     protein_per_100: gizi.protein,
     carbs_per_100: gizi.carbs,
@@ -157,8 +212,17 @@ export const hitungItem = (
     carbs_g: bulat(gizi.carbs * rasio, 1),
     fat_g: bulat(gizi.fat * rasio, 1),
     nutrition_missing: gizi.missing,
+    nutrition_source: 'AI',
+    label: null,
   };
 };
+
+/**
+ * Apakah model masih perlu dipanggil. Tidak, kalau semua item punya angka
+ * kemasan: kalorinya tidak bergantung berat maupun taksiran, jadi memanggil
+ * model cuma membuang waktu tunggu dan kuota.
+ */
+export const perluModel = (items: FoodItemInput[]): boolean => items.some((i) => !i.label);
 
 const total = (items: FoodItem[], ambil: (item: FoodItem) => number): number =>
   items.reduce((jumlah, item) => jumlah + ambil(item), 0);
@@ -213,6 +277,7 @@ export const susunAnalisa = (
     hitungItem(item, angka(balasan[i]?.grams_per_portion), per100Dari(balasan[i])),
   );
 
+  // Item dari kemasan tidak pernah "hilang", modelnya memang tidak ditanya.
   const hilang = dihitung.filter((i) => i.nutrition_missing).map((i) => i.name);
   if (hilang.length > 0) {
     logger.warn({ hilang }, 'Model tidak memberi nilai gizi untuk sebagian item');

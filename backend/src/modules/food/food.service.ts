@@ -5,7 +5,13 @@ import { AppError } from '../../utils/api-error.js';
 import { todayInJakarta } from '../../utils/daily-key.js';
 import { removeFile, removeFileSafely, uploadWebP } from '../../utils/directus-files.js';
 import { analyzeImages, analyzeText, foodPrompt } from '../../utils/groq.js';
-import { type FoodAnalysis, hitungItem, jumlahkan, susunAnalisa } from '../../utils/food-math.js';
+import {
+  type FoodAnalysis,
+  hitungItem,
+  jumlahkan,
+  perluModel,
+  susunAnalisa,
+} from '../../utils/food-math.js';
 import { convertToWebP, toAnalysisBuffer } from '../../utils/sharp.js';
 import { timestampDayFilter } from '../../utils/query.js';
 import { fileUrl } from '../files/files.service.js';
@@ -38,7 +44,10 @@ export const create = async (
   data: CreateFoodDto,
 ): Promise<FoodLog> => {
   if (photo === null) {
-    const tanpaBerat = data.items.filter((item) => item.weight === undefined).map((i) => i.name);
+    // Item dari kemasan tidak butuh berat: kalorinya sudah per porsi.
+    const tanpaBerat = data.items
+      .filter((item) => item.weight === undefined && !item.label)
+      .map((i) => i.name);
 
     if (tanpaBerat.length > 0) {
       throw AppError.badRequest(
@@ -67,12 +76,18 @@ export const create = async (
       fileId = file.id;
 
       // Yang dikirim ke model salinan kecilnya, bukan yang tersimpan di storage.
-      analisaMentah = await analyzeImages(
-        [await toAnalysisBuffer(converted.buffer)],
-        foodPrompt(data.items, true),
-      );
+      // Kalau semua item dari kemasan, model tidak dipanggil: fotonya tetap
+      // disimpan sebagai catatan, tapi tidak ada yang perlu ditaksir.
+      analisaMentah = perluModel(data.items)
+        ? await analyzeImages(
+            [await toAnalysisBuffer(converted.buffer)],
+            foodPrompt(data.items, true),
+          )
+        : {};
     } else {
-      analisaMentah = await analyzeText(foodPrompt(data.items, false));
+      analisaMentah = perluModel(data.items)
+        ? await analyzeText(foodPrompt(data.items, false))
+        : {};
     }
 
     const analisa = susunAnalisa(data.items, analisaMentah, converted ? 'PHOTO' : 'TEXT');
@@ -187,7 +202,11 @@ export const update = async (
       const asal = lama.items[i];
       if (!asal) throw AppError.badRequest('Item tidak dikenali');
 
-      return hitungItem(item, null, {
+      // Berat yang tersimpan dipakai kalau user tidak menyebut yang baru.
+      const denganBerat =
+        item.weight === undefined ? { ...item, weight: asal.weight_per_portion } : item;
+
+      return hitungItem(denganBerat, null, {
         kcal: asal.kcal_per_100,
         protein: asal.protein_per_100,
         carbs: asal.carbs_per_100,

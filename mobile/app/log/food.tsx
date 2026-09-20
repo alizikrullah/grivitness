@@ -298,7 +298,10 @@ export default function FoodScreen() {
                             </Text>
 
                             <Text variant="caption" tone="tertiary">
-                              {ringkasJumlah(item)}
+                              {item.nutrition_source === 'LABEL'
+                                ? (item.weight_per_portion > 0 ? ringkasJumlah(item) + ' · ' : '') +
+                                  'kemasan'
+                                : ringkasJumlah(item)}
                             </Text>
 
                             <Text

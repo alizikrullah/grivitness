@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, del, get, patch, unwrap } from '@/lib/api';
 import { invalidateAfterLog, qk } from '@/lib/query';
 import { todayWIB } from '@/utils/date';
-import type { FoodDay, FoodLog, FoodUnit, MealType } from '@/types';
+import type { FoodDay, FoodLabel, FoodLog, FoodUnit, MealType } from '@/types';
 
 /**
  * Satu makanan seperti yang ditulis user. Salinan dari mobile.
@@ -17,6 +17,8 @@ export interface FoodItemInput {
   /** Berat atau volume SATU porsi, dalam `unit`. */
   weight?: number;
   unit: FoodUnit;
+  /** Nilai gizi satu porsi dari kemasan. Ada berarti model tidak menaksir gizi item ini. */
+  label?: FoodLabel;
 }
 
 export interface FoodInput {
@@ -92,10 +94,8 @@ export const useCreateFood = () => {
   });
 };
 
-/** Item saat dikoreksi: beratnya wajib, karena tidak ada foto yang dianalisa ulang. */
-export interface FoodItemEditInput extends FoodItemInput {
-  weight: number;
-}
+/** Item saat dikoreksi. Berat kosong berarti berat tersimpan yang dipakai. */
+export type FoodItemEditInput = FoodItemInput;
 
 export interface FoodEditInput {
   id: string;

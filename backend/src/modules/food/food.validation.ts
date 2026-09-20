@@ -32,6 +32,23 @@ const FoodItemSchema = z.object({
     .optional(),
 
   unit: z.enum(FOOD_UNIT, { message: 'Satuan harus g atau ml' }).default('g'),
+
+  /**
+   * Nilai gizi SATU porsi dari kemasan. Kalau ada, model tidak menaksir gizi
+   * item ini sama sekali. Kalori wajib, makro opsional. Dikalikan jumlah porsi
+   * oleh backend.
+   */
+  label: z
+    .object({
+      kcal: z.coerce
+        .number({ message: 'Kalori kemasan harus berupa angka' })
+        .min(0)
+        .max(5000, 'Kalori per porsi tidak masuk akal, cek satuannya'),
+      protein_g: z.coerce.number().min(0).max(500).optional(),
+      carbs_g: z.coerce.number().min(0).max(500).optional(),
+      fat_g: z.coerce.number().min(0).max(500).optional(),
+    })
+    .optional(),
 });
 
 /**
@@ -75,20 +92,12 @@ export const FoodDateSchema = z.object({
  *
  * Nilai gizi per 100 g/ml tiap item sudah tersimpan dari analisa pertama,
  * jadi mengubah nama, jumlah porsi, atau berat cukup dihitung ulang backend.
- * Karena itu berat di sini WAJIB: tidak ada foto yang dianalisa ulang untuk
- * menaksirnya. Menambah makanan yang belum pernah dianalisa tidak bisa lewat
- * sini, itu sesi baru.
+ * Berat boleh dikosongkan, berat yang tersimpan yang dipakai. Angka kemasan
+ * boleh ditambahkan di sini, itu justru cara membetulkan taksiran yang
+ * meleset tanpa memanggil model. Menambah makanan yang belum pernah
+ * dianalisa tidak bisa lewat sini, itu sesi baru.
  */
-const FoodItemEditSchema = FoodItemSchema.extend({
-  weight: z
-    .number({ message: 'Berat harus berupa angka' })
-    .positive('Berat harus lebih dari nol')
-    .max(5000, 'Berat per porsi tidak masuk akal'),
-  portions: z
-    .number({ message: 'Jumlah porsi harus berupa angka' })
-    .positive('Jumlah porsi harus lebih dari nol')
-    .max(50, 'Jumlah porsi tidak masuk akal'),
-});
+const FoodItemEditSchema = FoodItemSchema;
 
 export const UpdateFoodSchema = z
   .object({
