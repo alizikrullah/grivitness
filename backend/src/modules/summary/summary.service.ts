@@ -242,15 +242,25 @@ export interface PeriodSummary {
   weight_end: number | null;
   weight_change_kg: number | null;
   total_calories_in: number;
+  /**
+   * Rata-rata HANYA dari hari yang ada catatannya, bukan dibagi panjang
+   * periode. Dibagi tujuh, satu malam yang lupa dicatat menurunkan rata-rata
+   * tidur jadi "2 jam per malam" dan angka itu pernah dipakai model chat untuk
+   * menceramahi user soal tidur yang sebenarnya baik-baik saja. Jumlah hari
+   * pembaginya ikut dikirim supaya layar bisa menulis "dari N hari tercatat".
+   */
   avg_calories_in: number;
+  food_days: number;
   total_steps: number;
   avg_steps: number;
+  step_days: number;
   total_water_ml: number;
   total_sleep_minutes: number;
   avg_sleep_minutes: number;
+  sleep_days: number;
   total_workout_minutes: number;
   total_workout_calories: number;
-  /** Berapa hari user benar-benar mencatat sesuatu dalam periode ini. */
+  /** Berapa hari user menimbang badan dalam periode ini (jumlah baris weight_logs). */
   days_logged: number;
   /**
    * Rata-rata kalori keluar menurut smartwatch, dari hari-hari yang dicatat saja.
@@ -263,8 +273,7 @@ export interface PeriodSummary {
   avg_device_kcal: number | null;
 }
 
-const rata = (total: number, hari: number): number =>
-  hari === 0 ? 0 : Math.round((total / hari) * 10) / 10;
+const rata = (total: number, hari: number): number => (hari === 0 ? 0 : Math.round(total / hari));
 
 /**
  * Rekap satu rentang tanggal.
@@ -291,6 +300,9 @@ const getPeriod = async (userId: string, from: string, to: string): Promise<Peri
     hariTercatat,
     deviceTotal,
     deviceHari,
+    hariLangkah,
+    hariTidur,
+    catatanMakan,
   ] = await Promise.all([
     repo.findOne('weight_logs', { filter: filterTanggal, sort: ['logged_at'] }),
     repo.findOne('weight_logs', { filter: filterTanggal, sort: ['-logged_at'] }),
@@ -303,7 +315,14 @@ const getPeriod = async (userId: string, from: string, to: string): Promise<Peri
     repo.count('weight_logs', filterTanggal),
     repo.sum('device_energy_logs', 'total_kcal', filterTanggal),
     repo.count('device_energy_logs', filterTanggal),
+    repo.count('step_logs', filterTanggal),
+    repo.count('sleep_logs', filterTanggal),
+    // Sesi makan bisa beberapa kali sehari, jadi yang dihitung hari WIB yang
+    // berbeda, bukan jumlah barisnya.
+    repo.list('food_logs', { filter: filterTimestamp, fields: ['logged_at'], limit: -1 }),
   ]);
+
+  const hariMakan = new Set(catatanMakan.map((c) => jakartaDate(c.logged_at))).size;
 
   const hari =
     Math.round(
@@ -322,12 +341,15 @@ const getPeriod = async (userId: string, from: string, to: string): Promise<Peri
     weight_end: akhir,
     weight_change_kg: awal === null || akhir === null ? null : Number((akhir - awal).toFixed(2)),
     total_calories_in: kalori,
-    avg_calories_in: rata(kalori, hari),
+    avg_calories_in: rata(kalori, hariMakan),
+    food_days: hariMakan,
     total_steps: langkah,
-    avg_steps: rata(langkah, hari),
+    avg_steps: rata(langkah, hariLangkah),
+    step_days: hariLangkah,
     total_water_ml: air,
     total_sleep_minutes: tidur,
-    avg_sleep_minutes: rata(tidur, hari),
+    avg_sleep_minutes: rata(tidur, hariTidur),
+    sleep_days: hariTidur,
     total_workout_minutes: workoutMenit,
     total_workout_calories: workoutKalori,
     days_logged: hariTercatat,

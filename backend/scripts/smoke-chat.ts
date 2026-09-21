@@ -26,17 +26,31 @@ import { cleanupTestUsers, testEmail } from '../tests/helpers/directus-cleanup.j
 
 const write = (line: string) => process.stdout.write(`${line}\n`);
 
-const PERTANYAAN = [
-  'Cara memenuhi protein harian sebanyak itu gmn caranya',
-  'Gua mau hitungan spesifik dg kombinasi sumber protein, dada ayam sama telor',
-  'gua bakal nyampe target tepat waktu ga?',
-  'makan malam enaknya apa biar protein cukup',
-];
+/**
+ * Dua skenario dari percakapan nyata yang pernah dijawab buruk. Pilih lewat
+ * argumen kedua: npm run smoke:chat -- bawaan cepat
+ */
+const SKENARIO: Record<string, string[]> = {
+  protein: [
+    'Cara memenuhi protein harian sebanyak itu gmn caranya',
+    'Gua mau hitungan spesifik dg kombinasi sumber protein, dada ayam sama telor',
+    'gua bakal nyampe target tepat waktu ga?',
+    'makan malam enaknya apa biar protein cukup',
+  ],
+  cepat: [
+    'Kalau pake strategi defisit dulu sebesar besarnya yang gua bisa terus nanti ketika udah turun gua perbaikin lagi gmn? Diberat gua sekarang susah banget ngapa ngapain',
+    'Ya gapapa njir otot ilang bisa gua bentuk lagi, mumpung gua blm kerja makanya mau kejar cepet. Tambah gerak gabisa, geser tanggal juga ga mau',
+    'Untuk makan gmn? yang murah aja',
+    'Gua gasuka telur dadar',
+  ],
+};
 
 const main = async (): Promise<void> => {
   const arg = process.argv[2];
   const effort: ChatOptions['reasoningEffort'] =
     arg === 'low' || arg === 'medium' || arg === 'high' ? arg : undefined;
+  const skenario = process.argv[3] ?? 'protein';
+  const PERTANYAAN = SKENARIO[skenario] ?? SKENARIO.protein ?? [];
 
   const app = createApp();
   await cleanupTestUsers();
@@ -56,11 +70,14 @@ const main = async (): Promise<void> => {
   });
   await request(app).post('/api/weight').set(auth).send({ weight_kg: 96 });
 
-  const target = new Date(Date.now() + 120 * 86_400_000).toISOString().slice(0, 10);
+  // Skenario "cepat" memakai target yang mustahil secara fisika (16 kg dalam
+  // 40 hari), persis kasus nyatanya, supaya baris required_deficit teruji.
+  const cepat = skenario === 'cepat';
+  const target = new Date(Date.now() + (cepat ? 40 : 120) * 86_400_000).toISOString().slice(0, 10);
   await request(app)
     .post('/api/goals')
     .set(auth)
-    .send({ target_weight_kg: 85, target_date: target });
+    .send({ target_weight_kg: cepat ? 80 : 85, target_date: target });
 
   await request(app)
     .post('/api/food')
@@ -78,12 +95,16 @@ const main = async (): Promise<void> => {
     write('LEMBAR FAKTA:');
     write(fakta.replace(/^/gm, '  '));
     write('');
-    write(`reasoning_effort: ${effort ?? 'bawaan model'}`);
+    write(`reasoning_effort: ${effort ?? 'bawaan model'} | skenario: ${skenario}`);
 
     const sistem = susunPromptSistem(fakta);
     const riwayat: { role: 'user' | 'assistant'; content: string }[] = [];
 
-    for (const tanya of PERTANYAAN) {
+    for (const [i, tanya] of PERTANYAAN.entries()) {
+      // Jeda seperti orang membaca lalu mengetik. Tanpa ini empat giliran
+      // beruntun melewati 8.000 token per menit dan giliran keempat gagal
+      // karena batas laju, bukan karena promptnya.
+      if (i > 0) await new Promise((r) => setTimeout(r, 15_000));
       write('');
       write(`> ${tanya}`);
 

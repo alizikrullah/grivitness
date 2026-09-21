@@ -48,11 +48,14 @@ const pekan: PeriodSummary = {
   weight_change_kg: 0,
   total_calories_in: 300,
   avg_calories_in: 300,
+  food_days: 1,
   total_steps: 0,
   avg_steps: 0,
+  step_days: 0,
   total_water_ml: 0,
   total_sleep_minutes: 0,
   avg_sleep_minutes: 0,
+  sleep_days: 0,
   total_workout_minutes: 0,
   total_workout_calories: 0,
   days_logged: 1,
@@ -151,9 +154,71 @@ describe('susunFakta', () => {
     expect(fakta).toContain('Target 85 kg pada 2027-01-19, sisa 120 hari.');
     expect(fakta).toContain('Masih 11 kg lagi.');
     expect(fakta).toContain('defisit 665 kkal per hari, laju 0.6 kg per minggu');
-    expect(fakta).toContain('TIDAK tercapai');
-    expect(fakta).toContain('145 hari dari sekarang');
-    expect(fakta).toContain('tambah 3.600 langkah per hari');
+    expect(fakta).toContain('Untuk tepat waktu dibutuhkan defisit 780 kkal per hari.');
+    expect(fakta).toContain('29% dari TDEE-nya 2.660 kkal');
+    expect(fakta).toContain('perkiraan realistis: 145 hari dari sekarang');
+    expect(fakta).toContain('ditambah 3.600 langkah per hari');
+    expect(fakta).toContain('BERHAK menimpanya sendiri lewat form target');
+  });
+
+  it('bilang mustahil secara fisika kalau defisit yang dibutuhkan melebihi TDEE', () => {
+    const fakta = susunFakta(
+      harian(),
+      pekan,
+      riwayat(),
+      null,
+      {
+        id: 'g1',
+        user_id: 'u1',
+        target_weight_kg: '80.00',
+        target_date: '2026-10-31',
+        daily_calorie_budget: 1984,
+        is_active: true,
+        created_at: null,
+        updated_at: null,
+        current_weight_kg: 97.2,
+        remaining_kg: 17.2,
+        days_remaining: 40,
+        tdee: 2447,
+        achievable: false,
+        observed_tdee: null,
+        plan: {
+          daily_calorie_budget: 1984,
+          daily_deficit: 463,
+          required_deficit: 3311,
+          achievable: false,
+          tdee: 2447,
+          weekly_rate_kg: 0.42,
+          safe_weekly_rate_kg: 0.97,
+          projected_days: 290,
+          extra_steps_needed: 0,
+        },
+      },
+      null,
+      null,
+      '16.10',
+    );
+
+    expect(fakta).toContain('dibutuhkan defisit 3.311 kkal per hari');
+    expect(fakta).toContain('lebih besar dari seluruh TDEE-nya (2.447 kkal)');
+    expect(fakta).toContain('bahkan dengan tidak makan sama sekali');
+  });
+
+  it('menyebut rata-rata mingguan bersama jumlah hari pembaginya', () => {
+    const fakta = susunFakta(
+      harian(),
+      { ...pekan, avg_steps: 7474, step_days: 1, avg_sleep_minutes: 430, sleep_days: 2 },
+      riwayat(),
+      null,
+      null,
+      null,
+      null,
+      '06.12',
+    );
+
+    expect(fakta).toContain('Langkah rata-rata 7.474 per hari, dari 1 hari yang dicatat.');
+    expect(fakta).toContain('Tidur rata-rata 7 jam 10 menit per malam, dari 2 malam yang dicatat.');
+    expect(fakta).toContain('Menimbang badan 1 kali dari 7 hari.');
   });
 
   it('menyebut defisit mingguan dari hari tercatat saja, sama dengan halaman riwayat', () => {
