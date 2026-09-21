@@ -1,6 +1,6 @@
 {
   "name": "grivitness-backend",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "private": true,
   "description": "Backend API GriviTness, Express + TypeScript + Directus",
   "type": "module",
@@ -23,7 +23,8 @@
     "format": "prettier --write \"**/*.{ts,js,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,js,json,md}\"",
     "seed": "tsx scripts/seed-workout-library.ts",
-    "smoke:ai": "tsx scripts/smoke-ai.ts"
+    "smoke:ai": "tsx scripts/smoke-ai.ts",
+    "smoke:chat": "tsx scripts/smoke-chat.ts"
   },
   "dependencies": {
     "@directus/sdk": "^25.0.0",
