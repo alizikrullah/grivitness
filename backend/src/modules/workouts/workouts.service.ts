@@ -11,7 +11,12 @@ import type {
   WorkoutLogRecord,
 } from '../../types/directus-schema.js';
 import { AppError } from '../../utils/api-error.js';
-import { caloriesFromWorkout } from '../../utils/calories.js';
+import {
+  DETIK_PER_ULANGAN_BAWAAN,
+  activeMinutesFromHold,
+  activeMinutesFromReps,
+  caloriesFromWorkout,
+} from '../../utils/calories.js';
 import { todayInJakarta } from '../../utils/daily-key.js';
 import { toNumber } from '../../utils/number.js';
 import { type DateRangeDto, dateRangeFilter } from '../../utils/query.js';
@@ -57,6 +62,7 @@ export const createCustom = async (
     name: data.name,
     category: data.category,
     calories_burned_per_minute: data.calories_burned_per_minute,
+    measure: data.measure ?? 'TIME',
     description: data.description ?? null,
   });
 
@@ -72,7 +78,31 @@ interface SumberOlahraga {
   workout_name: string;
   calories_burned: number;
   calories_source: CalorieSource;
+  /** Menit gerak yang disimpan; untuk REPS/HOLD turunan, bisa nol. */
+  duration_minutes: number;
 }
+
+interface UkuranSesi {
+  duration_minutes?: number;
+  sets?: number;
+  reps?: number;
+  hold_seconds?: number;
+}
+
+/**
+ * Menit gerak sebuah sesi. Menit dari user kalau ada; kalau tidak, diturunkan
+ * dari set x ulangan x detik per ulangan (REPS) atau set x detik tahan (HOLD).
+ * Validasi sudah menjamin salah satunya terisi.
+ */
+const menitGerak = (data: UkuranSesi, secondsPerRep: number | null): number => {
+  if (data.duration_minutes !== undefined) return data.duration_minutes;
+  const sets = data.sets ?? 1;
+  if (data.reps !== undefined) {
+    return activeMinutesFromReps(sets, data.reps, secondsPerRep ?? DETIK_PER_ULANGAN_BAWAAN);
+  }
+  if (data.hold_seconds !== undefined) return activeMinutesFromHold(sets, data.hold_seconds);
+  return 0;
+};
 
 /**
  * Menentukan nama dan kalori berdasarkan sumber olahraganya.
@@ -90,17 +120,23 @@ interface SumberOlahraga {
 const resolveSumber = async (userId: string, data: CreateWorkoutDto): Promise<SumberOlahraga> => {
   const manual = data.calories_burned;
 
-  const dariMet = (kkalPerMenit: string, weightKg: number): Omit<SumberOlahraga, 'workout_name'> =>
-    manual === undefined
+  // Kalorinya dari menit gerak yang PERSIS (bisa pecahan), yang disimpan
+  // menitnya dibulatkan. 15 detik push up tersimpan 0 menit tapi kalorinya
+  // tetap dihitung dari 15 detik itu.
+  const dariMet = (
+    kkalPerMenit: string,
+    weightKg: number,
+    secondsPerRep: number | null,
+  ): Omit<SumberOlahraga, 'workout_name'> => {
+    const menit = menitGerak(data, secondsPerRep);
+    return manual === undefined
       ? {
-          calories_burned: caloriesFromWorkout(
-            toNumber(kkalPerMenit),
-            data.duration_minutes,
-            weightKg,
-          ),
+          calories_burned: caloriesFromWorkout(toNumber(kkalPerMenit), menit, weightKg),
           calories_source: 'MET',
+          duration_minutes: Math.round(menit),
         }
-      : { calories_burned: manual, calories_source: 'MANUAL' };
+      : { calories_burned: manual, calories_source: 'MANUAL', duration_minutes: Math.round(menit) };
+  };
 
   if (data.workout_library_id) {
     const [library, weightKg] = await Promise.all([
@@ -122,7 +158,10 @@ const resolveSumber = async (userId: string, data: CreateWorkoutDto): Promise<Su
       throw AppError.notFound('Olahraga tidak ditemukan di library');
     }
 
-    return { workout_name: item.name, ...dariMet(item.calories_burned_per_minute, weightKg) };
+    return {
+      workout_name: item.name,
+      ...dariMet(item.calories_burned_per_minute, weightKg, item.seconds_per_rep),
+    };
   }
 
   if (data.custom_workout_id) {
@@ -132,7 +171,10 @@ const resolveSumber = async (userId: string, data: CreateWorkoutDto): Promise<Su
       beratUntukEstimasi(userId),
     ]);
 
-    return { workout_name: custom.name, ...dariMet(custom.calories_burned_per_minute, weightKg) };
+    return {
+      workout_name: custom.name,
+      ...dariMet(custom.calories_burned_per_minute, weightKg, null),
+    };
   }
 
   // Input manual. Zod sudah memastikan kedua field ini terisi ketika tidak ada
@@ -147,7 +189,12 @@ const resolveSumber = async (userId: string, data: CreateWorkoutDto): Promise<Su
     );
   }
 
-  return { workout_name: nama, calories_burned: manual, calories_source: 'MANUAL' };
+  return {
+    workout_name: nama,
+    calories_burned: manual,
+    calories_source: 'MANUAL',
+    duration_minutes: Math.round(menitGerak(data, null)),
+  };
 };
 
 export const create = async (userId: string, data: CreateWorkoutDto): Promise<WorkoutLogRecord> => {
@@ -157,7 +204,13 @@ export const create = async (userId: string, data: CreateWorkoutDto): Promise<Wo
     workout_library_id: data.workout_library_id ?? null,
     custom_workout_id: data.custom_workout_id ?? null,
     workout_name: sumber.workout_name,
-    duration_minutes: data.duration_minutes,
+    duration_minutes: sumber.duration_minutes,
+    // Set bawaan 1 begitu ada ulangan atau detik tahan: "push up 5 kali"
+    // adalah satu set, dan null di sini akan tampil sebagai data yang hilang.
+    sets: data.sets ?? (data.reps !== undefined || data.hold_seconds !== undefined ? 1 : null),
+    reps: data.reps ?? null,
+    hold_seconds: data.hold_seconds ?? null,
+    load_kg: data.load_kg === undefined ? null : data.load_kg.toFixed(2),
     calories_burned: sumber.calories_burned,
     calories_source: sumber.calories_source,
     intensity: data.intensity,
@@ -218,6 +271,42 @@ export const getRange = async (userId: string, range: DateRangeDto): Promise<Wor
  * Kalau user menyebut kalorinya sendiri, angka itu yang dipakai dan asalnya
  * jadi MANUAL, apa pun asal sebelumnya.
  */
+/** Baris library yang dirujuk sebuah log, null kalau log itu manual atau barisnya sudah hilang. */
+const barisLibrary = async (log: WorkoutLogRecord): Promise<WorkoutLibraryRecord | null> => {
+  const libraryId = log.workout_library_id;
+  if (!libraryId) return null;
+  const rows = await withRetry(
+    () =>
+      directus.request(
+        readItems('workout_library', {
+          filter: { id: { _eq: libraryId } },
+          limit: 1,
+        }),
+      ),
+    'workout_library.findById',
+  );
+  return rows[0] ?? null;
+};
+
+const detikPerUlangan = async (log: WorkoutLogRecord): Promise<number | null> =>
+  (await barisLibrary(log))?.seconds_per_rep ?? null;
+
+/** kkal/menit @70 kg dari sumber log (library atau custom), null kalau manual. */
+const kkalPerMenitSumber = async (
+  userId: string,
+  log: WorkoutLogRecord,
+): Promise<number | null> => {
+  const lib = await barisLibrary(log);
+  if (lib) return toNumber(lib.calories_burned_per_minute);
+  if (log.custom_workout_id) {
+    const custom = await forUser(userId).findOne('custom_workouts', {
+      filter: { id: { _eq: log.custom_workout_id } },
+    });
+    return custom ? toNumber(custom.calories_burned_per_minute) : null;
+  }
+  return null;
+};
+
 export const update = async (
   userId: string,
   logId: string,
@@ -235,17 +324,58 @@ export const update = async (
   if (data.notes !== undefined) perubahan.notes = data.notes;
   if (data.tracked_by_device !== undefined) perubahan.tracked_by_device = data.tracked_by_device;
 
-  if (data.duration_minutes !== undefined) {
-    perubahan.duration_minutes = data.duration_minutes;
+  if (data.load_kg !== undefined) {
+    perubahan.load_kg = data.load_kg === null ? null : data.load_kg.toFixed(2);
+  }
+
+  const ukuranBerubah =
+    data.duration_minutes !== undefined ||
+    data.sets !== undefined ||
+    data.reps !== undefined ||
+    data.hold_seconds !== undefined;
+
+  if (ukuranBerubah) {
+    // Ukuran baru digabung dengan yang tersimpan: mengubah set saja tidak
+    // boleh menghilangkan ulangannya. Menit yang dikirim user menang; kalau
+    // set/ulangan yang dikirim, menitnya diturunkan ulang.
+    const ukuran: UkuranSesi =
+      data.duration_minutes !== undefined
+        ? { duration_minutes: data.duration_minutes }
+        : {
+            sets: data.sets ?? log.sets ?? 1,
+            reps:
+              data.reps ?? (data.hold_seconds !== undefined ? undefined : (log.reps ?? undefined)),
+            hold_seconds:
+              data.hold_seconds ??
+              (data.reps !== undefined ? undefined : (log.hold_seconds ?? undefined)),
+          };
+
+    const secondsPerRep = await detikPerUlangan(log);
+    const menit = menitGerak(ukuran, secondsPerRep);
+
+    perubahan.duration_minutes = Math.round(menit);
+    perubahan.sets = ukuran.sets ?? null;
+    perubahan.reps = ukuran.reps ?? null;
+    perubahan.hold_seconds = ukuran.hold_seconds ?? null;
 
     // Baris lama dari sebelum kolom asalnya ada bernilai null. Semuanya dulu
     // dihitung dari MET (angka client diabaikan), jadi null diperlakukan MET.
     const dariMet = log.calories_source !== 'MANUAL';
 
-    if (data.calories_burned === undefined && dariMet && log.duration_minutes > 0) {
-      perubahan.calories_burned = Math.round(
-        (log.calories_burned / log.duration_minutes) * data.duration_minutes,
-      );
+    if (data.calories_burned === undefined && dariMet) {
+      const kkalPerMenit = await kkalPerMenitSumber(userId, log);
+      if (kkalPerMenit !== null) {
+        perubahan.calories_burned = caloriesFromWorkout(
+          kkalPerMenit,
+          menit,
+          await beratUntukEstimasi(userId),
+        );
+      } else if (log.duration_minutes > 0) {
+        // Sumbernya sudah tidak ada (library dihapus): skala dari yang tersimpan.
+        perubahan.calories_burned = Math.round(
+          (log.calories_burned / log.duration_minutes) * menit,
+        );
+      }
     }
   }
 

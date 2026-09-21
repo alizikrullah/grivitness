@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  DETIK_PER_ULANGAN_BAWAAN,
+  activeMinutesFromHold,
+  activeMinutesFromReps,
   baselineTDEE,
   calculateAge,
   calculateBMR,
@@ -327,6 +330,27 @@ describe('caloriesFromWorkout', () => {
 
   it('menurunkan hasil untuk berat di bawah 70kg', () => {
     expect(caloriesFromWorkout(10, 30, 50)).toBeLessThan(300);
+  });
+});
+
+describe('menit gerak dari repetisi dan tahan', () => {
+  it('5 push up adalah 15 detik gerak, bukan satu menit', () => {
+    expect(activeMinutesFromReps(1, 5)).toBeCloseTo(0.25, 5);
+    expect(DETIK_PER_ULANGAN_BAWAAN).toBe(3);
+  });
+
+  it('memakai detik per ulangan dari library kalau ada', () => {
+    // Deadlift 4 detik: 3 set x 8 ulangan = 96 detik = 1,6 menit.
+    expect(activeMinutesFromReps(3, 8, 4)).toBeCloseTo(1.6, 5);
+  });
+
+  it('plank 3 x 45 detik adalah 2,25 menit', () => {
+    expect(activeMinutesFromHold(3, 45)).toBeCloseTo(2.25, 5);
+  });
+
+  it('kalorinya kecil dan itu jujur: 5 push up untuk 80 kg sekitar 2 kkal', () => {
+    const kkal = caloriesFromWorkout(netKcalPerMinuteAt70(8.0), activeMinutesFromReps(1, 5), 80);
+    expect(kkal).toBe(2);
   });
 });
 

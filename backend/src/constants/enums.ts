@@ -66,6 +66,21 @@ export const WORKOUT_CATEGORY = ['CARDIO', 'STRENGTH', 'FLEXIBILITY', 'SPORTS', 
 export type WorkoutCategory = (typeof WORKOUT_CATEGORY)[number];
 
 /**
+ * Cara sebuah olahraga diukur, dan karena itu cara form menanyakannya.
+ *
+ *   TIME  menit terus-menerus: jalan, lari, renang, yoga, futsal
+ *   REPS  set x ulangan (plus beban kg opsional): push up, squat, deadlift
+ *   HOLD  set x detik tahan: plank
+ *
+ * "Push up 5 kali" tidak bisa ditulis sebagai menit, dan MET per menit memang
+ * untuk gerak terus-menerus. Untuk REPS dan HOLD, menit diturunkan backend dari
+ * ulangan x detik per ulangan; jeda antar set tidak dihitung karena sudah
+ * termasuk PAR sisa hari.
+ */
+export const WORKOUT_MEASURE = ['TIME', 'REPS', 'HOLD'] as const;
+export type WorkoutMeasure = (typeof WORKOUT_MEASURE)[number];
+
+/**
  * Asal angka kalori sebuah log olahraga.
  *
  * MET     dihitung backend dari nilai library/custom, durasi, dan berat user.

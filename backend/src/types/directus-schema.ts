@@ -188,7 +188,22 @@ export interface WorkoutLogRecord {
   custom_workout_id: string | null;
   /** Selalu diisi sebagai display name, walau kedua FK di atas kosong */
   workout_name: string;
+  /**
+   * Menit gerak. Untuk olahraga REPS/HOLD diturunkan backend dari set x ulangan x detik per
+   * ulangan, bisa 0 untuk sesi singkat.
+   */
   duration_minutes: number;
+  /** Jumlah set. Hanya untuk olahraga berukuran REPS atau HOLD. */
+  sets: number | null;
+  /** Ulangan per set. Hanya untuk olahraga berukuran REPS. */
+  reps: number | null;
+  /**
+   * Beban tambahan per ulangan, mis. squat 40 kg. Kosong berarti berat badan sendiri.
+   * Catatan progres, tidak masuk hitungan kalori.
+   */
+  load_kg: DecimalString | null;
+  /** Detik tahan per set. Hanya untuk olahraga berukuran HOLD (plank). */
+  hold_seconds: number | null;
   /**
    * MET: kkal_per_menit * durasi * (berat_user / 70). MANUAL: angka yang diketik user, mis.
    * dari jam tangan.
@@ -450,6 +465,13 @@ export interface WorkoutLibraryRecord {
    * Backend men-scale sesuai berat user.
    */
   calories_burned_per_minute: DecimalString;
+  /** TIME menit, REPS set x ulangan, HOLD set x detik. Menentukan bentuk form di client. */
+  measure: 'TIME' | 'REPS' | 'HOLD';
+  /**
+   * Perkiraan detik satu ulangan untuk olahraga REPS, dipakai menurunkan menit gerak. Kosong
+   * berarti bawaan 3 detik.
+   */
+  seconds_per_rep: number | null;
   description: string | null;
   /** Diisi otomatis oleh Directus saat item dibuat */
   created_at: TimestampString | null;
@@ -467,6 +489,8 @@ export interface CustomWorkoutRecord {
    * dengan workout_library supaya kedua sumber bisa dibandingkan.
    */
   calories_burned_per_minute: DecimalString;
+  /** TIME menit, REPS set x ulangan, HOLD set x detik. Dipilih user saat membuat. */
+  measure: 'TIME' | 'REPS' | 'HOLD';
   description: string | null;
   /** Diisi otomatis oleh Directus saat item dibuat */
   created_at: TimestampString | null;

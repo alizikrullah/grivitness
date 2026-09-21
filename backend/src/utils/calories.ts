@@ -155,6 +155,34 @@ export const caloriesFromWorkout = (
   weightKg: number,
 ): number => round((netKcalPerMinute * durationMinutes * weightKg) / BERAT_ACUAN_KG, 0);
 
+/**
+ * Detik satu ulangan kalau library tidak menyebutkannya sendiri.
+ *
+ * PERKIRAAN, bukan dari Compendium: tempo yang lazim dianjurkan sekitar satu
+ * detik fase angkat dan dua detik fase turun (ACSM, Progression Models in
+ * Resistance Training, MSSE 2009), jadi tiga detik per ulangan. Library boleh
+ * menimpanya per gerakan (deadlift 4, sit up 2).
+ */
+export const DETIK_PER_ULANGAN_BAWAAN = 3;
+
+/**
+ * Menit GERAK sebuah sesi repetisi atau tahan.
+ *
+ * Jeda antar set sengaja tidak dihitung: waktu istirahat itu sudah termasuk
+ * PAR "sisa hari" di calculateTDEE, dan menghitungnya di sini berarti membayar
+ * menit yang sama dua kali. Hasilnya memang kecil (5 push up sekitar 15 detik,
+ * sekitar 2 kkal), dan itu jujur: nilai latihan repetisi saat defisit ada di
+ * otot yang dipertahankan, bukan di kalorinya.
+ */
+export const activeMinutesFromReps = (
+  sets: number,
+  reps: number,
+  secondsPerRep: number = DETIK_PER_ULANGAN_BAWAAN,
+): number => (sets * reps * secondsPerRep) / 60;
+
+export const activeMinutesFromHold = (sets: number, holdSeconds: number): number =>
+  (sets * holdSeconds) / 60;
+
 // ============================================================
 // TDEE, METODE FAKTORIAL
 // ============================================================

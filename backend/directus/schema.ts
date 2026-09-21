@@ -28,6 +28,7 @@ import {
   MEAL_TYPE,
   WORKOUT_CATEGORY,
   WORKOUT_INTENSITY,
+  WORKOUT_MEASURE,
 } from '../src/constants/enums.js';
 
 // ============================================================
@@ -448,7 +449,33 @@ export const collections: CollectionDef[] = [
         maxLength: 255,
         note: 'Selalu diisi sebagai display name, walau kedua FK di atas kosong',
       },
-      { field: 'duration_minutes', type: 'integer' },
+      {
+        field: 'duration_minutes',
+        type: 'integer',
+        note: 'Menit gerak. Untuk olahraga REPS/HOLD diturunkan backend dari set x ulangan x detik per ulangan, bisa 0 untuk sesi singkat.',
+      },
+      {
+        field: 'sets',
+        type: 'integer',
+        nullable: true,
+        note: 'Jumlah set. Hanya untuk olahraga berukuran REPS atau HOLD.',
+      },
+      {
+        field: 'reps',
+        type: 'integer',
+        nullable: true,
+        note: 'Ulangan per set. Hanya untuk olahraga berukuran REPS.',
+      },
+      decimalField('load_kg', 5, 2, {
+        nullable: true,
+        note: 'Beban tambahan per ulangan, mis. squat 40 kg. Kosong berarti berat badan sendiri. Catatan progres, tidak masuk hitungan kalori.',
+      }),
+      {
+        field: 'hold_seconds',
+        type: 'integer',
+        nullable: true,
+        note: 'Detik tahan per set. Hanya untuk olahraga berukuran HOLD (plank).',
+      },
       {
         field: 'calories_burned',
         type: 'integer',
@@ -790,6 +817,16 @@ export const collections: CollectionDef[] = [
           '(MET-1) x 3.5 x 70 / 200. Bersih artinya sudah dikurangi metabolisme ' +
           'istirahat, yang sudah ditanggung TDEE. Backend men-scale sesuai berat user.',
       }),
+      enumField('measure', WORKOUT_MEASURE, {
+        defaultValue: 'TIME',
+        note: 'TIME menit, REPS set x ulangan, HOLD set x detik. Menentukan bentuk form di client.',
+      }),
+      {
+        field: 'seconds_per_rep',
+        type: 'integer',
+        nullable: true,
+        note: 'Perkiraan detik satu ulangan untuk olahraga REPS, dipakai menurunkan menit gerak. Kosong berarti bawaan 3 detik.',
+      },
       { field: 'description', type: 'text', nullable: true },
       createdAt(),
     ],
@@ -809,6 +846,10 @@ export const collections: CollectionDef[] = [
         note:
           'Kalori BERSIH per menit untuk berat 70kg, di atas metabolisme istirahat. ' +
           'Skala yang sama dengan workout_library supaya kedua sumber bisa dibandingkan.',
+      }),
+      enumField('measure', WORKOUT_MEASURE, {
+        defaultValue: 'TIME',
+        note: 'TIME menit, REPS set x ulangan, HOLD set x detik. Dipilih user saat membuat.',
       }),
       { field: 'description', type: 'text', nullable: true },
       createdAt(),

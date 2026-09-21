@@ -35,7 +35,7 @@ import {
   updateItem,
 } from '@directus/sdk';
 
-import type { WorkoutCategory } from '../src/constants/enums.js';
+import type { WorkoutCategory, WorkoutMeasure } from '../src/constants/enums.js';
 import { env } from '../src/config/env.js';
 import { netKcalPerMinuteAt70 } from '../src/utils/calories.js';
 
@@ -54,6 +54,16 @@ interface SeedItem {
    * Ditandai supaya tidak sengaja dianggap punya rujukan yang sama kuatnya.
    */
   estimated?: true;
+  /** Cara diukur. Kosong berarti TIME (menit). */
+  measure?: WorkoutMeasure;
+  /**
+   * Perkiraan detik satu ulangan, HANYA untuk REPS. Bukan dari Compendium:
+   * tempo yang lazim dianjurkan sekitar 1 detik angkat + 2 detik turun (ACSM
+   * Progression Models, 2009), jadi 3 detik. Deadlift 4 karena tiap ulangan
+   * ada set-up dari lantai; sit up 2 karena rentang geraknya pendek. Semuanya
+   * perkiraan, dan tetap ditandai begitu.
+   */
+  seconds_per_rep?: number;
 }
 
 const LIBRARY: SeedItem[] = [
@@ -110,19 +120,32 @@ const LIBRARY: SeedItem[] = [
     category: 'STRENGTH',
     met: 8.0,
     description: 'Latihan dada dan trisep, tempo cepat',
+    measure: 'REPS',
+    seconds_per_rep: 3,
   },
   {
     name: 'Pull Up',
     category: 'STRENGTH',
     met: 8.0,
     description: 'Latihan punggung dan bisep, tempo cepat',
+    measure: 'REPS',
+    seconds_per_rep: 3,
   },
-  { name: 'Squat', category: 'STRENGTH', met: 5.0, description: 'Latihan paha dan bokong' },
+  {
+    name: 'Squat',
+    category: 'STRENGTH',
+    met: 5.0,
+    description: 'Latihan paha dan bokong',
+    measure: 'REPS',
+    seconds_per_rep: 3,
+  },
   {
     name: 'Deadlift',
     category: 'STRENGTH',
     met: 6.0,
     description: 'Latihan punggung bawah dan kaki',
+    measure: 'REPS',
+    seconds_per_rep: 4,
   },
   {
     name: 'Plank',
@@ -130,9 +153,24 @@ const LIBRARY: SeedItem[] = [
     met: 3.8,
     description: 'Latihan inti tubuh statis',
     estimated: true,
+    measure: 'HOLD',
   },
-  { name: 'Sit Up', category: 'STRENGTH', met: 3.8, description: 'Latihan perut, tempo sedang' },
-  { name: 'Lunges', category: 'STRENGTH', met: 3.8, description: 'Latihan kaki satu per satu' },
+  {
+    name: 'Sit Up',
+    category: 'STRENGTH',
+    met: 3.8,
+    description: 'Latihan perut, tempo sedang',
+    measure: 'REPS',
+    seconds_per_rep: 2,
+  },
+  {
+    name: 'Lunges',
+    category: 'STRENGTH',
+    met: 3.8,
+    description: 'Latihan kaki satu per satu',
+    measure: 'REPS',
+    seconds_per_rep: 3,
+  },
   {
     name: 'Latihan Beban Sirkuit',
     category: 'STRENGTH',
@@ -206,6 +244,8 @@ const toRow = (item: SeedItem) => ({
   met: item.met.toFixed(1),
   calories_burned_per_minute: netKcalPerMinuteAt70(item.met).toFixed(2),
   description: item.description,
+  measure: item.measure ?? 'TIME',
+  seconds_per_rep: item.seconds_per_rep ?? null,
 });
 
 const write = (line: string) => process.stdout.write(`${line}\n`);
@@ -218,6 +258,8 @@ interface ExistingRow {
   name: string;
   met: string | null;
   calories_burned_per_minute: string;
+  measure: WorkoutMeasure | null;
+  seconds_per_rep: number | null;
 }
 
 const main = async (): Promise<void> => {
@@ -226,7 +268,7 @@ const main = async (): Promise<void> => {
 
   const existing = (await client.request(
     readItems('workout_library', {
-      fields: ['id', 'name', 'met', 'calories_burned_per_minute'],
+      fields: ['id', 'name', 'met', 'calories_burned_per_minute', 'measure', 'seconds_per_rep'],
       limit: -1,
     }),
   )) as ExistingRow[];
@@ -244,7 +286,9 @@ const main = async (): Promise<void> => {
     const target = toRow(item);
     const sama =
       row.met === target.met &&
-      row.calories_burned_per_minute === target.calories_burned_per_minute;
+      row.calories_burned_per_minute === target.calories_burned_per_minute &&
+      row.measure === target.measure &&
+      row.seconds_per_rep === target.seconds_per_rep;
 
     return sama ? [] : [{ id: row.id, item, target, lama: row }];
   });
@@ -274,6 +318,8 @@ const main = async (): Promise<void> => {
         calories_burned_per_minute: target.calories_burned_per_minute,
         category: target.category,
         description: target.description,
+        measure: target.measure,
+        seconds_per_rep: target.seconds_per_rep,
       }),
     );
 
