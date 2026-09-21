@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { hitungItem, jumlahkan, perluModel, susunAnalisa } from './food-math.js';
+import { hitungItem, jumlahkan, kebutuhanModel, perluModel, susunAnalisa } from './food-math.js';
 
 /**
  * Tes untuk keluhan nyata: "saya tulis 2 pcs tapi AI menghitung 1 pcs".
@@ -264,5 +264,109 @@ describe('nilai gizi dari kemasan', () => {
   it('model tidak perlu dipanggil kalau semua item dari kemasan', () => {
     expect(perluModel([indomie])).toBe(false);
     expect(perluModel([indomie, { name: 'Telur', portions: 1, unit: 'g' }])).toBe(true);
+  });
+});
+
+describe('ingatan makanan: nama yang sama memakai angka yang sama', () => {
+  const kosong = { kcal: 0, protein: 0, carbs: 0, fat: 0, missing: true };
+  const nescafe = { name: 'Nescafe Classic bubuk', portions: 1, unit: 'g' as const };
+
+  const ingatanAI = {
+    weight_per_portion: 8,
+    label: null,
+    per100: { kcal: 350, protein: 12, carbs: 41, fat: 0.5, missing: false },
+  };
+
+  it('memakai nilai per 100 dari ingatan, bukan dari model, dan menandai PREVIOUS', () => {
+    const modelBerbeda = { kcal: 100, protein: 1, carbs: 1, fat: 1, missing: false };
+    const hasil = hitungItem({ ...nescafe, weight: 8 }, 8, modelBerbeda, ingatanAI);
+
+    expect(hasil.kcal_per_100).toBe(350);
+    expect(hasil.calories).toBe(28);
+    expect(hasil.nutrition_source).toBe('PREVIOUS');
+    expect(hasil.nutrition_missing).toBe(false);
+  });
+
+  it('berat yang dikosongkan user diisi dari ingatan, bukan dari model', () => {
+    const hasil = hitungItem(nescafe, 50, kosong, ingatanAI);
+
+    expect(hasil.weight_per_portion).toBe(8);
+    expect(hasil.calories).toBe(28);
+  });
+
+  it('berat dari user tetap menang atas ingatan', () => {
+    const hasil = hitungItem({ ...nescafe, weight: 12 }, null, kosong, ingatanAI);
+
+    expect(hasil.weight_per_portion).toBe(12);
+    expect(hasil.weight_source).toBe('USER');
+    expect(hasil.calories).toBe(42);
+  });
+
+  it('kemasan yang pernah dipakai dihitung seperti label tapi ditandai PREVIOUS', () => {
+    const ingatanLabel = {
+      weight_per_portion: null,
+      label: { kcal: 28, protein_g: 1 },
+      per100: { kcal: 350, protein: 12, carbs: 41, fat: 0.5, missing: false },
+    };
+    const hasil = hitungItem({ ...nescafe, portions: 2 }, null, kosong, ingatanLabel);
+
+    expect(hasil.calories).toBe(56);
+    expect(hasil.protein_g).toBe(2);
+    expect(hasil.nutrition_source).toBe('PREVIOUS');
+    expect(hasil.label).toEqual({ kcal: 28, protein_g: 1, carbs_g: 0, fat_g: 0 });
+  });
+
+  it('label yang diketik user hari ini menang atas ingatan', () => {
+    const hasil = hitungItem({ ...nescafe, label: { kcal: 30 } }, null, kosong, ingatanAI);
+
+    expect(hasil.calories).toBe(30);
+    expect(hasil.nutrition_source).toBe('LABEL');
+  });
+
+  it('koreksi mempertahankan asal PREVIOUS, tidak diam-diam jadi AI', () => {
+    const hasil = hitungItem({ ...nescafe, weight: 8 }, null, ingatanAI.per100, null, 'PREVIOUS');
+    expect(hasil.nutrition_source).toBe('PREVIOUS');
+  });
+
+  it('model tidak dipanggil kalau semua item tertutup ingatan', () => {
+    expect(perluModel([nescafe], [ingatanAI], false)).toBe(false);
+    expect(perluModel([nescafe], [ingatanAI], true)).toBe(false);
+  });
+
+  it('dengan foto, model tetap dipanggil kalau ingatan tidak menyimpan berat', () => {
+    const tanpaBerat = { ...ingatanAI, weight_per_portion: null };
+    expect(perluModel([nescafe], [tanpaBerat], true)).toBe(true);
+    // Tanpa foto berat tidak bisa ditaksir, jadi bukan alasan memanggil model.
+    expect(perluModel([nescafe], [tanpaBerat], false)).toBe(false);
+  });
+
+  it('kebutuhan model per item: gizi dan berat dinilai terpisah', () => {
+    expect(kebutuhanModel(nescafe, null)).toEqual({ gizi: true, berat: true });
+    expect(kebutuhanModel(nescafe, ingatanAI)).toEqual({ gizi: false, berat: false });
+    expect(kebutuhanModel({ ...nescafe, weight: 8 }, null)).toEqual({ gizi: true, berat: false });
+    expect(kebutuhanModel({ ...nescafe, label: { kcal: 28 } }, null)).toEqual({
+      gizi: false,
+      berat: false,
+    });
+  });
+
+  it('susunAnalisa meneruskan ingatan per item, item lain tetap dari model', () => {
+    const analisa = susunAnalisa(
+      [nescafe, { name: 'Roti', portions: 1, unit: 'g' }],
+      {
+        items: [
+          { index: 1, grams_per_portion: 99, kcal_per_100: 1 },
+          { index: 2, grams_per_portion: 30, kcal_per_100: 250 },
+        ],
+      },
+      'TEXT',
+      [ingatanAI, null],
+    );
+
+    expect(analisa.items[0]?.nutrition_source).toBe('PREVIOUS');
+    expect(analisa.items[0]?.calories).toBe(28);
+    expect(analisa.items[1]?.nutrition_source).toBe('AI');
+    expect(analisa.items[1]?.calories).toBe(75);
+    expect(analisa.total_calories).toBe(103);
   });
 });

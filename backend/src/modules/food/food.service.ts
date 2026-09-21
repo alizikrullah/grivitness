@@ -9,6 +9,7 @@ import {
   type FoodAnalysis,
   hitungItem,
   jumlahkan,
+  kebutuhanModel,
   perluModel,
   susunAnalisa,
 } from '../../utils/food-math.js';
@@ -16,6 +17,7 @@ import { convertToWebP, toAnalysisBuffer } from '../../utils/sharp.js';
 import { timestampDayFilter } from '../../utils/query.js';
 import { fileUrl } from '../files/files.service.js';
 import { recordActivitySafely } from '../streaks/streaks.service.js';
+import { bacaIngatan, cocokkanIngatan, saranMakanan } from './food-memory.js';
 import type { CreateFoodDto, FoodItemEditDto, UpdateFoodDto } from './food.validation.js';
 
 /** Bentuk yang dikirim ke client: record ditambah URL foto yang dirangkai dari id berkasnya. */
@@ -43,10 +45,17 @@ export const create = async (
   photo: Buffer | null,
   data: CreateFoodDto,
 ): Promise<FoodLog> => {
-  if (photo === null) {
-    // Item dari kemasan tidak butuh berat: kalorinya sudah per porsi.
+  // Ingatan dibaca LEBIH DULU: nama yang pernah dicatat memakai angka yang
+  // sama dengan kemarin, dan berat yang tersimpan menutup kolom berat yang
+  // dikosongkan user. Lihat food-memory.ts.
+  const ingatan = cocokkanIngatan(await bacaIngatan(userId), data.items);
+  const adaFoto = photo !== null;
+
+  if (!adaFoto) {
+    // Tanpa foto, berat hanya bisa datang dari user atau ingatan. Item dari
+    // kemasan tidak butuh berat: kalorinya sudah per porsi.
     const tanpaBerat = data.items
-      .filter((item) => item.weight === undefined && !item.label)
+      .filter((item, i) => kebutuhanModel(item, ingatan[i] ?? null).berat)
       .map((i) => i.name);
 
     if (tanpaBerat.length > 0) {
@@ -57,6 +66,19 @@ export const create = async (
   }
 
   const converted = photo === null ? null : await convertToWebP(photo);
+
+  // Yang dikirim ke prompt: item yang sudah tertutup ingatan ditandai seperti
+  // kemasan (gizinya tidak perlu ditaksir) dan beratnya diisi dari ingatan,
+  // supaya model cuma mengerjakan sisanya.
+  const untukPrompt = data.items.map((item, i) => {
+    const ing = ingatan[i];
+    if (!ing) return item;
+    return {
+      ...item,
+      weight: item.weight ?? ing.weight_per_portion ?? undefined,
+      label: item.label ?? { kcal: ing.per100.kcal },
+    };
+  });
 
   const log = await unitOfWork(async (tx) => {
     let fileId: string | null = null;
@@ -78,19 +100,19 @@ export const create = async (
       // Yang dikirim ke model salinan kecilnya, bukan yang tersimpan di storage.
       // Kalau semua item dari kemasan, model tidak dipanggil: fotonya tetap
       // disimpan sebagai catatan, tapi tidak ada yang perlu ditaksir.
-      analisaMentah = perluModel(data.items)
+      analisaMentah = perluModel(data.items, ingatan, true)
         ? await analyzeImages(
             [await toAnalysisBuffer(converted.buffer)],
-            foodPrompt(data.items, true),
+            foodPrompt(untukPrompt, true),
           )
         : {};
     } else {
-      analisaMentah = perluModel(data.items)
-        ? await analyzeText(foodPrompt(data.items, false))
+      analisaMentah = perluModel(data.items, ingatan, false)
+        ? await analyzeText(foodPrompt(untukPrompt, false))
         : {};
     }
 
-    const analisa = susunAnalisa(data.items, analisaMentah, converted ? 'PHOTO' : 'TEXT');
+    const analisa = susunAnalisa(data.items, analisaMentah, converted ? 'PHOTO' : 'TEXT', ingatan);
 
     const repo = forUser(userId, tx);
 
@@ -113,6 +135,41 @@ export const create = async (
 
   return denganFoto(log);
 };
+
+/** Satu saran nama untuk form makanan, siap dipakai tanpa memanggil model. */
+export interface FoodSuggestion {
+  name: string;
+  unit: 'g' | 'ml';
+  weight_per_portion: number | null;
+  label: { kcal: number; protein_g?: number; carbs_g?: number; fat_g?: number } | null;
+  kcal_per_100: number;
+  protein_per_100: number;
+  carbs_per_100: number;
+  fat_per_100: number;
+  origin: 'LABEL' | 'EDITED' | 'AI';
+  times: number;
+  last_logged_at: string;
+}
+
+/**
+ * Saran nama dari catatan user sendiri. Kosong berarti yang paling sering.
+ * Ini yang membuat rutinitas harian jadi dua ketukan: ketik "nes", pilih
+ * "Nescafe Classic bubuk", berat dan gizinya ikut terisi.
+ */
+export const suggestions = async (userId: string, cari: string): Promise<FoodSuggestion[]> =>
+  saranMakanan(await bacaIngatan(userId), cari).map((m) => ({
+    name: m.name,
+    unit: m.unit,
+    weight_per_portion: m.weight_per_portion,
+    label: m.label,
+    kcal_per_100: m.per100.kcal,
+    protein_per_100: m.per100.protein,
+    carbs_per_100: m.per100.carbs,
+    fat_per_100: m.per100.fat,
+    origin: m.origin,
+    times: m.times,
+    last_logged_at: m.last_logged_at,
+  }));
 
 export interface FoodDay {
   date: string;
@@ -206,13 +263,21 @@ export const update = async (
       const denganBerat =
         item.weight === undefined ? { ...item, weight: asal.weight_per_portion } : item;
 
-      return hitungItem(denganBerat, null, {
-        kcal: asal.kcal_per_100,
-        protein: asal.protein_per_100,
-        carbs: asal.carbs_per_100,
-        fat: asal.fat_per_100,
-        missing: asal.nutrition_missing,
-      });
+      return hitungItem(
+        denganBerat,
+        null,
+        {
+          kcal: asal.kcal_per_100,
+          protein: asal.protein_per_100,
+          carbs: asal.carbs_per_100,
+          fat: asal.fat_per_100,
+          missing: asal.nutrition_missing,
+        },
+        null,
+        // Asal gizinya dipertahankan: koreksi porsi tidak mengubah PREVIOUS
+        // jadi AI, angkanya memang masih yang dipakai ulang.
+        asal.nutrition_source === 'PREVIOUS' ? 'PREVIOUS' : 'AI',
+      );
     });
 
     const baru: FoodAnalysis = {

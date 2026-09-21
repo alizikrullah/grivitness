@@ -83,6 +83,13 @@ export const CreateFoodSchema = z.object({
   logged_at: z.iso.datetime({ message: 'logged_at harus timestamp ISO 8601' }).optional(),
 });
 
+/** Pencarian saran nama. Kosong berarti yang paling sering dicatat. */
+export const FoodSuggestionSchema = z.object({
+  q: z.string().trim().max(120).optional(),
+});
+
+export type FoodSuggestionDto = z.infer<typeof FoodSuggestionSchema>;
+
 export const FoodDateSchema = z.object({
   date: dateString.optional(),
 });

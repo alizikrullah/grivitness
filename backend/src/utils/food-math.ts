@@ -47,9 +47,14 @@ export interface FoodItem {
   /** Berat atau volume SATU porsi. */
   weight_per_portion: number;
   weight_source: 'USER' | 'AI';
-  /** Dari mana nilai gizinya: taksiran model, atau kemasan yang dibaca user. */
-  nutrition_source: 'AI' | 'LABEL';
-  /** Angka kemasan per porsi yang dipakai, kalau nutrition_source LABEL. */
+  /**
+   * Dari mana nilai gizinya: taksiran model, kemasan yang dibaca user, atau
+   * PREVIOUS: dipakai ulang dari catatan user sebelumnya untuk nama yang sama
+   * (lihat food-memory.ts), supaya item yang sama tidak dapat angka berbeda
+   * tiap hari.
+   */
+  nutrition_source: 'AI' | 'LABEL' | 'PREVIOUS';
+  /** Angka kemasan per porsi yang dipakai, kalau ada (LABEL, atau PREVIOUS dari kemasan). */
   label: FoodLabel | null;
   /** Total yang dimakan: portions × weight_per_portion. */
   amount: number;
@@ -120,6 +125,17 @@ const bulat = (nilai: number, desimal: number): number => {
   return Math.round(nilai * faktor) / faktor;
 };
 
+/**
+ * Yang diingat dari catatan sebelumnya untuk nama yang sama. Bentuk kecil ini
+ * sengaja didefinisikan di sini supaya perhitungan tidak bergantung ke modul
+ * yang membaca Directus.
+ */
+export interface IngatanItem {
+  weight_per_portion: number | null;
+  label: FoodLabel | null;
+  per100: Per100;
+}
+
 /** Nilai gizi per 100 g/ml satu item, sudah dibatasi. */
 export interface Per100 {
   kcal: number;
@@ -156,9 +172,18 @@ export const hitungItem = (
   item: FoodItemInput,
   beratModel: number | null,
   gizi: Per100,
+  ingatan: IngatanItem | null = null,
+  /** Asal gizi yang dipertahankan saat koreksi, supaya PREVIOUS tidak berubah jadi AI. */
+  sumberAsal: 'AI' | 'PREVIOUS' = 'AI',
 ): FoodItem => {
   const dariUser = item.weight !== undefined;
-  const beratPerPorsi = batas(item.weight ?? beratModel ?? 0, MAKS_BERAT_PER_PORSI);
+  // Berat: dari user, kalau kosong dari ingatan, kalau kosong juga dari model.
+  // Ingatan menang atas model karena itu angka yang pernah dipakai user
+  // sendiri, dan konsistensinya yang sedang dijaga.
+  const beratPerPorsi = batas(
+    item.weight ?? ingatan?.weight_per_portion ?? beratModel ?? 0,
+    MAKS_BERAT_PER_PORSI,
+  );
   const jumlah = item.portions * beratPerPorsi;
 
   const dasar = {
@@ -170,17 +195,23 @@ export const hitungItem = (
     amount: Math.round(jumlah),
   };
 
+  // Gizi dari kemasan yang pernah dipakai untuk nama ini: dihitung persis
+  // seperti label (per porsi x jumlah porsi), tapi ditandai PREVIOUS supaya
+  // user tahu angkanya dipakai ulang, bukan dia yang mengetik hari ini.
+  const labelPakai = item.label ?? ingatan?.label ?? null;
+  const sumberLabel: FoodItem['nutrition_source'] = item.label ? 'LABEL' : 'PREVIOUS';
+
   /*
     Kemasan menang mutlak. Angkanya PER PORSI dan dikalikan jumlah porsi di
     sini, sama seperti berat: user menulis satuannya, perkalian tidak pernah
     diserahkan ke user maupun model. Nilai per 100 diturunkan balik dari
     kemasan kalau beratnya diketahui, supaya rinciannya tetap konsisten.
   */
-  if (item.label) {
-    const kcal = batas(item.label.kcal, MAKS_KKAL_LABEL_PER_PORSI);
-    const protein = item.label.protein_g ?? 0;
-    const carbs = item.label.carbs_g ?? 0;
-    const fat = item.label.fat_g ?? 0;
+  if (labelPakai) {
+    const kcal = batas(labelPakai.kcal, MAKS_KKAL_LABEL_PER_PORSI);
+    const protein = labelPakai.protein_g ?? 0;
+    const carbs = labelPakai.carbs_g ?? 0;
+    const fat = labelPakai.fat_g ?? 0;
     const per100 = beratPerPorsi > 0 ? 100 / beratPerPorsi : 0;
 
     return {
@@ -194,35 +225,61 @@ export const hitungItem = (
       carbs_g: bulat(carbs * item.portions, 1),
       fat_g: bulat(fat * item.portions, 1),
       nutrition_missing: false,
-      nutrition_source: 'LABEL',
+      nutrition_source: sumberLabel,
       label: { kcal, protein_g: protein, carbs_g: carbs, fat_g: fat },
     };
   }
 
+  // Per 100 dari ingatan kalau ada, kalau tidak dari model.
+  const nilai = ingatan ? ingatan.per100 : gizi;
   const rasio = jumlah / 100;
 
   return {
     ...dasar,
-    kcal_per_100: gizi.kcal,
-    protein_per_100: gizi.protein,
-    carbs_per_100: gizi.carbs,
-    fat_per_100: gizi.fat,
-    calories: Math.round(gizi.kcal * rasio),
-    protein_g: bulat(gizi.protein * rasio, 1),
-    carbs_g: bulat(gizi.carbs * rasio, 1),
-    fat_g: bulat(gizi.fat * rasio, 1),
-    nutrition_missing: gizi.missing,
-    nutrition_source: 'AI',
+    kcal_per_100: nilai.kcal,
+    protein_per_100: nilai.protein,
+    carbs_per_100: nilai.carbs,
+    fat_per_100: nilai.fat,
+    calories: Math.round(nilai.kcal * rasio),
+    protein_g: bulat(nilai.protein * rasio, 1),
+    carbs_g: bulat(nilai.carbs * rasio, 1),
+    fat_g: bulat(nilai.fat * rasio, 1),
+    nutrition_missing: nilai.missing,
+    nutrition_source: ingatan ? 'PREVIOUS' : sumberAsal,
     label: null,
   };
 };
 
 /**
- * Apakah model masih perlu dipanggil. Tidak, kalau semua item punya angka
- * kemasan: kalorinya tidak bergantung berat maupun taksiran, jadi memanggil
- * model cuma membuang waktu tunggu dan kuota.
+ * Apa yang masih dibutuhkan dari model untuk satu item, setelah kemasan dan
+ * ingatan diperhitungkan. Gizi: tidak perlu kalau ada label atau ingatan.
+ * Berat: tidak perlu kalau user mengisi, ada label (kalorinya per porsi),
+ * atau ingatan menyimpannya.
  */
-export const perluModel = (items: FoodItemInput[]): boolean => items.some((i) => !i.label);
+export const kebutuhanModel = (
+  item: FoodItemInput,
+  ingatan: IngatanItem | null,
+): { gizi: boolean; berat: boolean } => ({
+  gizi: !item.label && ingatan === null,
+  berat: item.weight === undefined && !item.label && (ingatan?.weight_per_portion ?? null) === null,
+});
+
+/**
+ * Apakah model masih perlu dipanggil. Tidak, kalau semua item sudah tertutup
+ * kemasan atau ingatan: memanggil model cuma membuang waktu tunggu dan kuota,
+ * dan justru membuka pintu untuk angka yang berbeda dari kemarin. Berat yang
+ * kosong hanya bisa ditaksir dari foto, jadi tanpa foto itu bukan alasan
+ * memanggil model (validasinya menolak lebih dulu).
+ */
+export const perluModel = (
+  items: FoodItemInput[],
+  ingatan: (IngatanItem | null)[] = [],
+  adaFoto = false,
+): boolean =>
+  items.some((item, i) => {
+    const butuh = kebutuhanModel(item, ingatan[i] ?? null);
+    return butuh.gizi || (adaFoto && butuh.berat);
+  });
 
 const total = (items: FoodItem[], ambil: (item: FoodItem) => number): number =>
   items.reduce((jumlah, item) => jumlah + ambil(item), 0);
@@ -270,11 +327,17 @@ export const susunAnalisa = (
   items: FoodItemInput[],
   raw: Record<string, unknown>,
   source: FoodAnalysis['source'],
+  ingatan: (IngatanItem | null)[] = [],
 ): FoodAnalysis => {
   const balasan = balasanPerItem(raw, items.length);
 
   const dihitung = items.map((item, i) =>
-    hitungItem(item, angka(balasan[i]?.grams_per_portion), per100Dari(balasan[i])),
+    hitungItem(
+      item,
+      angka(balasan[i]?.grams_per_portion),
+      per100Dari(balasan[i]),
+      ingatan[i] ?? null,
+    ),
   );
 
   // Item dari kemasan tidak pernah "hilang", modelnya memang tidak ditanya.

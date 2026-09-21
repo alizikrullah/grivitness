@@ -6,7 +6,12 @@ import { todayInJakarta } from '../../utils/daily-key.js';
 import type { UuidParamDto } from '../../utils/query.js';
 import { sendSuccess } from '../../utils/response.js';
 import * as foodService from './food.service.js';
-import type { CreateFoodDto, FoodDateDto, UpdateFoodDto } from './food.validation.js';
+import type {
+  CreateFoodDto,
+  FoodDateDto,
+  FoodSuggestionDto,
+  UpdateFoodDto,
+} from './food.validation.js';
 
 /**
  * Foto OPSIONAL. Dengan foto request-nya multipart dan Multer mengisi req.file;
@@ -28,6 +33,13 @@ export const create = async (req: Request, res: Response): Promise<void> => {
 export const getToday = async (req: Request, res: Response): Promise<void> => {
   const user = getAuthUser(req);
   sendSuccess(res, await foodService.getToday(user.id));
+};
+
+export const suggestions = async (req: Request, res: Response): Promise<void> => {
+  const user = getAuthUser(req);
+  const { q } = getValidatedQuery<FoodSuggestionDto>(res);
+
+  sendSuccess(res, await foodService.suggestions(user.id, q ?? ''));
 };
 
 export const getByDate = async (req: Request, res: Response): Promise<void> => {

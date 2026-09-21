@@ -162,7 +162,11 @@ const mintaJson = async (
         model,
         // Tanpa ini model bisa membalas prosa yang tidak bisa di-parse.
         ...(jsonKetat ? { response_format: { type: 'json_object' } } : {}),
-        temperature: 0.2,
+        // Nol, bukan 0.2: ini ekstraksi angka, dan tiap sisa keacakan adalah
+        // satu alasan lagi item yang sama dapat angka berbeda besok. Nol tidak
+        // menjamin deterministik antar model atau antar versi, ingatan makanan
+        // yang menjamin itu, tapi tidak ada gunanya menambah keacakan sendiri.
+        temperature: 0,
         max_tokens: MAKS_TOKEN_ANALISA,
       },
       {
@@ -630,8 +634,8 @@ export const chatCompletion = async (
         model,
         messages,
         // Cukup luwes untuk terdengar seperti orang, cukup rendah untuk tidak
-        // mengarang. Analisa gambar memakai 0.2 karena di sana yang diminta
-        // ekstraksi, bukan tulisan.
+        // mengarang. Analisa makanan memakai 0 karena di sana yang diminta
+        // ekstraksi angka, bukan tulisan.
         temperature: 0.4,
         max_tokens: MAKS_TOKEN_BALASAN,
         ...(opsi.reasoningEffort ? { reasoning_effort: opsi.reasoningEffort } : {}),

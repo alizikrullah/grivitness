@@ -9,13 +9,20 @@ import {
 } from '../../middlewares/validate.middleware.js';
 import { UuidParamSchema } from '../../utils/query.js';
 import * as foodController from './food.controller.js';
-import { CreateFoodSchema, FoodDateSchema, UpdateFoodSchema } from './food.validation.js';
+import {
+  CreateFoodSchema,
+  FoodDateSchema,
+  FoodSuggestionSchema,
+  UpdateFoodSchema,
+} from './food.validation.js';
 
 const router: Router = Router();
 
 router.use(authMiddleware);
 
 router.get('/today', foodController.getToday);
+// Saran nama dari catatan user sendiri, untuk pelengkap otomatis di form.
+router.get('/suggestions', validateQuery(FoodSuggestionSchema), foodController.suggestions);
 router.get('/', validateQuery(FoodDateSchema), foodController.getByDate);
 
 // upload.single dijalankan SEBELUM validateBody. Field non-file di request
