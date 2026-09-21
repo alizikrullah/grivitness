@@ -1,9 +1,10 @@
-import { PlusIcon, XIcon } from '@phosphor-icons/react';
+import { ClockCounterClockwiseIcon, PlusIcon, XIcon } from '@phosphor-icons/react';
+import { useEffect, useState } from 'react';
 
 import { Chip, Input } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import type { FoodItemInput } from '@/services/food.service';
-import type { FoodUnit } from '@/types';
+import { type FoodItemInput, useFoodSuggestions } from '@/services/food.service';
+import type { FoodSuggestion, FoodUnit } from '@/types';
 
 import './FoodItemsEditor.css';
 
@@ -24,6 +25,34 @@ export interface FoodItemDraft {
   labelCarbs: string;
   labelFat: string;
 }
+
+/** Nilai yang tertunda sebentar, supaya tiap ketukan tidak jadi satu permintaan. */
+const useTertunda = (nilai: string, ms: number): string => {
+  const [tertunda, setTertunda] = useState(nilai);
+  useEffect(() => {
+    const t = setTimeout(() => setTertunda(nilai), ms);
+    return () => clearTimeout(t);
+  }, [nilai, ms]);
+  return tertunda;
+};
+
+/**
+ * Isian dari satu saran: nama, satuan, berat, dan kemasannya kalau ada.
+ * Porsi dibiarkan, itu yang berubah tiap kali. Untuk item yang gizinya dari
+ * taksiran AI, kemasannya tidak dibuka: backend memakai ulang angka yang
+ * sama lewat ingatan makanan, jadi tidak ada yang perlu diketik.
+ */
+export const dariSaran = (baris: FoodItemDraft, s: FoodSuggestion): FoodItemDraft => ({
+  ...baris,
+  name: s.name,
+  unit: s.unit,
+  weight: s.weight_per_portion === null ? '' : String(s.weight_per_portion),
+  pakaiKemasan: s.label !== null,
+  labelKcal: s.label ? String(s.label.kcal) : '',
+  labelProtein: s.label?.protein_g ? String(s.label.protein_g) : '',
+  labelCarbs: s.label?.carbs_g ? String(s.label.carbs_g) : '',
+  labelFat: s.label?.fat_g ? String(s.label.fat_g) : '',
+});
 
 export const barisKosong = (): FoodItemDraft => ({
   name: '',
@@ -67,6 +96,21 @@ export const FoodItemsEditor = ({
   const ubah = (i: number, bagian: Partial<FoodItemDraft>) =>
     onChange(items.map((item, j) => (j === i ? { ...item, ...bagian } : item)));
 
+  /**
+   * Baris yang sedang diketik namanya. Saran cuma tampil untuk baris itu dan
+   * hilang begitu satu saran dipilih. Kata pencariannya ditunda sebentar.
+   */
+  const [aktif, setAktif] = useState<number | null>(null);
+  const kataCari = useTertunda(aktif === null ? '' : (items[aktif]?.name ?? ''), 250);
+  const saran = useFoodSuggestions(kataCari);
+
+  const pilihSaran = (i: number, s: FoodSuggestion) => {
+    const baris = items[i];
+    if (!baris) return;
+    onChange(items.map((item, j) => (j === i ? dariSaran(baris, s) : item)));
+    setAktif(null);
+  };
+
   return (
     <div className="food-items">
       {items.map((item, i) => (
@@ -90,10 +134,37 @@ export const FoodItemsEditor = ({
           <Input
             value={item.name}
             onChange={(e) => ubah(i, { name: e.target.value })}
+            onFocus={() => setAktif(i)}
             placeholder="Nama makanan, mis. ayam goreng tanpa kulit"
             maxLength={120}
             disabled={disabled}
           />
+
+          {/*
+            Saran dari catatan sendiri. Sekali klik nama, satuan, berat, dan
+            kemasannya terisi, dan backend memakai angka yang sama dengan
+            terakhir kali.
+          */}
+          {aktif === i && (saran.data?.length ?? 0) > 0 ? (
+            <div className="food-saran">
+              <span className="food-saran-judul t-caption c-tertiary">
+                <ClockCounterClockwiseIcon size={12} weight="bold" /> Dari catatanmu
+              </span>
+              <div className="chip-group">
+                {saran.data?.map((s) => (
+                  <Chip
+                    key={s.name + s.unit}
+                    label={
+                      s.name +
+                      (s.weight_per_portion ? ' · ' + s.weight_per_portion + ' ' + s.unit : '') +
+                      (s.label ? ' · ' + s.label.kcal + ' kkal' : '')
+                    }
+                    onClick={() => pilihSaran(i, s)}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <div className="food-item-angka">
             <div className="food-item-porsi">

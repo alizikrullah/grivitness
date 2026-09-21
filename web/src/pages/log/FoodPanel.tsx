@@ -232,7 +232,9 @@ export const FoodPanel = () => {
                               {item.nutrition_source === 'LABEL'
                                 ? (item.weight_per_portion > 0 ? ringkasJumlah(item) + ' · ' : '') +
                                   'kemasan'
-                                : ringkasJumlah(item)}
+                                : item.nutrition_source === 'PREVIOUS'
+                                  ? ringkasJumlah(item) + ' · dari catatan'
+                                  : ringkasJumlah(item)}
                             </span>
                             <span
                               className={
@@ -279,7 +281,8 @@ const FoodEditModal = ({ log, onClose }: { log: FoodLog; onClose: () => void }) 
       portions: String(item.portions),
       weight: item.weight_per_portion > 0 ? String(item.weight_per_portion) : '',
       unit: item.unit,
-      pakaiKemasan: item.nutrition_source === 'LABEL',
+      // PREVIOUS dari kemasan membawa labelnya, jadi dibuka juga.
+      pakaiKemasan: item.label !== null,
       labelKcal: item.label ? String(item.label.kcal) : '',
       labelProtein: item.label?.protein_g ? String(item.label.protein_g) : '',
       labelCarbs: item.label?.carbs_g ? String(item.label.carbs_g) : '',

@@ -10,6 +10,7 @@ import type {
   WorkoutIntensity,
   WorkoutLibraryItem,
   WorkoutLog,
+  WorkoutMeasure,
 } from '@/types';
 
 /**
@@ -23,7 +24,12 @@ export interface WorkoutInput {
   workout_library_id?: string;
   custom_workout_id?: string;
   workout_name?: string;
-  duration_minutes: number;
+  /** Menit untuk olahraga TIME. Untuk REPS/HOLD dikosongkan; kirim sets + reps atau sets + hold_seconds. */
+  duration_minutes?: number;
+  sets?: number;
+  reps?: number;
+  hold_seconds?: number;
+  load_kg?: number;
   calories_burned?: number;
   intensity: WorkoutIntensity;
   /**
@@ -113,6 +119,7 @@ export const useCreateCustomWorkout = () => {
       name: string;
       category: WorkoutCategory;
       calories_burned_per_minute: number;
+      measure?: WorkoutMeasure;
       description?: string;
     }) => post<CustomWorkout>('/api/workouts/custom', body),
     onSuccess: () => void client.invalidateQueries({ queryKey: qk.customWorkouts }),
@@ -132,6 +139,10 @@ export interface WorkoutEditInput {
   id: string;
   workout_name?: string;
   duration_minutes?: number;
+  sets?: number;
+  reps?: number;
+  hold_seconds?: number;
+  load_kg?: number | null;
   calories_burned?: number;
   intensity?: WorkoutIntensity;
   tracked_by_device?: boolean;

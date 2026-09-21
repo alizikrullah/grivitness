@@ -247,9 +247,13 @@ export interface FoodItem {
   /** Berat atau volume SATU porsi. */
   weight_per_portion: number;
   weight_source: 'USER' | 'AI';
-  /** Dari mana nilai gizinya: taksiran model, atau kemasan yang dibaca user. */
-  nutrition_source: 'AI' | 'LABEL';
-  /** Angka kemasan per porsi yang dipakai, kalau nutrition_source LABEL. */
+  /**
+   * Dari mana nilai gizinya: taksiran model, kemasan yang dibaca user, atau
+   * PREVIOUS: dipakai ulang dari catatan sebelumnya untuk nama yang sama,
+   * supaya item yang sama tidak dapat angka berbeda tiap hari.
+   */
+  nutrition_source: 'AI' | 'LABEL' | 'PREVIOUS';
+  /** Angka kemasan per porsi yang dipakai, kalau ada (LABEL, atau PREVIOUS dari kemasan). */
   label: FoodLabel | null;
   /** Total yang dimakan: portions × weight_per_portion. */
   amount: number;
@@ -278,6 +282,22 @@ export interface FoodAnalysis {
   photo_matches: boolean | null;
   photo_note: string | null;
   user_edited: boolean;
+}
+
+/** Saran nama dari catatan sendiri, siap dipakai tanpa memanggil model. */
+export interface FoodSuggestion {
+  name: string;
+  unit: FoodUnit;
+  weight_per_portion: number | null;
+  label: FoodLabel | null;
+  kcal_per_100: number;
+  protein_per_100: number;
+  carbs_per_100: number;
+  fat_per_100: number;
+  /** Asal angkanya semula: kemasan, koreksi user, atau taksiran AI. */
+  origin: 'LABEL' | 'EDITED' | 'AI';
+  times: number;
+  last_logged_at: string;
 }
 
 export interface FoodLog {
@@ -355,12 +375,22 @@ export interface BodyPhoto {
   created_at: string | null;
 }
 
+/** Cara sebuah olahraga diukur: menit, set x ulangan, atau set x detik tahan. */
+export type WorkoutMeasure = 'TIME' | 'REPS' | 'HOLD';
+
 export interface WorkoutLog {
   id: string;
   workout_library_id: string | null;
   custom_workout_id: string | null;
   workout_name: string;
+  /** Menit gerak. Untuk sesi repetisi diturunkan backend dan bisa 0. */
   duration_minutes: number;
+  /** Terisi untuk olahraga REPS/HOLD. Null untuk olahraga berbasis menit. */
+  sets: number | null;
+  reps: number | null;
+  hold_seconds: number | null;
+  /** Beban tambahan, catatan progres. Null berarti berat badan sendiri. */
+  load_kg: DecimalString | null;
   calories_burned: number;
   /**
    * Asal angka kalorinya. MET dihitung backend dari library; MANUAL diketik
@@ -412,10 +442,14 @@ export interface WorkoutLibraryItem {
   met: DecimalString | null;
   /** Kalori BERSIH per menit untuk berat 70kg, turunan dari met. */
   calories_burned_per_minute: DecimalString;
+  /** Menentukan bentuk form: menit, set x ulangan, atau set x detik. */
+  measure: WorkoutMeasure;
+  /** Perkiraan detik satu ulangan untuk REPS. Null berarti bawaan 3 detik. */
+  seconds_per_rep: number | null;
   description: string | null;
 }
 
-export interface CustomWorkout extends WorkoutLibraryItem {
+export interface CustomWorkout extends Omit<WorkoutLibraryItem, 'met' | 'seconds_per_rep'> {
   user_id: string;
 }
 

@@ -266,9 +266,11 @@ export const susunFakta = (
   b.push(
     harian.sleep_minutes > 0 ? `Tidur ${menit(harian.sleep_minutes)}.` : 'Tidur belum dicatat.',
   );
-  if (harian.workout_minutes > 0) {
+  // Sesi repetisi (push up 5 kali) tersimpan 0 menit tapi punya kalori, jadi
+  // "ada olahraga" dilihat dari keduanya.
+  if (harian.workout_minutes > 0 || harian.workout_calories > 0) {
     b.push(
-      `Olahraga ${harian.workout_minutes} menit, membakar ${angka(harian.workout_calories)} kkal bersih.`,
+      `Olahraga ${harian.workout_minutes} menit gerak, membakar ${angka(harian.workout_calories)} kkal bersih.`,
     );
   } else {
     b.push('Belum ada olahraga tercatat hari ini.');

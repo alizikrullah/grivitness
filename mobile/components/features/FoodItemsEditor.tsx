@@ -1,12 +1,13 @@
 import * as Haptics from 'expo-haptics';
-import { PlusIcon, XIcon } from 'phosphor-react-native';
+import { ClockCounterClockwiseIcon, PlusIcon, XIcon } from 'phosphor-react-native';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Chip, Input, Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/theme';
-import type { FoodItemInput } from '@/services/food.service';
-import type { FoodUnit } from '@/types';
+import { type FoodItemInput, useFoodSuggestions } from '@/services/food.service';
+import type { FoodSuggestion, FoodUnit } from '@/types';
 
 /**
  * Satu baris isian, semuanya teks mentah. Angkanya baru diubah saat disimpan,
@@ -24,6 +25,34 @@ export interface FoodItemDraft {
   labelCarbs: string;
   labelFat: string;
 }
+
+/** Nilai yang tertunda sebentar, supaya tiap ketukan tidak jadi satu permintaan. */
+const useTertunda = (nilai: string, ms: number): string => {
+  const [tertunda, setTertunda] = useState(nilai);
+  useEffect(() => {
+    const t = setTimeout(() => setTertunda(nilai), ms);
+    return () => clearTimeout(t);
+  }, [nilai, ms]);
+  return tertunda;
+};
+
+/**
+ * Isian dari satu saran: nama, satuan, berat, dan kemasannya kalau ada.
+ * Porsi dibiarkan, itu yang berubah tiap kali. Untuk item yang gizinya dari
+ * taksiran AI, kemasannya tidak dibuka: backend memakai ulang angka yang
+ * sama lewat ingatan makanan, jadi tidak ada yang perlu diketik.
+ */
+export const dariSaran = (baris: FoodItemDraft, s: FoodSuggestion): FoodItemDraft => ({
+  ...baris,
+  name: s.name,
+  unit: s.unit,
+  weight: s.weight_per_portion === null ? '' : String(s.weight_per_portion),
+  pakaiKemasan: s.label !== null,
+  labelKcal: s.label ? String(s.label.kcal) : '',
+  labelProtein: s.label?.protein_g ? String(s.label.protein_g) : '',
+  labelCarbs: s.label?.carbs_g ? String(s.label.carbs_g) : '',
+  labelFat: s.label?.fat_g ? String(s.label.fat_g) : '',
+});
 
 export const barisKosong = (): FoodItemDraft => ({
   name: '',
@@ -81,6 +110,23 @@ export const FoodItemsEditor = ({
     onChange([...items, barisKosong()]);
   };
 
+  /**
+   * Baris yang sedang diketik namanya. Saran cuma tampil untuk baris itu, dan
+   * hilang begitu satu saran dipilih. Yang dicari adalah nama baris itu,
+   * ditunda sebentar supaya tidak menembak server tiap huruf.
+   */
+  const [aktif, setAktif] = useState<number | null>(null);
+  const kataCari = useTertunda(aktif === null ? '' : (items[aktif]?.name ?? ''), 250);
+  const saran = useFoodSuggestions(kataCari);
+
+  const pilihSaran = (i: number, s: FoodSuggestion) => {
+    void Haptics.selectionAsync();
+    const baris = items[i];
+    if (!baris) return;
+    onChange(items.map((item, j) => (j === i ? dariSaran(baris, s) : item)));
+    setAktif(null);
+  };
+
   return (
     <View style={styles.list}>
       {items.map((item, i) => (
@@ -106,11 +152,42 @@ export const FoodItemsEditor = ({
           <Input
             value={item.name}
             onChangeText={(v) => ubah(i, { name: v })}
+            onFocus={() => setAktif(i)}
             placeholder="Nama makanan, mis. ayam goreng tanpa kulit"
             autoCapitalize="sentences"
             maxLength={120}
             editable={!disabled}
           />
+
+          {/*
+            Saran dari catatan sendiri. Sekali sentuh nama, satuan, berat, dan
+            kemasannya terisi, dan backend memakai angka yang sama dengan
+            terakhir kali. Ini yang membuat kopi pagi jadi dua ketukan.
+          */}
+          {aktif === i && (saran.data?.length ?? 0) > 0 ? (
+            <View style={styles.saran}>
+              <View style={styles.saranJudul}>
+                <ClockCounterClockwiseIcon size={12} color={colors.textTertiary} weight="bold" />
+                <Text variant="caption" tone="tertiary">
+                  Dari catatanmu
+                </Text>
+              </View>
+              <View style={styles.saranChip}>
+                {saran.data?.map((s) => (
+                  <Chip
+                    key={s.name + s.unit}
+                    size="sm"
+                    label={
+                      s.name +
+                      (s.weight_per_portion ? ' · ' + s.weight_per_portion + ' ' + s.unit : '') +
+                      (s.label ? ' · ' + s.label.kcal + ' kkal' : '')
+                    }
+                    onPress={() => pilihSaran(i, s)}
+                  />
+                ))}
+              </View>
+            </View>
+          ) : null}
 
           <View style={styles.angka}>
             <View style={styles.porsi}>
@@ -321,6 +398,9 @@ export const susunItem = (
 };
 
 const styles = StyleSheet.create({
+  saran: { gap: spacing.xs },
+  saranJudul: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  saranChip: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   list: { gap: spacing.md },
   row: {
     gap: spacing.sm,

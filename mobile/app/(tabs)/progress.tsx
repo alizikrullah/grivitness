@@ -143,7 +143,10 @@ export default function ProgressScreen() {
                 title="Langkah 7 hari"
                 action={
                   <Text variant="caption" tone="tertiary">
-                    rata-rata {thousands(rekap.data?.avg_steps ?? 0)}
+                    {/* Dibagi hari yang dicatat, bukan tujuh; jumlahnya disebut supaya jujur. */}
+                    {(rekap.data?.step_days ?? 0) > 0
+                      ? `rata-rata ${thousands(rekap.data?.avg_steps ?? 0)} dari ${rekap.data?.step_days ?? 0} hari`
+                      : 'belum dicatat'}
                   </Text>
                 }
               />

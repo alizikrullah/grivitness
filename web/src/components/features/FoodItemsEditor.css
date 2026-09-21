@@ -82,3 +82,15 @@
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
 }
+
+.food-saran {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.food-saran-judul {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
