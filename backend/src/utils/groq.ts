@@ -53,10 +53,19 @@ const MAKS_TOKEN_ANALISA = 1200;
 
 interface GroqChoice {
   message?: { content?: string };
+  finish_reason?: string;
+}
+
+interface GroqUsage {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  /** Model penalaran melaporkan token penalarannya di sini, terpisah dari teks jawaban. */
+  completion_tokens_details?: { reasoning_tokens?: number };
 }
 
 interface GroqResponse {
   choices?: GroqChoice[];
+  usage?: GroqUsage;
 }
 
 const toDataUri = (buffer: Buffer): string => `data:image/webp;base64,${buffer.toString('base64')}`;
@@ -184,20 +193,7 @@ const mintaJson = async (
       sediakan saat itu juga, lalu dicatat keras di log supaya env dibetulkan.
     */
     if (modelTidakAda(error)) {
-      const pengganti = await cariModelPengganti(peran, model);
-
-      if (pengganti === null) {
-        logger.error({ model, peran }, 'Model Groq di env tidak ada dan tidak ada penggantinya');
-        throw AppError.upstream(
-          `Model AI "${model}" tidak tersedia di Groq. Perbaiki GROQ_${peran === 'vision' ? 'VISION' : 'CHAT'}_MODEL di env server.`,
-        );
-      }
-
-      logger.error(
-        { model, pengganti, peran },
-        'Model Groq di env sudah tidak ada. Memakai pengganti dari daftar model Groq. PERBAIKI env di server.',
-      );
-      model = pengganti;
+      model = await modelPengganti(peran, model);
 
       try {
         return parseJsonResponse(await kirim(true));
@@ -265,6 +261,31 @@ type PeranModel = 'vision' | 'chat';
 const POLA_PENGGANTI: Record<PeranModel, RegExp[]> = {
   vision: [/^qwen\/qwen\d[\d.]*-\d+b$/, /llama-4-(scout|maverick)/, /vision/],
   chat: [/^openai\/gpt-oss-120b$/, /^openai\/gpt-oss-20b$/, /llama-4/, /llama-3/],
+};
+
+/**
+ * Nama pengganti untuk model yang sudah mati, atau AppError yang menyebut env
+ * mana yang harus dibetulkan. Dipakai jalur JSON maupun chat, supaya keduanya
+ * selamat dengan cara yang sama saat Groq mengganti nama model.
+ */
+const modelPengganti = async (peran: PeranModel, modelMati: string): Promise<string> => {
+  const pengganti = await cariModelPengganti(peran, modelMati);
+
+  if (pengganti === null) {
+    logger.error(
+      { model: modelMati, peran },
+      'Model Groq di env tidak ada dan tidak ada penggantinya',
+    );
+    throw AppError.upstream(
+      `Model AI "${modelMati}" tidak tersedia di Groq. Perbaiki GROQ_${peran === 'vision' ? 'VISION' : 'CHAT'}_MODEL di env server.`,
+    );
+  }
+
+  logger.error(
+    { model: modelMati, pengganti, peran },
+    'Model Groq di env sudah tidak ada. Memakai pengganti dari daftar model Groq. PERBAIKI env di server.',
+  );
+  return pengganti;
 };
 
 /** Hasil pencarian per peran diingat selama proses hidup, supaya /models tidak ditembak tiap analisa. */
@@ -561,12 +582,26 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface ChatOptions {
+  /**
+   * Seberapa lama model penalaran boleh berpikir sebelum menjawab. Tidak
+   * dikirim kalau kosong, jadi Groq memakai bawaannya untuk model itu.
+   */
+  reasoningEffort?: 'low' | 'medium' | 'high';
+  /** Dipanggil dengan pemakaian token, untuk pengukuran di smoke:chat. */
+  onUsage?: (usage: GroqUsage, finishReason: string | null) => void;
+}
+
 /**
- * Balasan dibatasi supaya jawabannya tetap ringkas dan biayanya bisa ditebak.
- * Aturan "maksimal sekitar 120 kata" di prompt adalah bujukan; batas ini
- * pagarnya.
+ * Batas token balasan, dan angkanya TERMASUK token penalaran.
+ *
+ * Diukur lewat smoke:chat pada gpt-oss-120b: satu jawaban 140 kata memakai
+ * 616 token, 330 di antaranya penalaran yang tidak pernah dilihat user. Batas
+ * lama 700 nyaris memotong jawaban yang wajar. Aturan panjang di prompt yang
+ * menjaga ringkasnya jawaban; angka ini cuma pagar dari keluaran yang
+ * melantur.
  */
-const MAKS_TOKEN_BALASAN = 700;
+const MAKS_TOKEN_BALASAN = 1500;
 
 /**
  * Percakapan teks ke Groq, dipakai fitur chat.
@@ -578,22 +613,28 @@ const MAKS_TOKEN_BALASAN = 700;
  * Tidak memakai response_format JSON seperti analyzeImages, karena yang
  * diinginkan di sini justru prosa untuk dibaca manusia.
  */
-export const chatCompletion = async (messages: ChatMessage[]): Promise<string> => {
+export const chatCompletion = async (
+  messages: ChatMessage[],
+  opsi: ChatOptions = {},
+): Promise<string> => {
   if (env.GROQ_API_KEY === '') {
     throw AppError.upstream('GROQ_API_KEY belum diisi di environment');
   }
+
+  let model = env.GROQ_CHAT_MODEL;
 
   const kirim = async (): Promise<string> => {
     const { data } = await axios.post<GroqResponse>(
       ENDPOINT,
       {
-        model: env.GROQ_CHAT_MODEL,
+        model,
         messages,
         // Cukup luwes untuk terdengar seperti orang, cukup rendah untuk tidak
         // mengarang. Analisa gambar memakai 0.2 karena di sana yang diminta
         // ekstraksi, bukan tulisan.
         temperature: 0.4,
         max_tokens: MAKS_TOKEN_BALASAN,
+        ...(opsi.reasoningEffort ? { reasoning_effort: opsi.reasoningEffort } : {}),
       },
       {
         headers: {
@@ -604,8 +645,17 @@ export const chatCompletion = async (messages: ChatMessage[]): Promise<string> =
       },
     );
 
-    const raw = data.choices?.[0]?.message?.content;
+    const pilihan = data.choices?.[0];
+    const raw = pilihan?.message?.content;
     if (!raw) throw AppError.upstream('Groq membalas tanpa isi');
+
+    opsi.onUsage?.(data.usage ?? {}, pilihan.finish_reason ?? null);
+
+    // Jawaban yang terpotong batas token tetap dikirim, tapi dicatat: kalau
+    // sering muncul, batasnya yang harus dinaikkan, bukan promptnya.
+    if (pilihan.finish_reason === 'length') {
+      logger.warn({ usage: data.usage }, 'Balasan chat terpotong batas token');
+    }
 
     return raw.trim();
   };
@@ -614,6 +664,18 @@ export const chatCompletion = async (messages: ChatMessage[]): Promise<string> =
     return await kirim();
   } catch (error) {
     if (error instanceof AppError) throw error;
+
+    // Nama model chat di env sudah mati, alasannya sama dengan jalur JSON.
+    if (modelTidakAda(error)) {
+      model = await modelPengganti('chat', model);
+
+      try {
+        return await kirim();
+      } catch (ulang) {
+        if (ulang instanceof AppError) throw ulang;
+        throw translateAxiosError(ulang);
+      }
+    }
 
     const tunggu = jedaRateLimit(error);
     if (tunggu === null) throw translateAxiosError(error);
