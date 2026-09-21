@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, del, get, patch, unwrap } from '@/lib/api';
 import { invalidateAfterLog, qk } from '@/lib/query';
 import { todayWIB } from '@/utils/date';
-import type { FoodDay, FoodLabel, FoodLog, FoodUnit, MealType } from '@/types';
+import type { FoodDay, FoodLabel, FoodLog, FoodSuggestion, FoodUnit, MealType } from '@/types';
 
 /**
  * Satu makanan seperti yang ditulis user. Salinan dari mobile.
@@ -35,6 +35,18 @@ export interface FoodInput {
   /** Timestamp ISO. Dikosongkan berarti sekarang. Diisi saat mencatat ke hari lampau. */
   logged_at?: string;
 }
+
+/**
+ * Saran nama dari catatan user sendiri. Kosong berarti yang paling sering.
+ * Memilih satu saran mengisi nama, satuan, berat, dan kemasannya sekaligus,
+ * dan backend memakai angka yang sama dengan terakhir kali (ingatan makanan).
+ */
+export const useFoodSuggestions = (q: string) =>
+  useQuery({
+    queryKey: qk.foodSuggestions(q),
+    queryFn: () => get<FoodSuggestion[]>('/api/food/suggestions', { params: { q } }),
+    staleTime: 60_000,
+  });
 
 export const useFoodToday = () =>
   useQuery({ queryKey: qk.foodToday, queryFn: () => get<FoodDay>('/api/food/today') });

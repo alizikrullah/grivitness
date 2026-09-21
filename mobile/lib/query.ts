@@ -56,6 +56,7 @@ export const qk = {
 
   foodToday: ['food', 'today'] as const,
   foodDate: (date: string) => ['food', 'date', date] as const,
+  foodSuggestions: (q: string) => ['food', 'suggestions', q] as const,
 
   bodyPhotoToday: ['body-photos', 'today'] as const,
   bodyPhotoDate: (date: string) => ['body-photos', 'date', date] as const,

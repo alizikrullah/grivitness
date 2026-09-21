@@ -122,7 +122,9 @@ export const ProgressPage = () => {
                 {thousands(w?.total_calories_in ?? 0)}
               </span>
               <span className="t-caption c-tertiary">
-                Rata-rata {thousands(w?.avg_calories_in ?? 0)} per hari
+                {(w?.food_days ?? 0) > 0
+                  ? `Rata-rata ${thousands(w?.avg_calories_in ?? 0)} dari ${w?.food_days ?? 0} hari tercatat`
+                  : 'Belum ada catatan makan'}
               </span>
             </div>
           </Card>
@@ -134,7 +136,9 @@ export const ProgressPage = () => {
                 {thousands(w?.total_steps ?? 0)}
               </span>
               <span className="t-caption c-tertiary">
-                Rata-rata {thousands(w?.avg_steps ?? 0)} per hari
+                {(w?.step_days ?? 0) > 0
+                  ? `Rata-rata ${thousands(w?.avg_steps ?? 0)} dari ${w?.step_days ?? 0} hari tercatat`
+                  : 'Belum dicatat'}
               </span>
             </div>
           </Card>

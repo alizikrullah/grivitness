@@ -41,7 +41,8 @@ export const FoodEditSheet = ({ log, onClose }: FoodEditSheetProps) => {
       portions: String(item.portions),
       weight: item.weight_per_portion > 0 ? String(item.weight_per_portion) : '',
       unit: item.unit,
-      pakaiKemasan: item.nutrition_source === 'LABEL',
+      // PREVIOUS dari kemasan membawa labelnya, jadi dibuka juga.
+      pakaiKemasan: item.label !== null,
       labelKcal: item.label ? String(item.label.kcal) : '',
       labelProtein: item.label?.protein_g ? String(item.label.protein_g) : '',
       labelCarbs: item.label?.carbs_g ? String(item.label.carbs_g) : '',

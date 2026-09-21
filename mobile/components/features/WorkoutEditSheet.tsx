@@ -1,21 +1,18 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import {
-  Button,
-  Checkbox,
-  ChipGroup,
-  ErrorNote,
-  Input,
-  Sheet,
-  Stepper,
-  Text,
-} from '@/components/ui';
+import { Button, Checkbox, ChipGroup, ErrorNote, Input, Sheet, Text } from '@/components/ui';
 import { INTENSITY_LABEL, INTENSITY_OPTIONS } from '@/constants/labels';
 import { spacing } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
 import { useUpdateWorkout } from '@/services/workouts.service';
 import type { WorkoutIntensity, WorkoutLog } from '@/types';
+import {
+  WorkoutMeasureFields,
+  measureDariLog,
+  ukuranDariLog,
+  ukuranKeBody,
+} from './WorkoutMeasureFields';
 
 interface WorkoutEditSheetProps {
   log: WorkoutLog;
@@ -34,7 +31,10 @@ interface WorkoutEditSheetProps {
 export const WorkoutEditSheet = ({ log, onClose }: WorkoutEditSheetProps) => {
   const update = useUpdateWorkout();
 
-  const [durasi, setDurasi] = useState(log.duration_minutes);
+  // Cara ukurnya dibaca dari kolom yang terisi di log: sesi push up dikoreksi
+  // sebagai set x ulangan, bukan dipaksa jadi menit.
+  const measure = measureDariLog(log);
+  const [ukuran, setUkuran] = useState(ukuranDariLog(log));
   const [intensitas, setIntensitas] = useState<WorkoutIntensity>(log.intensity);
   const [catatan, setCatatan] = useState(log.notes ?? '');
   const [terekam, setTerekam] = useState(log.tracked_by_device);
@@ -46,11 +46,6 @@ export const WorkoutEditSheet = ({ log, onClose }: WorkoutEditSheetProps) => {
   const manual = log.calories_source === 'MANUAL';
 
   const simpan = () => {
-    if (durasi < 1) {
-      setError('Durasi minimal 1 menit');
-      return;
-    }
-
     let kalori: number | undefined;
 
     if (kaloriDiketik !== null) {
@@ -69,7 +64,9 @@ export const WorkoutEditSheet = ({ log, onClose }: WorkoutEditSheetProps) => {
     update.mutate(
       {
         id: log.id,
-        duration_minutes: durasi,
+        ...ukuranKeBody(measure, ukuran),
+        // Beban yang dikosongkan berarti dihapus, bukan dibiarkan.
+        ...(measure === 'REPS' && ukuran.beban.trim() === '' ? { load_kg: null } : {}),
         intensity: intensitas,
         notes: catatan.trim() === '' ? null : catatan.trim(),
         tracked_by_device: terekam,
@@ -88,12 +85,7 @@ export const WorkoutEditSheet = ({ log, onClose }: WorkoutEditSheetProps) => {
         <Button label="Simpan perubahan" onPress={simpan} loading={update.isPending} size="lg" />
       }
     >
-      <View style={styles.group}>
-        <Text variant="label" tone="secondary">
-          Durasi
-        </Text>
-        <Stepper value={durasi} onChange={setDurasi} step={5} min={1} max={1440} suffix="menit" />
-      </View>
+      <WorkoutMeasureFields measure={measure} value={ukuran} onChange={setUkuran} />
 
       <Input
         label="Kalori terbakar"
@@ -106,7 +98,7 @@ export const WorkoutEditSheet = ({ log, onClose }: WorkoutEditSheetProps) => {
             ? 'Angka ini disimpan apa adanya dan tidak dihitung ulang.'
             : manual
               ? 'Angka yang kamu isi sendiri. Tidak ikut berubah kalau durasinya diubah.'
-              : 'Taksiran. Ikut menyesuaikan kalau durasinya diubah, kecuali kamu ketik sendiri.'
+              : 'Taksiran. Ikut menyesuaikan kalau ukurannya diubah, kecuali kamu ketik sendiri.'
         }
       />
 

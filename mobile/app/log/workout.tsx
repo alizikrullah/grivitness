@@ -1,6 +1,13 @@
 import { BarbellIcon, CaretRightIcon, MagnifyingGlassIcon } from 'phosphor-react-native';
 import { LogActions } from '@/components/features/LogActions';
 import { WorkoutEditSheet } from '@/components/features/WorkoutEditSheet';
+import {
+  UKURAN_BAWAAN,
+  WorkoutMeasureFields,
+  menitGerak,
+  ringkasSesi,
+  ukuranKeBody,
+} from '@/components/features/WorkoutMeasureFields';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -18,7 +25,6 @@ import {
   Screen,
   SectionHeader,
   Sheet,
-  Stepper,
   Text,
 } from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
@@ -38,7 +44,7 @@ import {
   useWorkoutsDate,
   type WorkoutInput,
 } from '@/services/workouts.service';
-import type { WorkoutCategory, WorkoutIntensity, WorkoutLog } from '@/types';
+import type { WorkoutCategory, WorkoutIntensity, WorkoutLog, WorkoutMeasure } from '@/types';
 import { useProfile } from '@/services/users.service';
 import { dayPhrase, todayWIB } from '@/utils/date';
 import { duration, thousands, toNum } from '@/utils/format';
@@ -49,6 +55,9 @@ interface Pilihan {
   name: string;
   sumber: 'library' | 'custom';
   perMenit: number;
+  /** Menentukan bentuk isian: menit, set x ulangan, atau set x detik. */
+  measure: WorkoutMeasure;
+  detikPerUlangan: number | null;
 }
 
 /** Berat acuan nilai kkal/menit di library. Sama dengan BERAT_ACUAN_KG di backend. */
@@ -72,7 +81,7 @@ export default function WorkoutScreen() {
   const [sheet, setSheet] = useState(false);
   const [pilihan, setPilihan] = useState<Pilihan | null>(null);
   const [manual, setManual] = useState('');
-  const [menit, setMenit] = useState(30);
+  const [ukuran, setUkuran] = useState(UKURAN_BAWAAN);
   const [intensitas, setIntensitas] = useState<WorkoutIntensity>('MEDIUM');
   const [catatan, setCatatan] = useState('');
   const [terekam, setTerekam] = useState(false);
@@ -94,8 +103,17 @@ export default function WorkoutScreen() {
 
   const pakaiManual = pilihan === null;
 
+  // Olahraga tulis sendiri tidak punya cara ukur dari library: menit.
+  const measure: WorkoutMeasure = pilihan?.measure ?? 'TIME';
+
+  // Taksiran dari MENIT GERAK, cermin perhitungan backend: untuk repetisi
+  // itu ulangan x detik per ulangan, jeda antar set tidak dihitung. Lima push
+  // up memang cuma sekitar 2 kkal, dan angka kecil itu jujur.
   const taksiran = pilihan
-    ? Math.round((pilihan.perMenit * menit * beratKg) / BERAT_ACUAN_KG)
+    ? Math.round(
+        (pilihan.perMenit * menitGerak(measure, ukuran, pilihan.detikPerUlangan) * beratKg) /
+          BERAT_ACUAN_KG,
+      )
     : null;
 
   const kaloriTampil = kaloriDiketik ?? (taksiran === null ? '' : String(taksiran));
@@ -104,7 +122,7 @@ export default function WorkoutScreen() {
     setError(null);
 
     const body: WorkoutInput = {
-      duration_minutes: menit,
+      ...ukuranKeBody(measure, ukuran),
       intensity: intensitas,
       notes: catatan.trim() === '' ? undefined : catatan.trim(),
       tracked_by_device: terekam,
@@ -188,13 +206,9 @@ export default function WorkoutScreen() {
           />
         ) : null}
 
+        {/* Bentuk isian mengikuti cara olahraganya diukur; push up tidak pernah ditanya menit. */}
         <Card>
-          <View style={styles.durationCard}>
-            <Text variant="overline" tone="tertiary" align="center">
-              Durasi
-            </Text>
-            <Stepper value={menit} onChange={setMenit} step={5} min={1} max={1440} suffix="menit" />
-          </View>
+          <WorkoutMeasureFields measure={measure} value={ukuran} onChange={setUkuran} />
         </Card>
 
         {/*
@@ -214,7 +228,9 @@ export default function WorkoutScreen() {
             pakaiManual
               ? 'Wajib diisi untuk olahraga yang ditulis sendiri.'
               : kaloriDiketik === null
-                ? 'Taksiran dari durasi dan berat badanmu. Ketik sendiri kalau jam tanganmu menunjukkan angka lain.'
+                ? measure === 'TIME'
+                  ? 'Taksiran dari durasi dan berat badanmu. Ketik sendiri kalau jam tanganmu menunjukkan angka lain.'
+                  : 'Taksiran dari waktu gerak ulanganmu saja, jeda antar set tidak dihitung. Kecil itu wajar: nilai latihan ini di ototmu, bukan kalorinya.'
                 : 'Angka ini disimpan apa adanya dan tidak dihitung ulang.'
           }
         />
@@ -297,7 +313,7 @@ export default function WorkoutScreen() {
                     {log.workout_name}
                   </Text>
                   <Text variant="caption" tone="secondary">
-                    {duration(log.duration_minutes)} · {thousands(log.calories_burned)} kkal ·{' '}
+                    {ringkasSesi(log)} · {thousands(log.calories_burned)} kkal ·{' '}
                     {INTENSITY_LABEL[log.intensity]}
                   </Text>
                   {log.tracked_by_device || log.calories_source === 'MANUAL' ? (
@@ -362,12 +378,16 @@ const WorkoutPicker = ({
       name: w.name,
       sumber: 'custom' as const,
       perMenit: toNum(w.calories_burned_per_minute) ?? 0,
+      measure: w.measure,
+      detikPerUlangan: null,
     })),
     ...(library.data ?? []).map((w) => ({
       id: w.id,
       name: w.name,
       sumber: 'library' as const,
       perMenit: toNum(w.calories_burned_per_minute) ?? 0,
+      measure: w.measure,
+      detikPerUlangan: w.seconds_per_rep,
     })),
   ];
 
@@ -403,7 +423,11 @@ const WorkoutPicker = ({
                 {item.name}
               </Text>
               <Text variant="caption" tone="tertiary">
-                {item.perMenit.toFixed(1)} kkal/menit
+                {item.measure === 'REPS'
+                  ? 'set x ulangan'
+                  : item.measure === 'HOLD'
+                    ? 'set x detik tahan'
+                    : item.perMenit.toFixed(1) + ' kkal/menit'}
                 {item.sumber === 'custom' ? ' · custom' : ''}
               </Text>
             </View>
@@ -435,7 +459,6 @@ const styles = StyleSheet.create({
   },
   pickerText: { flex: 1, gap: 2 },
   pressed: { opacity: 0.75 },
-  durationCard: { gap: spacing.lg },
   group: { gap: spacing.md },
   logRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   logText: { flex: 1, gap: 2 },

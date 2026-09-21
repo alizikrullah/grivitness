@@ -30,6 +30,8 @@ interface InputProps {
   icon?: ReactNode;
   editable?: boolean;
   style?: TextStyle;
+  /** Dipanggil saat kolom mulai diketik. Dipakai editor makanan untuk tahu baris mana yang butuh saran. */
+  onFocus?: () => void;
 }
 
 export const Input = ({
@@ -48,6 +50,7 @@ export const Input = ({
   icon,
   editable = true,
   style,
+  onFocus,
 }: InputProps) => {
   const [fokus, setFokus] = useState(false);
   const [terlihat, setTerlihat] = useState(false);
@@ -83,7 +86,10 @@ export const Input = ({
           multiline={multiline}
           maxLength={maxLength}
           editable={editable}
-          onFocus={() => setFokus(true)}
+          onFocus={() => {
+            setFokus(true);
+            onFocus?.();
+          }}
           onBlur={() => setFokus(false)}
           style={[styles.input, multiline && styles.inputMultiline, style]}
         />

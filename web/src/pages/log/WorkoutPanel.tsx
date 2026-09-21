@@ -12,8 +12,14 @@ import {
   Input,
   Loading,
   SectionHeader,
-  Stepper,
 } from '@/components/ui';
+import {
+  UKURAN_BAWAAN,
+  WorkoutMeasureFields,
+  menitGerak,
+  ringkasSesi,
+  ukuranKeBody,
+} from '@/components/features/WorkoutMeasureFields';
 import { colors, metricColors } from '@/constants/colors';
 import { INTENSITY_LABEL, CATEGORY_LABEL } from '@/constants/labels';
 import { toApiError } from '@/lib/api';
@@ -52,7 +58,7 @@ export const WorkoutPanel = () => {
   const library = useWorkoutLibrary(kategori, cari.trim() || undefined);
 
   const [dipilih, setDipilih] = useState<WorkoutLibraryItem | null>(null);
-  const [menit, setMenit] = useState(30);
+  const [ukuran, setUkuran] = useState(UKURAN_BAWAAN);
   const [intensitas, setIntensitas] = useState<WorkoutIntensity>('MEDIUM');
   const [terekam, setTerekam] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,9 +75,14 @@ export const WorkoutPanel = () => {
    */
   const [kaloriDiketik, setKaloriDiketik] = useState<string | null>(null);
 
+  // Taksiran dari MENIT GERAK, cermin perhitungan backend: untuk repetisi
+  // itu ulangan x detik per ulangan, jeda antar set tidak dihitung.
   const taksiran = dipilih
     ? Math.round(
-        ((toNum(dipilih.calories_burned_per_minute) ?? 0) * menit * beratKg) / BERAT_ACUAN_KG,
+        ((toNum(dipilih.calories_burned_per_minute) ?? 0) *
+          menitGerak(dipilih.measure, ukuran, dipilih.seconds_per_rep) *
+          beratKg) /
+          BERAT_ACUAN_KG,
       )
     : null;
 
@@ -101,7 +112,7 @@ export const WorkoutPanel = () => {
     create.mutate(
       {
         workout_library_id: dipilih.id,
-        duration_minutes: menit,
+        ...ukuranKeBody(dipilih.measure, ukuran),
         intensity: intensitas,
         tracked_by_device: terekam,
         ...(kalori === undefined ? {} : { calories_burned: kalori }),
@@ -161,14 +172,12 @@ export const WorkoutPanel = () => {
 
           {dipilih ? (
             <>
-              <Stepper
-                value={menit}
-                onChange={setMenit}
-                step={5}
-                min={1}
-                max={600}
-                suffix="menit"
-                label={'Durasi ' + dipilih.name}
+              {/* Bentuk isian mengikuti cara olahraganya diukur; push up tidak pernah ditanya menit. */}
+              <WorkoutMeasureFields
+                measure={dipilih.measure}
+                value={ukuran}
+                onChange={setUkuran}
+                nama={dipilih.name}
               />
 
               <div className="stack-xs">
@@ -194,7 +203,9 @@ export const WorkoutPanel = () => {
                 suffix="kkal"
                 hint={
                   kaloriDiketik === null
-                    ? 'Taksiran dari durasi dan berat badanmu. Ketik sendiri kalau jam tanganmu menunjukkan angka lain.'
+                    ? dipilih.measure === 'TIME'
+                      ? 'Taksiran dari durasi dan berat badanmu. Ketik sendiri kalau jam tanganmu menunjukkan angka lain.'
+                      : 'Taksiran dari waktu gerak ulanganmu saja, jeda antar set tidak dihitung. Kecil itu wajar: nilai latihan ini di ototmu, bukan kalorinya.'
                     : 'Angka ini disimpan apa adanya dan tidak dihitung ulang.'
                 }
               />
@@ -262,7 +273,7 @@ export const WorkoutPanel = () => {
                   <span className="t-body-medium">{log.workout_name}</span>
                   <span className="t-caption c-tertiary">
                     {' '}
-                    · {duration(log.duration_minutes)} · {thousands(log.calories_burned)} kkal
+                    · {ringkasSesi(log)} · {thousands(log.calories_burned)} kkal
                     {log.tracked_by_device ? ' · terekam jam' : ''}
                     {log.calories_source === 'MANUAL' ? ' · kalori diisi sendiri' : ''}
                   </span>
