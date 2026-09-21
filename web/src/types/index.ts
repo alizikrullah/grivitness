@@ -553,14 +553,22 @@ export interface PeriodSummary {
   weight_end: number | null;
   weight_change_kg: number | null;
   total_calories_in: number;
+  /**
+   * Rata-rata dibagi hari YANG TERCATAT per metrik, bukan panjang periode.
+   * Jumlah harinya ikut dikirim supaya layar bisa menulis "dari N hari".
+   */
   avg_calories_in: number;
+  food_days: number;
   total_steps: number;
   avg_steps: number;
+  step_days: number;
   total_water_ml: number;
   total_sleep_minutes: number;
   avg_sleep_minutes: number;
+  sleep_days: number;
   total_workout_minutes: number;
   total_workout_calories: number;
+  /** Jumlah hari menimbang badan (baris weight_logs), bukan hari mencatat apa pun. */
   days_logged: number;
   /** Rata-rata kalori smartwatch dari hari yang dicatat saja. Bahan pembanding. */
   avg_device_kcal: number | null;
