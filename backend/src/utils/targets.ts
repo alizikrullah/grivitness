@@ -190,6 +190,33 @@ export const macroTarget = (
 };
 
 // ============================================================
+// GULA
+// ============================================================
+
+/**
+ * Batas atas gula harian dalam gram.
+ *
+ * Permenkes No. 30 Tahun 2013 menyebut 50 g gula per orang per hari. WHO
+ * (Guideline: Sugars intake for adults and children, 2015) menganjurkan gula
+ * bebas di bawah 10% energi, idealnya di bawah 5%. Keduanya bertemu di sekitar
+ * 50 g untuk 2.000 kkal, jadi untuk jatah yang lebih kecil batasnya ikut
+ * turun mengikuti 10% energi, dan tidak pernah lewat 50 g.
+ *
+ * Yang dijumlahkan aplikasi adalah gula TOTAL, seperti di label kemasan,
+ * termasuk gula alami buah dan susu, sementara batas di atas untuk gula
+ * tambahan. Jadi perbandingannya sedikit ketat. Untuk minuman manis kemasan,
+ * sumber gula terbesar, bedanya hampir tidak ada.
+ */
+const GULA_MAKS_G = 50;
+const GULA_RASIO_ENERGI = 0.1;
+const KKAL_PER_G_GULA = 4;
+
+export const sugarLimitG = (calorieBudget: number | null): number =>
+  calorieBudget === null
+    ? GULA_MAKS_G
+    : Math.min(GULA_MAKS_G, Math.round((calorieBudget * GULA_RASIO_ENERGI) / KKAL_PER_G_GULA));
+
+// ============================================================
 // GABUNGAN
 // ============================================================
 
@@ -199,6 +226,8 @@ export interface DailyTargets {
   steps: StepTarget;
   /** Null selama user belum punya target berat badan yang aktif. */
   macros: MacroTarget | null;
+  /** Batas ATAS gula harian, bukan target yang dikejar. */
+  sugar_max_g: number;
 }
 
 export interface TargetInput {
@@ -224,4 +253,5 @@ export const dailyTargets = (input: TargetInput): DailyTargets => ({
     input.calorieBudget === null
       ? null
       : macroTarget(input.calorieBudget, input.weightKg, input.isDeficit),
+  sugar_max_g: sugarLimitG(input.calorieBudget),
 });

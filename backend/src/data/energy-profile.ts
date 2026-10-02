@@ -3,6 +3,7 @@ import { jakartaDate, todayInJakarta } from '../utils/daily-key.js';
 import { toNumber } from '../utils/number.js';
 import { type ObservedTdee, observeTDEE, type WeightPoint } from '../utils/observed-tdee.js';
 import { dateRangeFilter, timestampRangeFilter } from '../utils/query.js';
+import { hariBelumLengkap } from './food-day-status.js';
 import { forUser } from './scoped.js';
 import { loadUserMetrics, type UserMetrics } from './user-metrics.js';
 
@@ -50,7 +51,7 @@ export const loadEnergyProfile = async (userId: string): Promise<EnergyProfile> 
   const from = geser(to, -(JENDELA_HARI - 1));
   const range = { from, to };
 
-  const [metrics, weightLogs, foodLogs] = await Promise.all([
+  const [metrics, weightLogs, foodLogs, belumLengkap] = await Promise.all([
     loadUserMetrics(userId),
     repo.list('weight_logs', {
       filter: dateRangeFilter(range),
@@ -66,6 +67,7 @@ export const loadEnergyProfile = async (userId: string): Promise<EnergyProfile> 
       fields: ['logged_at', 'total_calories'],
       limit: -1,
     }),
+    hariBelumLengkap(userId, range),
   ]);
 
   if (metrics.bmr === null) {
@@ -86,7 +88,9 @@ export const loadEnergyProfile = async (userId: string): Promise<EnergyProfile> 
     // malam sebelum jam tujuh pagi WIB akan jatuh ke hari sebelumnya dan
     // merusak rata-rata harian yang jadi dasar seluruh perhitungan ini.
     const tanggal = log.logged_at === null ? null : jakartaDate(log.logged_at);
-    if (tanggal === null) continue;
+    // Hari yang user tandai belum lengkap tidak boleh ikut: separuh catatan
+    // makan terbaca sebagai makan sedikit, dan TDEE terukur ikut jatuh.
+    if (tanggal === null || belumLengkap.has(tanggal)) continue;
 
     intakeByDate.set(tanggal, (intakeByDate.get(tanggal) ?? 0) + (log.total_calories ?? 0));
   }

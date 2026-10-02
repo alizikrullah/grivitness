@@ -248,11 +248,28 @@ export const susunFakta = (
       );
     }
   }
-  b.push(`Kalori keluar ${angka(harian.calories_out)} kkal.`);
-  if (harian.calories_out_source === 'device') {
+  // Gula selalu disebut bersama batasnya, dan sebagai gula TOTAL: angka di
+  // kemasan memuat gula alami buah dan susu, sementara batasnya untuk gula
+  // tambahan. Tanpa keterangan itu model bisa menceramahi pisang.
+  if (harian.calories_in > 0) {
     b.push(
-      `Angka kalori keluar itu berasal dari smartwatch-nya (${angka(harian.device_kcal ?? 0)} kkal), bukan dari rumus, ditambah olahraga yang jamnya tidak merekam.`,
+      `Gula total ${String(harian.sugar_g).replace('.', ',')} g, batas ${harian.targets.sugar_max_g} g per hari (gula total, termasuk gula alami buah dan susu).`,
     );
+  }
+  // Susunan kalori keluar ikut dikirim, supaya model tidak menebak dari mana
+  // angkanya. Dengan angka jam: aktif jam DITAMBAHKAN ke metabolisme dan
+  // pekerjaan, bukan menggantikannya.
+  const e = harian.energy;
+  if (e && harian.calories_out_source === 'device') {
+    b.push(
+      `Kalori keluar ${angka(harian.calories_out)} kkal: metabolisme dan pekerjaan ${angka(e.baseline)}, ditambah kalori aktif dari jam tangannya ${angka(e.device_active_kcal ?? 0)}${e.workout_calories > 0 ? `, ditambah olahraga tercatat yang tidak terekam jam ${angka(e.workout_calories)}` : ''}.`,
+    );
+  } else if (e) {
+    b.push(
+      `Kalori keluar ${angka(harian.calories_out)} kkal: metabolisme dan pekerjaan ${angka(e.baseline)}, olahraga ${angka(e.workout_calories)}.`,
+    );
+  } else {
+    b.push(`Kalori keluar ${angka(harian.calories_out)} kkal.`);
   }
   if (harian.calorie_budget !== null) {
     b.push(
@@ -315,6 +332,11 @@ export const susunFakta = (
     );
   } else {
     b.push('Belum ada hari dengan catatan makan minggu ini.');
+  }
+  if (r.days_incomplete > 0) {
+    b.push(
+      `${r.days_incomplete} hari lain ditandai sendiri olehnya belum lengkap catatan makannya, jadi tidak ikut rata-rata di atas.`,
+    );
   }
   // Rata-rata selalu disebut bersama jumlah hari pembaginya. "Tidur 2 jam per
   // malam" yang ternyata dua malam dibagi tujuh pernah membuat model

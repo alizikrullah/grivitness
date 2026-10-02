@@ -24,6 +24,7 @@ import {
   BODY_DIRECTION,
   CALORIE_SOURCE,
   CHAT_ROLE,
+  FOOD_DAY_STATUS,
   GENDER,
   MEAL_TYPE,
   WORKOUT_CATEGORY,
@@ -318,7 +319,13 @@ export const collections: CollectionDef[] = [
       {
         field: 'daily_calorie_budget',
         type: 'integer',
-        note: 'Dihitung dari TDEE dikurangi defisit, bisa di-override manual',
+        note: 'Jatah saat goal dibuat atau diubah. Untuk jatah otomatis ini cuma cadangan: yang dipakai dihitung ulang dari berat terbaru setiap dibaca. Untuk jatah manual inilah angkanya.',
+      },
+      {
+        field: 'budget_manual',
+        type: 'boolean',
+        defaultValue: false,
+        note: 'true kalau jatah diisi user sendiri, dan karena itu DIKUNCI: tidak ikut berubah saat berat turun. false berarti jatah otomatis yang mengikuti berat terbaru.',
       },
       {
         field: 'is_active',
@@ -402,6 +409,12 @@ export const collections: CollectionDef[] = [
       decimalField('protein_g', 6, 2),
       decimalField('carbs_g', 6, 2),
       decimalField('fat_g', 6, 2),
+      decimalField('sugar_g', 6, 2, {
+        // Nullable karena catatan dari sebelum kolom ini ada belum punya angka
+        // gula sampai skrip isi ulang mengisinya. Catatan baru selalu terisi.
+        nullable: true,
+        note: 'Jumlah gula semua item dalam gram, dihitung backend. Gula total seperti di label kemasan, termasuk gula alami.',
+      }),
       // Tidak ada kolom catatan bebas. Nama item sudah menampung "ayam goreng
       // tanpa kulit", dan catatan bebas dulu diabaikan model.
       {
@@ -485,12 +498,17 @@ export const collections: CollectionDef[] = [
         defaultValue: 'MET',
         note: 'Asal angka calories_burned. MANUAL tidak boleh dihitung ulang diam-diam saat durasi atau berat berubah.',
       }),
-      enumField('intensity', WORKOUT_INTENSITY),
+      enumField('intensity', WORKOUT_INTENSITY, {
+        // Tidak dipakai hitungan apa pun: kalori datang dari MET jenis
+        // olahraganya. Form berhenti menanyakannya, baris lama tetap menyimpan.
+        nullable: true,
+        note: 'Tidak dipakai hitungan apa pun dan tidak lagi ditanyakan form. Terisi hanya di baris lama.',
+      }),
       {
         field: 'tracked_by_device',
         type: 'boolean',
         defaultValue: false,
-        note: 'true kalau sesi ini SUDAH ikut terhitung di angka device_energy_logs hari itu. Dipakai supaya kalorinya tidak dihitung dua kali.',
+        note: 'true kalau sesi ini terekam jam tangan, jadi kalorinya SUDAH ada di kalori aktif device_energy_logs hari itu dan tidak ditambahkan lagi. Berpengaruh hanya di hari yang punya angka jam.',
       },
       notes(),
       loggedAtDate(),
@@ -522,14 +540,14 @@ export const collections: CollectionDef[] = [
     collection: 'device_energy_logs',
     typeName: 'DeviceEnergyLogRecord',
     icon: 'watch',
-    note: 'Kalori keluar seharian menurut smartwatch user. Satu baris per user per hari. Angka ini MENGGANTIKAN hitungan TDEE hari itu, bukan ditambahkan ke atasnya.',
+    note: 'Kalori smartwatch user, satu baris per user per hari. Kalori AKTIF-nya DITAMBAHKAN ke BMR x PAL hari itu, bersama olahraga yang tidak terekam jam. Angka total diubah dulu jadi aktif (total dikurangi BMR).',
     fields: [
       pk(),
       userFk('device_energy_logs'),
       {
         field: 'total_kcal',
         type: 'integer',
-        note: 'Kalori TOTAL sehari, sudah termasuk metabolisme istirahat. Inilah yang dipakai summary. Kalau user memasukkan kalori aktif, kolom ini HASIL TURUNAN dari active_kcal + bmr_kcal.',
+        note: 'Kalori TOTAL sehari, sudah termasuk metabolisme istirahat versi jam. Kalau user memasukkan kalori aktif, kolom ini HASIL TURUNAN dari active_kcal + bmr_kcal. Summary memakai bagian aktifnya saja.',
       },
       {
         field: 'active_kcal',
@@ -686,6 +704,55 @@ export const collections: CollectionDef[] = [
       notes(),
       loggedAtDate(),
       userDateKey(),
+      createdAt(),
+    ],
+  },
+
+  {
+    collection: 'food_day_status',
+    typeName: 'FoodDayStatusRecord',
+    icon: 'fact_check',
+    note: 'Jawaban user apakah catatan makan satu hari sudah lengkap. Satu baris per user per hari. Hari INCOMPLETE tidak ikut rata-rata mana pun.',
+    fields: [
+      pk(),
+      userFk('food_day_status'),
+      enumField('status', FOOD_DAY_STATUS, {
+        note: 'COMPLETE: memang segitu makannya. INCOMPLETE: ada yang lupa dicatat, jadi hari ini dikeluarkan dari rata-rata dan dari TDEE terukur.',
+      }),
+      loggedAtDate(),
+      userDateKey(),
+      createdAt(),
+      updatedAt(),
+    ],
+  },
+
+  {
+    collection: 'food_memory_forgets',
+    typeName: 'FoodMemoryForgetRecord',
+    icon: 'history_toggle_off',
+    note: 'Nama makanan yang diminta user dilupakan dari ingatan makanan. Catatan yang dibuat sebelum forgotten_at tidak lagi jadi sumber saran.',
+    fields: [
+      pk(),
+      userFk('food_memory_forgets'),
+      {
+        field: 'memory_key',
+        type: 'string',
+        maxLength: 255,
+        note: 'Nama yang dinormalisasi, lalu "|" dan satuannya, mis. "nasi putih|g". Sama dengan kunci di food-memory.ts.',
+      },
+      {
+        field: 'user_key',
+        type: 'string',
+        maxLength: 255,
+        unique: true,
+        hidden: true,
+        note: '"{user_id}:{memory_key}". Satu baris per nama, diperbarui kalau dilupakan lagi.',
+      },
+      {
+        field: 'forgotten_at',
+        type: 'timestamp',
+        note: 'Catatan yang DIBUAT sebelum waktu ini diabaikan saat menyusun ingatan. Catatan sesudahnya membangun ingatan dari nol.',
+      },
       createdAt(),
     ],
   },

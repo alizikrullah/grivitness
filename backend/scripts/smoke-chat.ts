@@ -43,6 +43,8 @@ const SKENARIO: Record<string, string[]> = {
     'Untuk makan gmn? yang murah aja',
     'Gua gasuka telur dadar',
   ],
+  // Rilis 1.2.0: gula hari ini dan susunan kalori keluar dengan jam tangan.
+  gula: ['Gula gua hari ini udah kebanyakan belum?', 'Kalori keluar gua hari ini dari mana aja?'],
 };
 
 const main = async (): Promise<void> => {
@@ -85,10 +87,40 @@ const main = async (): Promise<void> => {
     .send({
       meal_type: 'BREAKFAST',
       items: [
-        { name: 'Roti gandum', portions: 2, unit: 'g', label: { kcal: 80, protein_g: 4 } },
-        { name: 'Telur rebus', portions: 2, unit: 'g', label: { kcal: 70, protein_g: 6 } },
+        // Gula ikut diisi supaya setup tidak memanggil model untuk menaksirnya.
+        {
+          name: 'Roti gandum',
+          portions: 2,
+          unit: 'g',
+          label: { kcal: 80, protein_g: 4, sugar_g: 2 },
+        },
+        {
+          name: 'Telur rebus',
+          portions: 2,
+          unit: 'g',
+          label: { kcal: 70, protein_g: 6, sugar_g: 0 },
+        },
       ],
     });
+
+  if (skenario === 'gula') {
+    await request(app)
+      .post('/api/food')
+      .set(auth)
+      .send({
+        meal_type: 'SNACK',
+        items: [
+          {
+            name: 'Teh pucuk harum',
+            portions: 2,
+            unit: 'ml',
+            weight: 350,
+            label: { kcal: 120, carbs_g: 30, sugar_g: 28 },
+          },
+        ],
+      });
+    await request(app).post('/api/device-energy').set(auth).send({ active_kcal: 320 });
+  }
 
   try {
     const fakta = await kumpulkanFakta(userId);

@@ -6,6 +6,7 @@ import { todayInJakarta } from '../../utils/daily-key.js';
 import { sendSuccess } from '../../utils/response.js';
 import * as summaryService from './summary.service.js';
 import type {
+  CalendarDto,
   DailySummaryDto,
   HistorySummaryDto,
   MonthlySummaryDto,
@@ -38,4 +39,11 @@ export const getHistory = async (req: Request, res: Response): Promise<void> => 
   const { days } = getValidatedQuery<HistorySummaryDto>(res);
 
   sendSuccess(res, await summaryService.getHistory(user.id, days ?? 30));
+};
+
+export const getCalendar = async (req: Request, res: Response): Promise<void> => {
+  const user = getAuthUser(req);
+  const { type, from, to } = getValidatedQuery<CalendarDto>(res);
+
+  sendSuccess(res, await summaryService.getCalendar(user.id, type, from, to));
 };

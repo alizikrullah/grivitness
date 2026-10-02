@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   DETIK_PER_ULANGAN_BAWAAN,
+  activeKcalFromDevice,
   activeMinutesFromHold,
   activeMinutesFromReps,
   baselineTDEE,
@@ -10,6 +11,7 @@ import {
   calculateTDEE,
   caloriesFromSteps,
   caloriesFromWorkout,
+  dailyCaloriesOut,
   calorieFloor,
   daysBetween,
   distanceFromSteps,
@@ -501,5 +503,89 @@ describe('daysBetween', () => {
 
   it('negatif kalau tanggal tujuan sudah lewat', () => {
     expect(daysBetween('2026-08-22', '2026-08-12')).toBe(-10);
+  });
+});
+
+/**
+ * Kalori keluar dengan dan tanpa angka jam tangan. Rumus ini disepakati
+ * dengan angka nyata 30 Sep 2026, dan tes ini yang menjaga hasilnya.
+ */
+describe('dailyCaloriesOut', () => {
+  const dasar = {
+    bmr: 1866,
+    activityLevel: 'SEDENTARY' as const,
+    sleepMinutes: 350,
+    workoutMinutes: 96,
+    workoutCalories: 250,
+    untrackedWorkoutCalories: 0,
+  };
+
+  it('30 Sep: BMR x PAL + aktif jam, olahraga terekam jam tidak ditambah lagi', () => {
+    const hasil = dailyCaloriesOut({
+      ...dasar,
+      device: { total_kcal: 2233, active_kcal: 367 },
+    });
+
+    // PAL partisi (350 + 96 + 994 x 1,6) / 1.440 = 1,4142
+    expect(hasil.baseline).toBe(2639);
+    expect(hasil.calories_out).toBe(2639 + 367);
+    expect(hasil.source).toBe('device');
+    expect(hasil.device_active_kcal).toBe(367);
+    expect(hasil.workout_calories).toBe(0);
+  });
+
+  it('tanpa angka jam: BMR x PAL + semua olahraga, seperti biasa', () => {
+    const hasil = dailyCaloriesOut({ ...dasar, device: null });
+
+    expect(hasil.calories_out).toBe(2639 + 250);
+    expect(hasil.source).toBe('formula');
+    expect(hasil.device_active_kcal).toBeNull();
+  });
+
+  it('olahraga yang tidak terekam jam tetap ditambahkan di atas aktif jam', () => {
+    const hasil = dailyCaloriesOut({
+      ...dasar,
+      untrackedWorkoutCalories: 481,
+      device: { total_kcal: 2233, active_kcal: 367 },
+    });
+
+    expect(hasil.calories_out).toBe(2639 + 367 + 481);
+    expect(hasil.workout_calories).toBe(481);
+  });
+
+  /**
+   * Celah 11: hari jamnya dilepas (aktif 4 kkal, 78 langkah) dulu anjlok ke
+   * sekitar BMR karena angka jam MENGGANTIKAN rumus. Sekarang metabolisme dan
+   * pekerjaan tetap dihitung, jam cuma menambah yang dia lihat.
+   */
+  it('hari jam dilepas tidak lagi anjlok ke BMR', () => {
+    const hasil = dailyCaloriesOut({
+      ...dasar,
+      sleepMinutes: null,
+      workoutMinutes: 0,
+      workoutCalories: 0,
+      device: { total_kcal: 1870, active_kcal: 4 },
+    });
+
+    // 8 jam tidur: PAL 1,4
+    expect(hasil.calories_out).toBe(Math.round(1866 * 1.4) + 4);
+    expect(hasil.calories_out).toBeGreaterThan(2500);
+  });
+
+  it('angka TOTAL jam diubah dulu jadi aktif dengan mengurangkan BMR', () => {
+    expect(activeKcalFromDevice({ total_kcal: 2233, active_kcal: null }, 1866)).toBe(367);
+    // Tidak pernah negatif walau total di bawah BMR versi aplikasi.
+    expect(activeKcalFromDevice({ total_kcal: 1800, active_kcal: null }, 1866)).toBe(0);
+    expect(activeKcalFromDevice({ total_kcal: 2233, active_kcal: 120 }, 1866)).toBe(120);
+  });
+
+  it('tanpa BMR: angka total jam dipakai apa adanya, atau cuma olahraga', () => {
+    const tanpaProfil = { ...dasar, bmr: null };
+
+    expect(
+      dailyCaloriesOut({ ...tanpaProfil, device: { total_kcal: 2200, active_kcal: null } })
+        .calories_out,
+    ).toBe(2200);
+    expect(dailyCaloriesOut({ ...tanpaProfil, device: null }).calories_out).toBe(250);
   });
 });

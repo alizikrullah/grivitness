@@ -22,6 +22,9 @@ const harian = (ubah: Partial<DailySummary> = {}): DailySummary => ({
   protein_g: 0,
   carbs_g: 0,
   fat_g: 0,
+  sugar_g: 0,
+  food_day_status: null,
+  food_low: false,
   steps: 0,
   water_ml: 0,
   sleep_minutes: 0,
@@ -35,6 +38,7 @@ const harian = (ubah: Partial<DailySummary> = {}): DailySummary => ({
     sleep: { min_minutes: 420, max_minutes: 540 },
     steps: { steps: 8000, custom: false },
     macros: { protein_g: 173, carbs_g: 153, fat_g: 77 },
+    sugar_max_g: 50,
   },
   ...ubah,
 });
@@ -49,6 +53,7 @@ const pekan: PeriodSummary = {
   total_calories_in: 300,
   avg_calories_in: 300,
   food_days: 1,
+  food_days_incomplete: 0,
   total_steps: 0,
   avg_steps: 0,
   step_days: 0,
@@ -68,6 +73,7 @@ const riwayat = (summary: Partial<HistorySummary['summary']> = {}): HistorySumma
   days: [],
   summary: {
     days_logged: 0,
+    days_incomplete: 0,
     avg_calories_in: 0,
     avg_calories_out: 0,
     avg_balance: 0,
@@ -125,6 +131,7 @@ describe('susunFakta', () => {
         target_weight_kg: '85.00',
         target_date: '2027-01-19',
         daily_calorie_budget: 1995,
+        budget_manual: false,
         is_active: true,
         created_at: null,
         updated_at: null,
@@ -173,6 +180,7 @@ describe('susunFakta', () => {
         target_weight_kg: '80.00',
         target_date: '2026-10-31',
         daily_calorie_budget: 1984,
+        budget_manual: false,
         is_active: true,
         created_at: null,
         updated_at: null,
@@ -257,6 +265,8 @@ describe('susunFakta', () => {
         total_protein_g: 20,
         total_carbs_g: 0,
         total_fat_g: 0,
+        total_sugar_g: 0,
+        day_status: null,
         logs: [
           {
             id: 'f1',
@@ -273,6 +283,7 @@ describe('susunFakta', () => {
             protein_g: '20.00',
             carbs_g: '0.00',
             fat_g: '0.00',
+            sugar_g: null,
             logged_at: '2026-09-21T00:30:00.000Z',
             created_at: null,
             photo_url: null,
@@ -310,5 +321,59 @@ describe('rapikanBalasan', () => {
     expect(rapikanBalasan('**Protein** 30\u201340 g \u2014 cukup\n\u2014 telur')).toBe(
       'Protein 30-40 g, cukup\n- telur',
     );
+  });
+});
+
+describe('susunFakta: rilis 1.2.0', () => {
+  it('menyebut susunan kalori keluar dengan jam tangan: aktif jam DITAMBAHKAN', () => {
+    const fakta = susunFakta(
+      harian({
+        calories_out: 3006,
+        calories_out_source: 'device',
+        device_kcal: 2233,
+        energy: { pal: 1.611, baseline: 2639, workout_calories: 0, device_active_kcal: 367 },
+      }),
+      pekan,
+      riwayat(),
+      null,
+      null,
+      null,
+      null,
+      '21.00',
+    );
+
+    expect(fakta).toContain(
+      'Kalori keluar 3.006 kkal: metabolisme dan pekerjaan 2.639, ditambah kalori aktif dari jam tangannya 367.',
+    );
+  });
+
+  it('menyebut gula hari ini bersama batasnya, sebagai gula total', () => {
+    const fakta = susunFakta(
+      harian({ calories_in: 1200, sugar_g: 54.3 }),
+      pekan,
+      riwayat(),
+      null,
+      null,
+      null,
+      null,
+      '21.00',
+    );
+
+    expect(fakta).toContain('Gula total 54,3 g, batas 50 g per hari');
+  });
+
+  it('menyebut hari yang ditandai belum lengkap, yang tidak ikut rata-rata', () => {
+    const fakta = susunFakta(
+      harian(),
+      pekan,
+      riwayat({ days_logged: 5, days_incomplete: 2, avg_calories_in: 1800 }),
+      null,
+      null,
+      null,
+      null,
+      '21.00',
+    );
+
+    expect(fakta).toContain('2 hari lain ditandai sendiri olehnya belum lengkap');
   });
 });

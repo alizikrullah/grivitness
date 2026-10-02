@@ -39,9 +39,57 @@ const tanggalBangunWib = (sleepEnd: string): string => {
   return formatter.format(new Date(sleepEnd));
 };
 
+const jamWIB = new Intl.DateTimeFormat('id-ID', {
+  timeZone: 'Asia/Jakarta',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
+
+const tanggalWIB = new Intl.DateTimeFormat('id-ID', {
+  timeZone: 'Asia/Jakarta',
+  day: 'numeric',
+  month: 'short',
+});
+
+/**
+ * Menolak sesi tidur yang waktunya bertabrakan dengan sesi lain milik user.
+ *
+ * Dua sesi bertabrakan kalau yang satu mulai sebelum yang lain selesai DAN
+ * selesai setelah yang lain mulai. Bersentuhan persis (bangun 06.00, tidur
+ * lagi 06.00) bukan tabrakan. Tanpa penjaga ini, entri ganda menjumlahkan jam
+ * yang sama dua kali: tidur terbaca lebih lama, dan PAL hari itu ikut turun.
+ * Kasus nyatanya 29 ke 30 Sep 2026: 21.00 sampai 23.00 dan 22.30 sampai 04.20.
+ */
+const tolakTabrakan = async (
+  userId: string,
+  mulai: string,
+  selesai: string,
+  kecuali?: string,
+): Promise<void> => {
+  const tabrakan = await forUser(userId).findOne('sleep_logs', {
+    filter: {
+      sleep_start: { _lt: selesai },
+      sleep_end: { _gt: mulai },
+      ...(kecuali === undefined ? {} : { id: { _neq: kecuali } }),
+    },
+    sort: ['sleep_start'],
+  });
+
+  if (tabrakan) {
+    const awal = new Date(tabrakan.sleep_start);
+    const akhir = new Date(tabrakan.sleep_end);
+    throw AppError.duplicate(
+      `Waktunya bertabrakan dengan tidur ${jamWIB.format(awal)} sampai ${jamWIB.format(akhir)} (${tanggalWIB.format(akhir)}) yang sudah tercatat. Ubah atau hapus catatan itu dulu.`,
+    );
+  }
+};
+
 export const create = async (userId: string, data: CreateSleepDto): Promise<SleepLogRecord> => {
   const mulai = new Date(data.sleep_start).getTime();
   const selesai = new Date(data.sleep_end).getTime();
+
+  await tolakTabrakan(userId, data.sleep_start, data.sleep_end);
 
   // Dihitung backend, bukan diterima dari client, supaya durasinya selalu
   // konsisten dengan kedua timestamp-nya.
@@ -93,6 +141,8 @@ export const update = async (
   if (durasiMenit > 24 * 60) {
     throw AppError.badRequest('Durasi tidur maksimal 24 jam');
   }
+
+  await tolakTabrakan(userId, mulai, selesai, logId);
 
   return repo.update('sleep_logs', logId, {
     sleep_start: mulai,

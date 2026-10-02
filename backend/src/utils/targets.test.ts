@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { dailyTargets, macroTarget, sleepTarget, stepTarget, waterTargetMl } from './targets.js';
+import {
+  dailyTargets,
+  macroTarget,
+  sleepTarget,
+  stepTarget,
+  sugarLimitG,
+  waterTargetMl,
+} from './targets.js';
 
 describe('waterTargetMl', () => {
   /** 35 ml/kg untuk dewasa muda: 70 x 35 = 2450. */
@@ -131,5 +138,31 @@ describe('dailyTargets', () => {
   /** Tanpa goal aktif tidak ada budget kalori, jadi makro tidak bisa dihitung. */
   it('tidak mengarang makro ketika belum ada goal', () => {
     expect(dailyTargets({ ...dasar, calorieBudget: null }).macros).toBeNull();
+  });
+});
+
+describe('sugarLimitG', () => {
+  it('50 g tanpa jatah, sesuai Permenkes 30/2013', () => {
+    expect(sugarLimitG(null)).toBe(50);
+  });
+
+  it('10% energi untuk jatah yang lebih kecil, tidak pernah lewat 50 g', () => {
+    // 1.977 kkal x 10% / 4 kkal per gram
+    expect(sugarLimitG(1977)).toBe(49);
+    expect(sugarLimitG(1500)).toBe(38);
+    expect(sugarLimitG(3000)).toBe(50);
+  });
+
+  it('ikut dikirim di target harian', () => {
+    const t = dailyTargets({
+      weightKg: 95,
+      age: 25,
+      gender: 'MALE',
+      calorieBudget: 1977,
+      isDeficit: true,
+      workoutMinutes: 0,
+      customStepTarget: null,
+    });
+    expect(t.sugar_max_g).toBe(49);
   });
 });

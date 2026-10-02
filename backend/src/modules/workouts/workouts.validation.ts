@@ -108,14 +108,20 @@ export const CreateWorkoutSchema = z
       .max(20_000, 'Kalori tidak masuk akal')
       .optional(),
 
-    intensity: z.enum(WORKOUT_INTENSITY),
+    /**
+     * Tidak dipakai hitungan apa pun: kalori datang dari MET jenis olahraganya
+     * (jalan santai lawan jalan cepat sudah dua jenis berbeda). Form berhenti
+     * menanyakannya; tetap diterima supaya APK lama tidak ditolak.
+     */
+    intensity: z.enum(WORKOUT_INTENSITY).optional(),
 
     /**
-     * true kalau sesi ini SUDAH ikut terhitung di angka smartwatch hari itu.
+     * true kalau sesi ini terekam jam tangan, jadi kalorinya SUDAH ada di
+     * kalori aktif jam hari itu.
      *
-     * Menentukan apakah kalorinya boleh ditambahkan di atas angka perangkat.
-     * Jalan santai dan berkebun yang dilakukan sambil memakai jam tangan sudah
-     * masuk di sana; berenang atau sesi yang jamnya dilepas belum.
+     * Menentukan apakah kalorinya ditambahkan di atas kalori aktif jam. Jalan
+     * santai dan berkebun yang dilakukan sambil memakai jam tangan sudah masuk
+     * di sana; berenang atau sesi yang jamnya dilepas belum.
      *
      * Terpisah dari calories_burned dengan sengaja. "Kalorinya diisi manual"
      * dan "sesinya terekam jam" adalah dua fakta berbeda: renang bisa diisi

@@ -446,8 +446,11 @@ export interface FoodPromptItem {
   portions: number;
   weight?: number;
   unit: 'g' | 'ml';
-  /** Ada berarti gizinya dari kemasan; model cuma perlu menaksir beratnya kalau kosong. */
-  label?: unknown;
+  /**
+   * true kalau gizi DAN gulanya sudah diketahui dari kemasan atau catatan
+   * user, jadi model cuma perlu menaksir beratnya kalau kosong.
+   */
+  skip_nutrition?: boolean;
 }
 
 /**
@@ -478,8 +481,8 @@ export const foodPrompt = (items: FoodPromptItem[], denganFoto: boolean): string
         item.weight === undefined
           ? 'weight per portion: UNKNOWN, estimate it'
           : `weight per portion: ${item.weight} ${item.unit} (given by user, do not change)`;
-      const kemasan = item.label
-        ? ', nutrition known from package label: skip nutrition for this item'
+      const kemasan = item.skip_nutrition
+        ? ', nutrition already known: skip nutrition for this item'
         : '';
       return `${i + 1}. ${item.name}, ${porsi}, unit ${item.unit}, ${berat}${kemasan}`;
     })
@@ -495,9 +498,12 @@ export const foodPrompt = (items: FoodPromptItem[], denganFoto: boolean): string
   "photo_note": "string"`
     : '';
 
+  // Dipertegas setelah kasus nyata: "kentang panggang" ditandai tidak cocok
+  // karena fotonya tampak seperti kentang goreng. Yang memasak dan memberi nama
+  // adalah user; cara masak bukan urusan model.
   const aturanFoto = denganFoto
     ? `
-- photo_matches: false only if the photo clearly shows different food from the list (for example the list says nasi goreng but the photo is clearly soto). Minor differences, missing side dishes, or unclear photos count as true. photo_note: one short Indonesian sentence explaining a false, empty string when true.`
+- photo_matches: answers ONE question: is this photo of the wrong meal? Set false ONLY when the photo was clearly attached by mistake: it shows an entirely different dish (the list says nasi goreng, the photo shows soto or noodles), or it is not food at all. Cooking method, color, crispiness, oil, sauce, seasoning, portion size, plating, and side dishes NEVER count as different: the user cooked it and named it, so "kentang panggang" that looks fried is still kentang panggang. Unclear photos count as true. photo_note: one short Indonesian sentence naming what the photo shows instead, only when false; empty string when true.`
     : '';
 
   return `The user ate these items. Numbers and names come from the user and are FINAL.
@@ -508,7 +514,7 @@ ${sumber}
 
 For EACH numbered item return, in the same order:
 - grams_per_portion: the weight of ONE portion in the item's unit (grams, or ml for drinks). For items with a given weight, copy the given number.
-- kcal_per_100, protein_per_100, carbs_per_100, fat_per_100: nutrition per 100 g (or per 100 ml when the unit is ml) of the food AS EATEN, from standard food composition tables. Fried food must include absorbed oil; cooked rice is not dry rice.
+- kcal_per_100, protein_per_100, carbs_per_100, fat_per_100, sugar_per_100: nutrition per 100 g (or per 100 ml when the unit is ml) of the food AS EATEN, from standard food composition tables. Fried food must include absorbed oil; cooked rice is not dry rice. sugar_per_100 is total sugars as on a nutrition label (natural plus added) and can never exceed carbs_per_100.
 
 Return ONLY a JSON object with this exact structure:
 {
@@ -519,7 +525,8 @@ Return ONLY a JSON object with this exact structure:
       "kcal_per_100": number,
       "protein_per_100": number,
       "carbs_per_100": number,
-      "fat_per_100": number
+      "fat_per_100": number,
+      "sugar_per_100": number
     }
   ],
   "confidence": "low" | "medium" | "high"${cocok}
