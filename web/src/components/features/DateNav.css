@@ -1,0 +1,77 @@
+.datenav-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.datenav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  max-width: 420px;
+}
+
+.datenav-panah {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-pill);
+  display: grid;
+  place-items: center;
+  background: var(--surface-high);
+  border: 1px solid var(--border-soft);
+  color: var(--text-primary);
+}
+
+.datenav-panah:hover:not(:disabled) {
+  background: var(--border);
+}
+
+.datenav-tengah {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border-radius: var(--radius-pill);
+  color: var(--text-primary);
+}
+
+.datenav-tengah svg {
+  color: var(--text-secondary);
+}
+
+.datenav-tengah:hover {
+  background: var(--surface-alt);
+}
+
+.datenav-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-lg);
+}
+
+.datenav-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.datenav-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+}
+
+.datenav-dot-hijau {
+  background: var(--success);
+}
+
+.datenav-dot-kuning {
+  background: var(--warning);
+}

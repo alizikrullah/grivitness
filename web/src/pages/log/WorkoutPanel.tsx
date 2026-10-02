@@ -6,7 +6,6 @@ import {
   Card,
   Checkbox,
   ChipGroup,
-  DateField,
   EmptyState,
   ErrorNote,
   Input,
@@ -21,7 +20,7 @@ import {
   ukuranKeBody,
 } from '@/components/features/WorkoutMeasureFields';
 import { colors, metricColors } from '@/constants/colors';
-import { INTENSITY_LABEL, CATEGORY_LABEL } from '@/constants/labels';
+import { CATEGORY_LABEL } from '@/constants/labels';
 import { toApiError } from '@/lib/api';
 import {
   useCreateWorkout,
@@ -29,14 +28,14 @@ import {
   useWorkoutLibrary,
   useWorkoutsDate,
 } from '@/services/workouts.service';
+import { DateNav } from '@/components/features/DateNav';
 import { useProfile } from '@/services/users.service';
-import type { WorkoutCategory, WorkoutIntensity, WorkoutLibraryItem } from '@/types';
+import type { WorkoutCategory, WorkoutLibraryItem } from '@/types';
 import { dayPhrase, todayWIB } from '@/utils/date';
 import { duration, thousands, toNum } from '@/utils/format';
 import { LogActions } from './LogActions';
 
 const KATEGORI = ['CARDIO', 'STRENGTH', 'FLEXIBILITY', 'SPORTS', 'OTHER'] as const;
-const INTENSITAS = ['LOW', 'MEDIUM', 'HIGH'] as const;
 
 /** Berat acuan nilai kkal/menit di library. Sama dengan BERAT_ACUAN_KG di backend. */
 const BERAT_ACUAN_KG = 70;
@@ -59,7 +58,6 @@ export const WorkoutPanel = () => {
 
   const [dipilih, setDipilih] = useState<WorkoutLibraryItem | null>(null);
   const [ukuran, setUkuran] = useState(UKURAN_BAWAAN);
-  const [intensitas, setIntensitas] = useState<WorkoutIntensity>('MEDIUM');
   const [terekam, setTerekam] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -113,7 +111,6 @@ export const WorkoutPanel = () => {
       {
         workout_library_id: dipilih.id,
         ...ukuranKeBody(dipilih.measure, ukuran),
-        intensity: intensitas,
         tracked_by_device: terekam,
         ...(kalori === undefined ? {} : { calories_burned: kalori }),
         // Dicatat ke tanggal yang sedang dilihat, bukan selalu ke hari ini.
@@ -134,7 +131,7 @@ export const WorkoutPanel = () => {
     <>
       <SectionHeader title="Catat olahraga" />
 
-      <DateField value={tanggal} onChange={setTanggal} />
+      <DateNav value={tanggal} onChange={setTanggal} section="workout" />
 
       <Card>
         <div className="stack">
@@ -180,15 +177,11 @@ export const WorkoutPanel = () => {
                 nama={dipilih.name}
               />
 
-              <div className="stack-xs">
-                <span className="t-label c-secondary">Intensitas</span>
-                <ChipGroup
-                  options={INTENSITAS}
-                  value={intensitas}
-                  onChange={setIntensitas}
-                  labels={INTENSITY_LABEL}
-                />
-              </div>
+              {/*
+                Pilihan intensitas dicabut: tidak pernah dipakai menghitung apa
+                pun. Kalori datang dari MET jenis olahraganya, jadi intensitas
+                sudah terwakili oleh pilihannya (jalan santai lawan jalan cepat).
+              */}
 
               {/*
                 Satu kolom kalori, terisi taksiran dan bisa ditimpa: angka dari

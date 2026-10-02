@@ -178,6 +178,8 @@ export const post = <T>(url: string, body?: unknown, config?: AxiosRequestConfig
 export const patch = <T>(url: string, body?: unknown): Promise<T> =>
   unwrap<T>(api.patch(url, body));
 
+export const put = <T>(url: string, body?: unknown): Promise<T> => unwrap<T>(api.put(url, body));
+
 export const del = async (url: string): Promise<void> => {
   await api.delete(url);
 };

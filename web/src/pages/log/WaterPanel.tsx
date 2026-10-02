@@ -1,15 +1,8 @@
 import { DropIcon, PlusIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
 
-import {
-  Card,
-  DateField,
-  EmptyState,
-  ErrorNote,
-  Loading,
-  Ring,
-  SectionHeader,
-} from '@/components/ui';
+import { DateNav } from '@/components/features/DateNav';
+import { Card, EmptyState, ErrorNote, Loading, Ring, SectionHeader } from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
 import { toApiError } from '@/lib/api';
 import { useDailySummary } from '@/services/misc.service';
@@ -63,7 +56,7 @@ export const WaterPanel = () => {
     <>
       <SectionHeader title="Minum air" />
 
-      <DateField value={tanggal} onChange={setTanggal} />
+      <DateNav value={tanggal} onChange={setTanggal} section="water" />
 
       {today.isPending ? (
         <Loading />

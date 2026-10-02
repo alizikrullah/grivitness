@@ -94,3 +94,43 @@
   align-items: center;
   gap: var(--space-xs);
 }
+
+.food-tanda {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-xs);
+}
+
+.food-saran-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.food-saran-lupa {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  display: grid;
+  place-items: center;
+  color: var(--text-tertiary);
+  background: var(--surface-alt);
+  border: 1px solid var(--border-soft);
+}
+
+.food-saran-lupa:hover {
+  color: var(--text-primary);
+  background: var(--border);
+}
+
+.food-kemasan-makro {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-sm);
+}
+
+@media (max-width: 640px) {
+  .food-kemasan-makro {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

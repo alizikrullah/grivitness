@@ -1,10 +1,10 @@
 import { MoonStarsIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
 
+import { DateNav } from '@/components/features/DateNav';
 import {
   Button,
   Card,
-  DateField,
   EmptyState,
   ErrorNote,
   Input,
@@ -65,7 +65,7 @@ export const SleepPanel = () => {
     <>
       <SectionHeader title="Catat tidur" />
 
-      <DateField value={tanggal} onChange={setTanggal} label="Tanggal bangun" />
+      <DateNav value={tanggal} onChange={setTanggal} section="sleep" label="Tanggal bangun" />
 
       <Card>
         <div className="stack">

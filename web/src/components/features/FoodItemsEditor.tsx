@@ -1,10 +1,14 @@
-import { ClockCounterClockwiseIcon, PlusIcon, XIcon } from '@phosphor-icons/react';
+import { CheckCircleIcon, ClockCounterClockwiseIcon, PlusIcon, XIcon } from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
 
-import { Chip, Input } from '@/components/ui';
+import { Chip, ConfirmDialog, Input } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { type FoodItemInput, useFoodSuggestions } from '@/services/food.service';
-import type { FoodSuggestion, FoodUnit } from '@/types';
+import {
+  type FoodItemEditInput,
+  useFoodSuggestions,
+  useForgetSuggestion,
+} from '@/services/food.service';
+import type { FoodLabel, FoodSuggestion, FoodUnit } from '@/types';
 
 import './FoodItemsEditor.css';
 
@@ -24,6 +28,15 @@ export interface FoodItemDraft {
   labelProtein: string;
   labelCarbs: string;
   labelFat: string;
+  labelSugar: string;
+  /**
+   * Baris ini dipilih dari saran "Dari catatanmu". HANYA ini yang membuat
+   * backend memakai angka catatan sebelumnya. Dicabut begitu nama atau
+   * satuannya diubah: itu makanan lain. Berat dan porsi boleh diubah.
+   */
+  dariCatatan: boolean;
+  /** Saat mengoreksi: urutan item ini di catatan yang tersimpan. */
+  sourceIndex?: number;
 }
 
 /** Nilai yang tertunda sebentar, supaya tiap ketukan tidak jadi satu permintaan. */
@@ -36,11 +49,12 @@ const useTertunda = (nilai: string, ms: number): string => {
   return tertunda;
 };
 
+const angkaLabel = (n: number | undefined): string => (n ? String(n) : '');
+
 /**
  * Isian dari satu saran: nama, satuan, berat, dan kemasannya kalau ada.
- * Porsi dibiarkan, itu yang berubah tiap kali. Untuk item yang gizinya dari
- * taksiran AI, kemasannya tidak dibuka: backend memakai ulang angka yang
- * sama lewat ingatan makanan, jadi tidak ada yang perlu diketik.
+ * Porsi dibiarkan, itu yang berubah tiap kali. Barisnya ditandai dariCatatan
+ * supaya backend memakai angka yang sama dengan terakhir kali.
  */
 export const dariSaran = (baris: FoodItemDraft, s: FoodSuggestion): FoodItemDraft => ({
   ...baris,
@@ -49,9 +63,11 @@ export const dariSaran = (baris: FoodItemDraft, s: FoodSuggestion): FoodItemDraf
   weight: s.weight_per_portion === null ? '' : String(s.weight_per_portion),
   pakaiKemasan: s.label !== null,
   labelKcal: s.label ? String(s.label.kcal) : '',
-  labelProtein: s.label?.protein_g ? String(s.label.protein_g) : '',
-  labelCarbs: s.label?.carbs_g ? String(s.label.carbs_g) : '',
-  labelFat: s.label?.fat_g ? String(s.label.fat_g) : '',
+  labelProtein: angkaLabel(s.label?.protein_g),
+  labelCarbs: angkaLabel(s.label?.carbs_g),
+  labelFat: angkaLabel(s.label?.fat_g),
+  labelSugar: s.label?.sugar_g === undefined ? '' : String(s.label.sugar_g),
+  dariCatatan: true,
 });
 
 export const barisKosong = (): FoodItemDraft => ({
@@ -64,7 +80,17 @@ export const barisKosong = (): FoodItemDraft => ({
   labelProtein: '',
   labelCarbs: '',
   labelFat: '',
+  labelSugar: '',
+  dariCatatan: false,
 });
+
+/** "Nescafe Classic bubuk · 8 g · 28 kkal": yang dipilih kelihatan sebelum dipilih. */
+const labelSaran = (s: FoodSuggestion): string =>
+  s.name +
+  (s.weight_per_portion ? ' · ' + s.weight_per_portion + ' ' + s.unit : '') +
+  (s.kcal_per_portion === null || s.kcal_per_portion === undefined
+    ? ''
+    : ' · ' + s.kcal_per_portion + ' kkal');
 
 interface FoodItemsEditorProps {
   items: FoodItemDraft[];
@@ -96,6 +122,10 @@ export const FoodItemsEditor = ({
   const ubah = (i: number, bagian: Partial<FoodItemDraft>) =>
     onChange(items.map((item, j) => (j === i ? { ...item, ...bagian } : item)));
 
+  /** Nama atau satuan yang berubah mencabut tanda "dari catatan": itu makanan lain. */
+  const ubahIdentitas = (i: number, bagian: Pick<Partial<FoodItemDraft>, 'name' | 'unit'>) =>
+    ubah(i, { ...bagian, dariCatatan: false });
+
   /**
    * Baris yang sedang diketik namanya. Saran cuma tampil untuk baris itu dan
    * hilang begitu satu saran dipilih. Kata pencariannya ditunda sebentar.
@@ -103,6 +133,8 @@ export const FoodItemsEditor = ({
   const [aktif, setAktif] = useState<number | null>(null);
   const kataCari = useTertunda(aktif === null ? '' : (items[aktif]?.name ?? ''), 250);
   const saran = useFoodSuggestions(kataCari);
+  const lupakan = useForgetSuggestion();
+  const [akanDilupakan, setAkanDilupakan] = useState<FoodSuggestion | null>(null);
 
   const pilihSaran = (i: number, s: FoodSuggestion) => {
     const baris = items[i];
@@ -133,17 +165,25 @@ export const FoodItemsEditor = ({
 
           <Input
             value={item.name}
-            onChange={(e) => ubah(i, { name: e.target.value })}
+            onChange={(e) => ubahIdentitas(i, { name: e.target.value })}
             onFocus={() => setAktif(i)}
             placeholder="Nama makanan, mis. ayam goreng tanpa kulit"
             maxLength={120}
             disabled={disabled}
           />
 
+          {item.dariCatatan ? (
+            <span className="food-tanda t-caption c-success">
+              <CheckCircleIcon size={14} weight="fill" />
+              Dari catatanmu: angkanya sama dengan terakhir kali. Ubah nama atau satuan berarti
+              makanan lain.
+            </span>
+          ) : null}
+
           {/*
             Saran dari catatan sendiri. Sekali klik nama, satuan, berat, dan
             kemasannya terisi, dan backend memakai angka yang sama dengan
-            terakhir kali.
+            terakhir kali. Tombol x di sampingnya untuk Lupakan.
           */}
           {aktif === i && (saran.data?.length ?? 0) > 0 ? (
             <div className="food-saran">
@@ -152,15 +192,18 @@ export const FoodItemsEditor = ({
               </span>
               <div className="chip-group">
                 {saran.data?.map((s) => (
-                  <Chip
-                    key={s.name + s.unit}
-                    label={
-                      s.name +
-                      (s.weight_per_portion ? ' · ' + s.weight_per_portion + ' ' + s.unit : '') +
-                      (s.label ? ' · ' + s.label.kcal + ' kkal' : '')
-                    }
-                    onClick={() => pilihSaran(i, s)}
-                  />
+                  <span key={s.name + s.unit} className="food-saran-item">
+                    <Chip label={labelSaran(s)} onClick={() => pilihSaran(i, s)} />
+                    <button
+                      type="button"
+                      className="food-saran-lupa"
+                      title="Lupakan"
+                      aria-label={'Lupakan ' + s.name}
+                      onClick={() => setAkanDilupakan(s)}
+                    >
+                      <XIcon size={12} weight="bold" />
+                    </button>
+                  </span>
                 ))}
               </div>
             </div>
@@ -181,7 +224,7 @@ export const FoodItemsEditor = ({
             <div className="food-item-berat">
               <Input
                 label={
-                  beratWajib && !item.pakaiKemasan
+                  beratWajib && !item.pakaiKemasan && !item.dariCatatan
                     ? 'Berat per porsi'
                     : 'Berat per porsi (opsional)'
                 }
@@ -189,7 +232,13 @@ export const FoodItemsEditor = ({
                 value={item.weight}
                 onChange={(e) => ubah(i, { weight: e.target.value })}
                 placeholder={
-                  beratWajib && !item.pakaiKemasan ? '150' : item.pakaiKemasan ? '' : 'AI menaksir'
+                  item.dariCatatan
+                    ? 'Dari catatan'
+                    : beratWajib && !item.pakaiKemasan
+                      ? '150'
+                      : item.pakaiKemasan
+                        ? ''
+                        : 'AI menaksir'
                 }
                 suffix={item.unit}
                 disabled={disabled}
@@ -199,8 +248,16 @@ export const FoodItemsEditor = ({
 
           {/* Dua chip satuan, bukan dropdown. Chip ketiga membuka isian dari kemasan. */}
           <div className="chip-group">
-            <Chip label="gram" active={item.unit === 'g'} onClick={() => ubah(i, { unit: 'g' })} />
-            <Chip label="ml" active={item.unit === 'ml'} onClick={() => ubah(i, { unit: 'ml' })} />
+            <Chip
+              label="gram"
+              active={item.unit === 'g'}
+              onClick={() => (item.unit === 'g' ? undefined : ubahIdentitas(i, { unit: 'g' }))}
+            />
+            <Chip
+              label="ml"
+              active={item.unit === 'ml'}
+              onClick={() => (item.unit === 'ml' ? undefined : ubahIdentitas(i, { unit: 'ml' }))}
+            />
             <Chip
               label={item.pakaiKemasan ? 'Dari kemasan ✓' : 'Dari kemasan'}
               active={item.pakaiKemasan}
@@ -223,7 +280,7 @@ export const FoodItemsEditor = ({
                 suffix="kkal"
                 disabled={disabled}
               />
-              <div className="grid-3">
+              <div className="food-kemasan-makro">
                 <Input
                   label="Protein"
                   inputMode="decimal"
@@ -251,10 +308,19 @@ export const FoodItemsEditor = ({
                   suffix="g"
                   disabled={disabled}
                 />
+                <Input
+                  label="Gula"
+                  inputMode="decimal"
+                  value={item.labelSugar}
+                  onChange={(e) => ubah(i, { labelSugar: e.target.value })}
+                  placeholder="0"
+                  suffix="g"
+                  disabled={disabled}
+                />
               </div>
               <span className="t-caption c-tertiary">
                 Angka untuk satu porsi, persis seperti di kemasan. Jumlah porsinya dikalikan
-                otomatis. Makro boleh dikosongkan.
+                otomatis. Makro boleh dikosongkan; gula yang kosong ditaksir AI.
               </span>
             </div>
           ) : null}
@@ -272,20 +338,60 @@ export const FoodItemsEditor = ({
           Tambah makanan
         </button>
       ) : null}
+
+      <ConfirmDialog
+        open={akanDilupakan !== null}
+        title={'Lupakan ' + (akanDilupakan?.name ?? '') + '?'}
+        message="Nama ini hilang dari saran, dan angka catatan lamanya tidak dipakai lagi. Catatan lamanya sendiri tidak dihapus. Kalau dicatat lagi, angkanya ditaksir dari awal."
+        confirmLabel="Lupakan"
+        onCancel={() => setAkanDilupakan(null)}
+        onConfirm={() => {
+          if (akanDilupakan) {
+            lupakan.mutate({ name: akanDilupakan.name, unit: akanDilupakan.unit });
+            onChange(
+              items.map((it) =>
+                it.dariCatatan && it.name === akanDilupakan.name && it.unit === akanDilupakan.unit
+                  ? { ...it, dariCatatan: false }
+                  : it,
+              ),
+            );
+          }
+          setAkanDilupakan(null);
+        }}
+      />
     </div>
   );
 };
 
 /**
+ * Kalori kemasan yang tidak cocok dengan makronya sendiri, cermin pemeriksaan
+ * backend (labelTidakCocok di utils/food-math.ts). Salinan dari mobile.
+ */
+export const kemasanJanggal = (label: FoodLabel): boolean => {
+  const { protein_g: p, carbs_g: c, fat_g: f } = label;
+  if (p === undefined && c === undefined && f === undefined) return false;
+
+  const dariMakro = 4 * (p ?? 0) + 4 * (c ?? 0) + 9 * (f ?? 0);
+  const toleransi = Math.max(15, 0.2 * Math.max(label.kcal, dariMakro));
+  const lengkap = p !== undefined && c !== undefined && f !== undefined;
+
+  return lengkap
+    ? Math.abs(label.kcal - dariMakro) > toleransi
+    : dariMakro - label.kcal > toleransi;
+};
+
+/**
  * Mengubah isian mentah jadi bentuk yang dikirim ke backend. Salinan dari
  * mobile, pemeriksaannya sama dengan backend supaya pesannya muncul sebelum
- * request dikirim.
+ * request dikirim. Kemasan yang angkanya janggal dikembalikan sebagai
+ * peringatan, bukan penolakan: layar menanyakan "Simpan tetap".
  */
 export const susunItem = (
   items: FoodItemDraft[],
   beratWajib: boolean,
-): { error: string } | { items: FoodItemInput[] } => {
-  const hasil: FoodItemInput[] = [];
+): { error: string } | { items: FoodItemEditInput[]; janggal: string[] } => {
+  const hasil: FoodItemEditInput[] = [];
+  const janggal: string[] = [];
 
   for (const [i, item] of items.entries()) {
     const nama = item.name.trim();
@@ -297,7 +403,7 @@ export const susunItem = (
     }
 
     // Angka kemasan, per satu porsi. Kalorinya wajib kalau bagiannya dibuka.
-    let label: FoodItemInput['label'];
+    let label: FoodLabel | undefined;
 
     if (item.pakaiKemasan) {
       const kcal = Number(item.labelKcal.trim().replace(',', '.'));
@@ -312,12 +418,24 @@ export const susunItem = (
         return Number.isFinite(n) && n >= 0 ? n : undefined;
       };
 
+      const protein = makro(item.labelProtein);
+      const karbo = makro(item.labelCarbs);
+      const lemak = makro(item.labelFat);
+      const gula = makro(item.labelSugar);
+
+      if (gula !== undefined && karbo !== undefined && gula > karbo) {
+        return { error: `Gula ${nama} tidak mungkin lebih besar dari karbohidratnya` };
+      }
+
       label = {
         kcal,
-        ...(makro(item.labelProtein) === undefined ? {} : { protein_g: makro(item.labelProtein) }),
-        ...(makro(item.labelCarbs) === undefined ? {} : { carbs_g: makro(item.labelCarbs) }),
-        ...(makro(item.labelFat) === undefined ? {} : { fat_g: makro(item.labelFat) }),
+        ...(protein === undefined ? {} : { protein_g: protein }),
+        ...(karbo === undefined ? {} : { carbs_g: karbo }),
+        ...(lemak === undefined ? {} : { fat_g: lemak }),
+        ...(gula === undefined ? {} : { sugar_g: gula }),
       };
+
+      if (kemasanJanggal(label)) janggal.push(nama);
     }
 
     const beratTeks = item.weight.trim().replace(',', '.');
@@ -328,8 +446,8 @@ export const susunItem = (
       if (!Number.isFinite(weight) || weight <= 0) {
         return { error: `Berat ${nama} harus lebih dari nol` };
       }
-    } else if (beratWajib && !label) {
-      // Item dari kemasan tidak butuh berat: kalorinya sudah per porsi.
+    } else if (beratWajib && !label && !item.dariCatatan) {
+      // Item dari kemasan tidak butuh berat; item dari catatan memakai berat tersimpannya.
       return {
         error: `Isi perkiraan berat ${nama}, atau lampirkan foto supaya ditaksir dari sana`,
       };
@@ -341,10 +459,12 @@ export const susunItem = (
       unit: item.unit,
       ...(weight === undefined ? {} : { weight }),
       ...(label === undefined ? {} : { label }),
+      ...(item.dariCatatan ? { from_memory: true } : {}),
+      ...(item.sourceIndex === undefined ? {} : { source_index: item.sourceIndex }),
     });
   }
 
   if (hasil.length === 0) return { error: 'Tulis minimal satu makanan' };
 
-  return { items: hasil };
+  return { items: hasil, janggal };
 };

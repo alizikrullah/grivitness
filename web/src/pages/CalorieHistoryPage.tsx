@@ -31,10 +31,12 @@ export const CalorieHistoryPage = () => {
 
   const dataChart = (d?.days ?? []).map((h) => ({
     label: hari <= 14 ? dayLabel(h.date) : (shortDate(h.date).split(' ')[0] ?? ''),
-    value: h.logged ? h.balance : null,
-    caption: h.logged
-      ? `${tandaKkal(h.balance)} kkal (masuk ${thousands(h.calories_in)}, keluar ${thousands(h.calories_out)})`
-      : undefined,
+    // Hari yang ditandai belum lengkap digambar seperti hari kosong: defisitnya semu.
+    value: h.logged && !h.incomplete ? h.balance : null,
+    caption:
+      h.logged && !h.incomplete
+        ? `${tandaKkal(h.balance)} kkal (masuk ${thousands(h.calories_in)}, keluar ${thousands(h.calories_out)})`
+        : undefined,
   }));
 
   return (
@@ -56,7 +58,7 @@ export const CalorieHistoryPage = () => {
         <Loading />
       ) : riwayat.isError ? (
         <ErrorNote message={toApiError(riwayat.error).message} />
-      ) : !d || s === undefined || s.days_logged === 0 ? (
+      ) : !d || s === undefined || !d.days.some((h) => h.logged) ? (
         <EmptyState
           title="Belum ada yang bisa dibandingkan"
           message="Catat makanan minimal satu hari, dan riwayatnya muncul di sini."
@@ -91,6 +93,9 @@ export const CalorieHistoryPage = () => {
               <span className="t-caption c-tertiary">
                 Rata-rata cuma dari hari yang makanannya tercatat. Hari kosong tidak dianggap
                 defisit, cuma tidak dicatat.
+                {s.days_incomplete > 0
+                  ? ` ${s.days_incomplete} hari yang kamu tandai belum lengkap juga tidak dihitung.`
+                  : ''}
               </span>
             </div>
           </Card>
@@ -163,9 +168,13 @@ const BarisHari = ({ hari }: { hari: HistoryDay }) => {
           {hari.calorie_budget !== null ? ` · Jatah ${thousands(hari.calorie_budget)}` : ''}
         </span>
       </span>
-      <span className={'t-label ' + (defisit ? 'c-success' : 'c-warning')}>
-        {tandaKkal(hari.balance)} kkal
-      </span>
+      {hari.incomplete ? (
+        <span className="t-caption c-warning">Belum lengkap, tidak dihitung</span>
+      ) : (
+        <span className={'t-label ' + (defisit ? 'c-success' : 'c-warning')}>
+          {tandaKkal(hari.balance)} kkal
+        </span>
+      )}
     </div>
   );
 };

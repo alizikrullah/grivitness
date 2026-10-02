@@ -2,10 +2,10 @@ import { FootprintsIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
 
 import { HighlightBarChart } from '@/components/features/Charts';
+import { DateNav } from '@/components/features/DateNav';
 import {
   Button,
   Card,
-  DateField,
   ErrorNote,
   Loading,
   Modal,
@@ -92,7 +92,7 @@ export const StepsPanel = () => {
     <>
       <SectionHeader title={'Langkah ' + dayPhrase(tanggal)} />
 
-      <DateField value={tanggal} onChange={setTanggal} />
+      <DateNav value={tanggal} onChange={setTanggal} section="steps" />
 
       <Card>
         <div className="stack">

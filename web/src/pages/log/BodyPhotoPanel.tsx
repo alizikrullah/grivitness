@@ -3,11 +3,11 @@ import { useState } from 'react';
 
 import { AuthImage } from '@/components/features/AuthImage';
 import { PhotoPicker } from '@/components/features/PhotoPicker';
+import { DateNav } from '@/components/features/DateNav';
 import {
   Button,
   Card,
   Chip,
-  DateField,
   EmptyState,
   ErrorNote,
   Input,
@@ -125,7 +125,7 @@ export const BodyPhotoPanel = () => {
     <>
       <SectionHeader title={'Foto badan & pinggang ' + dayPhrase(tanggal)} />
 
-      <DateField value={tanggal} onChange={setTanggal} />
+      <DateNav value={tanggal} onChange={setTanggal} section="body-photo" />
 
       <Card variant="outline" padding="md">
         <span className="t-caption c-secondary">

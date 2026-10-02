@@ -2,10 +2,10 @@ import { ScalesIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
 
 import { TrendChart } from '@/components/features/Charts';
+import { DateNav } from '@/components/features/DateNav';
 import {
   Button,
   Card,
-  DateField,
   EmptyState,
   ErrorNote,
   Loading,
@@ -84,7 +84,7 @@ export const WeightPanel = () => {
     <>
       <SectionHeader title={'Berat badan ' + dayPhrase(tanggal)} />
 
-      <DateField value={tanggal} onChange={setTanggal} />
+      <DateNav value={tanggal} onChange={setTanggal} section="weight" />
 
       <Card>
         <div className="stack">

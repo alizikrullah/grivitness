@@ -22,7 +22,12 @@ import {
   GENDER_OPTIONS,
 } from '@/constants/labels';
 import { toApiError } from '@/lib/api';
-import { useActiveGoal, useCreateGoal, useDailySummary } from '@/services/misc.service';
+import {
+  useActiveGoal,
+  useCreateGoal,
+  useDailySummary,
+  useUpdateGoal,
+} from '@/services/misc.service';
 import { useProfile, useSaveProfile } from '@/services/users.service';
 import type { ActivityLevel, Gender, Profile } from '@/types';
 import { longDate, shiftDays, todayWIB } from '@/utils/date';
@@ -32,6 +37,7 @@ import './ProfilePage.css';
 export const ProfilePage = () => {
   const profile = useProfile();
   const goal = useActiveGoal();
+  const updateGoal = useUpdateGoal();
   const summary = useDailySummary(todayWIB());
 
   const [sheetProfil, setSheetProfil] = useState(false);
@@ -134,9 +140,26 @@ export const ProfilePage = () => {
                 <span className="t-caption c-accent">
                   Jatah {thousands(goal.data.daily_calorie_budget)} kkal per hari
                 </span>
+                {/* Jatah otomatis ikut turun saat berat turun; jatah yang diketik sendiri dikunci. */}
+                <span className="t-caption c-tertiary">
+                  {goal.data.budget_manual
+                    ? 'Kamu isi sendiri, dikunci'
+                    : 'Otomatis, menyesuaikan berat terbarumu'}
+                </span>
               </div>
             </div>
           </Card>
+
+          {goal.data.budget_manual ? (
+            <Button
+              label="Pakai jatah otomatis lagi"
+              variant="secondary"
+              loading={updateGoal.isPending}
+              onClick={() =>
+                goal.data && updateGoal.mutate({ id: goal.data.id, daily_calorie_budget: null })
+              }
+            />
+          ) : null}
 
           <PlanCard goal={goal.data} targets={summary.data?.targets} />
         </>
@@ -353,8 +376,9 @@ const GoalModal = ({ onClose }: { onClose: () => void }) => {
       />
 
       <span className="t-caption c-tertiary">
-        Jatah kalori dihitung otomatis dan ditahan di batas aman. Kalau targetnya terlalu cepat,
-        kamu akan diberi tahu tanggal realistisnya, bukan dipaksa mengikuti angka yang berbahaya.
+        Jatah kalori dihitung otomatis, ditahan di batas aman, dan ikut menyesuaikan berat
+        terbarumu. Kalau targetnya terlalu cepat, kamu akan diberi tahu tanggal realistisnya, bukan
+        dipaksa mengikuti angka yang berbahaya.
       </span>
 
       {error ? <ErrorNote message={error} /> : null}
