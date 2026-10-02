@@ -1,11 +1,10 @@
 import * as Haptics from 'expo-haptics';
 import { MinusIcon, PlusIcon } from 'phosphor-react-native';
-import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { colors } from '@/constants/colors';
-import { fonts, radius, spacing, typography } from '@/constants/theme';
-import { dayLabel, isToday, shiftDays, todayWIB } from '@/utils/date';
+import { spacing, typography } from '@/constants/theme';
 import { clamp } from '@/utils/format';
 import { Text } from './Text';
 
@@ -148,64 +147,6 @@ export const Stepper = ({
   );
 };
 
-interface DateStripProps {
-  value: string;
-  onChange: (date: string) => void;
-  /** Berapa hari ke belakang yang bisa dipilih. */
-  days?: number;
-}
-
-/**
- * Pemilih tanggal mendatar untuk beberapa hari terakhir.
- *
- * Tanggal masa depan sengaja tidak ditawarkan, mencatat berat badan besok
- * tidak masuk akal, dan backend akan menolaknya.
- */
-export const DateStrip = ({ value, onChange, days = 14 }: DateStripProps) => {
-  const scroll = useRef<ScrollView>(null);
-
-  const hariIni = todayWIB();
-  const daftar = Array.from({ length: days }, (_, i) => shiftDays(hariIni, -(days - 1 - i)));
-
-  // Digulir ke ujung kanan saat pertama tampil supaya hari ini yang terlihat.
-  useEffect(() => {
-    const t = setTimeout(() => scroll.current?.scrollToEnd({ animated: false }), 50);
-    return () => clearTimeout(t);
-  }, []);
-
-  return (
-    <ScrollView
-      ref={scroll}
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.strip}
-    >
-      {daftar.map((tanggal) => {
-        const aktif = tanggal === value;
-
-        return (
-          <Pressable
-            key={tanggal}
-            onPress={() => {
-              void Haptics.selectionAsync();
-              onChange(tanggal);
-            }}
-            style={[styles.day, aktif ? styles.dayActive : styles.dayIdle]}
-            accessibilityState={{ selected: aktif }}
-          >
-            <Text variant="caption" tone={aktif ? 'inverse' : 'tertiary'}>
-              {isToday(tanggal) ? 'Hari ini' : dayLabel(tanggal)}
-            </Text>
-            <Text style={[styles.dayNumber, { color: aktif ? colors.white : colors.textPrimary }]}>
-              {Number(tanggal.slice(8, 10))}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </ScrollView>
-  );
-};
-
 const styles = StyleSheet.create({
   stepper: {
     flexDirection: 'row',
@@ -241,19 +182,4 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   pressed: { opacity: 0.7, transform: [{ scale: 0.95 }] },
-  strip: { gap: spacing.sm, paddingRight: spacing.lg },
-  day: {
-    width: 62,
-    paddingVertical: spacing.md,
-    borderRadius: radius.lg,
-    alignItems: 'center',
-    gap: 4,
-  },
-  dayActive: { backgroundColor: colors.primary },
-  dayIdle: {
-    backgroundColor: colors.surfaceAlt,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderSoft,
-  },
-  dayNumber: { fontFamily: fonts.bold, fontSize: 18, lineHeight: 22 },
 });

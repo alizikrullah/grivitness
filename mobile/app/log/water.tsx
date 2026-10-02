@@ -5,9 +5,9 @@ import { DropIcon, PlusIcon } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { DateNav } from '@/components/features/DateNav';
 import {
   Card,
-  DateStrip,
   EmptyState,
   ErrorNote,
   Header,
@@ -82,7 +82,7 @@ export default function WaterScreen() {
       <Screen refreshing={today.isRefetching} onRefresh={() => void today.refetch()}>
         <Header title="Minum air" subtitle="Boleh dicatat berkali-kali sehari" />
 
-        <DateStrip value={tanggal} onChange={setTanggal} />
+        <DateNav value={tanggal} onChange={setTanggal} section="water" />
 
         {today.isPending ? (
           <Loading />

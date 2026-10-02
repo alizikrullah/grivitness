@@ -74,7 +74,13 @@ export interface Goal {
   id: string;
   target_weight_kg: DecimalString;
   target_date: DateString;
+  /**
+   * Jatah yang BERLAKU. Untuk jatah otomatis backend menghitungnya ulang dari
+   * berat terbaru setiap dibaca; untuk jatah manual ini angka yang diketik.
+   */
   daily_calorie_budget: number;
+  /** true kalau jatah diketik user sendiri dan dikunci; false berarti otomatis. */
+  budget_manual: boolean;
   is_active: boolean;
   created_at: string | null;
   updated_at: string | null;
@@ -231,7 +237,18 @@ export interface FoodLabel {
   protein_g?: number;
   carbs_g?: number;
   fat_g?: number;
+  /** Gula per porsi. Tidak boleh lebih besar dari karbohidrat. */
+  sugar_g?: number;
 }
+
+/**
+ * Asal angka gula satu item. BACKFILL: diisi belakangan untuk catatan dari
+ * sebelum fitur gula ada, satu taksiran per nama makanan.
+ */
+export type SugarSource = 'LABEL' | 'AI' | 'PREVIOUS' | 'BACKFILL';
+
+/** Jawaban user saat catatan makan satu hari jauh di bawah jatah. */
+export type FoodDayStatus = 'COMPLETE' | 'INCOMPLETE';
 
 /**
  * Satu makanan di dalam sesi makan, sesudah dihitung backend.
@@ -246,7 +263,8 @@ export interface FoodItem {
   unit: FoodUnit;
   /** Berat atau volume SATU porsi. */
   weight_per_portion: number;
-  weight_source: 'USER' | 'AI';
+  /** USER diketik, AI dari foto, PREVIOUS dari catatan yang dipilih lewat saran. */
+  weight_source: 'USER' | 'AI' | 'PREVIOUS';
   /**
    * Dari mana nilai gizinya: taksiran model, kemasan yang dibaca user, atau
    * PREVIOUS: dipakai ulang dari catatan sebelumnya untuk nama yang sama,
@@ -261,10 +279,15 @@ export interface FoodItem {
   protein_per_100: number;
   carbs_per_100: number;
   fat_per_100: number;
+  /** Opsional karena catatan sangat lama belum punya kolom gula. */
+  sugar_per_100?: number;
   calories: number;
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  sugar_g?: number;
+  /** Null kalau gula item ini tidak diketahui. */
+  sugar_source?: SugarSource | null;
   /** true kalau model tidak memberi nilai gizi untuk item ini; angkanya nol dan harus dicatat ulang. */
   nutrition_missing: boolean;
 }
@@ -277,10 +300,17 @@ export interface FoodAnalysis {
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  sugar_g?: number;
   confidence: string | null;
-  /** Null tanpa foto. false kalau model melihat makanan yang jelas berbeda dari tulisan. */
+  /**
+   * Null tanpa foto, ATAU kalau model tidak dipanggil sama sekali (semua item
+   * dari kemasan atau catatan): fotonya tersimpan tapi tidak diperiksa.
+   * false kalau model menilai fotonya salah lampir.
+   */
   photo_matches: boolean | null;
   photo_note: string | null;
+  /** true setelah user menekan Abaikan pada tanda foto. */
+  photo_dismissed?: boolean;
   user_edited: boolean;
 }
 
@@ -294,6 +324,8 @@ export interface FoodSuggestion {
   protein_per_100: number;
   carbs_per_100: number;
   fat_per_100: number;
+  /** Kalori satu porsi kalau saran ini dipilih apa adanya. Ditampilkan di chip. */
+  kcal_per_portion: number | null;
   /** Asal angkanya semula: kemasan, koreksi user, atau taksiran AI. */
   origin: 'LABEL' | 'EDITED' | 'AI';
   times: number;
@@ -311,6 +343,7 @@ export interface FoodLog {
   protein_g: DecimalString;
   carbs_g: DecimalString;
   fat_g: DecimalString;
+  sugar_g: DecimalString | null;
   logged_at: TimestampString;
   created_at: string | null;
 }
@@ -321,6 +354,9 @@ export interface FoodDay {
   total_protein_g: number;
   total_carbs_g: number;
   total_fat_g: number;
+  total_sugar_g: number;
+  /** Jawaban user soal lengkap tidaknya catatan hari itu, null kalau belum. */
+  day_status: FoodDayStatus | null;
   logs: FoodLog[];
 }
 
@@ -398,7 +434,8 @@ export interface WorkoutLog {
    * Null cuma pada baris lama dari sebelum kolom ini ada, artinya MET.
    */
   calories_source: 'MET' | 'MANUAL' | null;
-  intensity: WorkoutIntensity;
+  /** Tidak lagi ditanyakan form; terisi hanya di catatan lama. */
+  intensity: WorkoutIntensity | null;
   /** true kalau sesi ini sudah ikut terhitung di angka smartwatch hari itu. */
   tracked_by_device: boolean;
   notes: string | null;
@@ -409,9 +446,9 @@ export interface WorkoutLog {
 export interface DeviceEnergyLog {
   id: string;
   /**
-   * Kalori TOTAL sehari, sudah termasuk metabolisme istirahat. Inilah yang
-   * dipakai ringkasan. Kalau user memasukkan kalori aktif, angka ini hasil
-   * turunan dari active_kcal + bmr_kcal.
+   * Kalori TOTAL sehari, sudah termasuk metabolisme istirahat versi jam. Kalau
+   * user memasukkan kalori aktif, angka ini hasil turunan dari active_kcal +
+   * bmr_kcal. Ringkasan memakai bagian AKTIF-nya saja.
    */
   total_kcal: number;
   /** Kalori aktif apa adanya dari perangkat. Null kalau user memasukkan total. */
@@ -484,11 +521,17 @@ export interface NotificationSettings {
  * sungguhan dicatat sebagai olahraga. Langkah cuma pantauan.
  */
 export interface EnergyBreakdown {
-  /** Physical Activity Level hari itu, TDEE dibagi BMR. */
+  /** Physical Activity Level hari itu: kalori keluar dibagi BMR. */
   pal: number;
-  /** Metabolisme basal dikali PAL: hidup dan kegiatan sehari-hari. */
+  /** Metabolisme basal dikali PAL: hidup, pekerjaan, dan gerak kecil sehari-hari. */
   baseline: number;
+  /**
+   * Kalori olahraga yang ikut dijumlahkan. Tanpa angka jam: semua olahraga.
+   * Dengan angka jam: hanya yang tidak terekam jam.
+   */
   workout_calories: number;
+  /** Kalori aktif jam tangan yang DITAMBAHKAN. Null kalau hari itu tanpa angka jam. */
+  device_active_kcal: number | null;
 }
 
 export interface SleepTarget {
@@ -521,6 +564,8 @@ export interface DailyTargets {
   steps: StepTarget;
   /** Null selama belum ada goal aktif, karena makro butuh budget kalori. */
   macros: MacroTarget | null;
+  /** Batas ATAS gula harian (Kemenkes 50 g; WHO 10% energi), bukan target. */
+  sugar_max_g: number;
 }
 
 export interface DailySummary {
@@ -528,9 +573,9 @@ export interface DailySummary {
   weight_kg: number | null;
   calories_in: number;
   calories_out: number;
-  /** Kalori keluar menurut smartwatch, kalau dicatat hari itu. */
+  /** Angka TOTAL smartwatch apa adanya, kalau dicatat hari itu. Sekadar keterangan. */
   device_kcal: number | null;
-  /** Dari mana calories_out diambil hari itu. */
+  /** "device": kalori aktif jam ikut DITAMBAHKAN ke metabolisme hari itu. */
   calories_out_source: 'formula' | 'device';
   calorie_budget: number | null;
   calories_remaining: number | null;
@@ -539,6 +584,12 @@ export interface DailySummary {
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  /** Gula total hari itu, gram. */
+  sugar_g: number;
+  /** Jawaban user soal lengkap tidaknya catatan makan hari itu. */
+  food_day_status: FoodDayStatus | null;
+  /** Hari sudah lewat, ada catatan makan, tapi di bawah separuh jatah. */
+  food_low: boolean;
   steps: number;
   water_ml: number;
   sleep_minutes: number;
@@ -563,15 +614,18 @@ export interface HistoryDay {
   balance: number;
   /** Ada catatan makan hari itu. Tanpa ini defisitnya semu dan tidak ikut rata-rata. */
   logged: boolean;
+  /** Ditandai user belum lengkap: tetap tampil, tapi tidak ikut rata-rata. */
+  incomplete: boolean;
 }
 
 export interface HistorySummary {
   from: DateString;
   to: DateString;
   days: HistoryDay[];
-  /** Dihitung HANYA dari hari yang tercatat makannya. */
+  /** Dihitung HANYA dari hari yang tercatat makannya dan tidak ditandai belum lengkap. */
   summary: {
     days_logged: number;
+    days_incomplete: number;
     avg_calories_in: number;
     avg_calories_out: number;
     avg_balance: number;
@@ -593,6 +647,8 @@ export interface PeriodSummary {
    */
   avg_calories_in: number;
   food_days: number;
+  /** Hari yang ditandai belum lengkap, tidak ikut rata-rata kalori masuk. */
+  food_days_incomplete: number;
   total_steps: number;
   avg_steps: number;
   step_days: number;
@@ -606,4 +662,25 @@ export interface PeriodSummary {
   days_logged: number;
   /** Rata-rata kalori smartwatch dari hari yang dicatat saja. Bahan pembanding. */
   avg_device_kcal: number | null;
+}
+
+/** Layar catat yang punya kalender. */
+export type CalendarSection =
+  | 'food'
+  | 'water'
+  | 'workout'
+  | 'steps'
+  | 'sleep'
+  | 'weight'
+  | 'mood'
+  | 'body-photo'
+  | 'device-energy';
+
+/** Tanggal yang ada datanya untuk satu layar, untuk titik di kalender. */
+export interface CalendarDays {
+  from: DateString;
+  to: DateString;
+  dates: DateString[];
+  /** Khusus makanan: hari yang ditandai belum lengkap. */
+  incomplete: DateString[];
 }

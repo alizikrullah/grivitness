@@ -4,11 +4,11 @@ import { BatteryChargingIcon, SmileyIcon } from 'phosphor-react-native';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { DateNav } from '@/components/features/DateNav';
 import {
   BarChart,
   Button,
   Card,
-  DateStrip,
   ErrorNote,
   Header,
   Input,
@@ -136,7 +136,7 @@ export default function MoodScreen() {
         }
       />
 
-      <DateStrip value={dipilih} onChange={setDipilih} />
+      <DateNav value={dipilih} onChange={setDipilih} section="mood" />
 
       {today.isPending ? (
         <Loading />

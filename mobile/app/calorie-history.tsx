@@ -50,10 +50,13 @@ export default function CalorieHistoryScreen() {
 
   const dataChart = (d?.days ?? []).map((h) => ({
     label: hari <= 14 ? dayLabel(h.date) : (shortDate(h.date).split(' ')[0] ?? ''),
-    value: h.logged ? h.balance : null,
-    caption: h.logged
-      ? `${shortDate(h.date)}: ${tandaKkal(h.balance)} kkal (masuk ${thousands(h.calories_in)}, keluar ${thousands(h.calories_out)})`
-      : undefined,
+    // Hari yang ditandai belum lengkap digambar seperti hari kosong: angka
+    // defisitnya semu, separuh catatan bukan separuh makan.
+    value: h.logged && !h.incomplete ? h.balance : null,
+    caption:
+      h.logged && !h.incomplete
+        ? `${shortDate(h.date)}: ${tandaKkal(h.balance)} kkal (masuk ${thousands(h.calories_in)}, keluar ${thousands(h.calories_out)})`
+        : undefined,
   }));
 
   const s = d?.summary;
@@ -68,7 +71,7 @@ export default function CalorieHistoryScreen() {
         <Loading />
       ) : riwayat.isError ? (
         <ErrorNote message={toApiError(riwayat.error).message} />
-      ) : !d || s === undefined || s.days_logged === 0 ? (
+      ) : !d || s === undefined || !d.days.some((h) => h.logged) ? (
         <EmptyState
           title="Belum ada yang bisa dibandingkan"
           message="Catat makanan minimal satu hari, dan riwayatnya muncul di sini."
@@ -110,6 +113,9 @@ export default function CalorieHistoryScreen() {
               <Text variant="caption" tone="tertiary">
                 Rata-rata cuma dari hari yang makanannya tercatat. Hari kosong tidak dianggap
                 defisit, cuma tidak dicatat.
+                {s.days_incomplete > 0
+                  ? ` ${s.days_incomplete} hari yang kamu tandai belum lengkap juga tidak dihitung.`
+                  : ''}
               </Text>
             </View>
           </Card>
@@ -184,9 +190,15 @@ const BarisHari = ({ hari }: { hari: HistoryDay }) => {
           <Text variant="label" style={styles.barisTanggal}>
             {shortDate(hari.date)}
           </Text>
-          <Text variant="label" tone={defisit ? 'success' : 'warning'}>
-            {tandaKkal(hari.balance)} kkal
-          </Text>
+          {hari.incomplete ? (
+            <Text variant="caption" tone="warning">
+              Belum lengkap, tidak dihitung
+            </Text>
+          ) : (
+            <Text variant="label" tone={defisit ? 'success' : 'warning'}>
+              {tandaKkal(hari.balance)} kkal
+            </Text>
+          )}
         </View>
 
         <View style={styles.baris}>

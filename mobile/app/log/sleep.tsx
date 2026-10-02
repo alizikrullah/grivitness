@@ -4,10 +4,10 @@ import { SleepEditSheet } from '@/components/features/SleepEditSheet';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { DateNav } from '@/components/features/DateNav';
 import {
   Button,
   Card,
-  DateStrip,
   EmptyState,
   ErrorNote,
   Header,
@@ -114,7 +114,7 @@ export default function SleepScreen() {
       <Screen>
         <Header title="Tidur" subtitle="Boleh lebih dari satu sesi, termasuk tidur siang" />
 
-        <DateStrip value={tanggal} onChange={setTanggal} />
+        <DateNav value={tanggal} onChange={setTanggal} section="sleep" />
 
         <Card>
           <View style={styles.card}>

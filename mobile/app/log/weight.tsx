@@ -2,10 +2,10 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { DateNav } from '@/components/features/DateNav';
 import {
   Button,
   Card,
-  DateStrip,
   ErrorNote,
   Header,
   Input,
@@ -127,7 +127,7 @@ export default function WeightScreen() {
         subtitle={(sudahAda ? 'Sudah dicatat ' : 'Belum dicatat ') + dayPhrase(tanggal)}
       />
 
-      <DateStrip value={tanggal} onChange={setTanggal} />
+      <DateNav value={tanggal} onChange={setTanggal} section="weight" />
 
       {memuat ? (
         <Loading />

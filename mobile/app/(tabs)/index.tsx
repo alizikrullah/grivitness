@@ -13,13 +13,14 @@ import { StyleSheet, View } from 'react-native';
 
 import { CalorieRingChart } from '@/components/features/CalorieRingChart';
 import { MacroBar, MetricTile, StreakBadge } from '@/components/features/Metrics';
-import { Card, IconCircle, Loading, Screen, SectionHeader, Text } from '@/components/ui';
+import { Button, Card, IconCircle, Loading, Screen, SectionHeader, Text } from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/theme';
+import { useSetFoodDayStatus } from '@/services/food.service';
 import { useDailySummary, useStreak } from '@/services/misc.service';
 import { useProfile } from '@/services/users.service';
 import { useAuthStore } from '@/stores/auth.store';
-import { greeting, longDate, todayWIB } from '@/utils/date';
+import { greeting, longDate, shiftDays, todayWIB } from '@/utils/date';
 import { duration, initials, kg, thousands, volume } from '@/utils/format';
 
 /**
@@ -39,7 +40,15 @@ export default function HomeScreen() {
   const user = useAuthStore((s) => s.user);
 
   const hariIni = todayWIB();
+  const kemarin = shiftDays(hariIni, -1);
   const summary = useDailySummary(hariIni);
+  /**
+   * Kemarin dibaca untuk satu pertanyaan saja: makannya di bawah separuh
+   * jatah, lengkap atau belum? Ditanyakan sekali di sini, keesokan paginya,
+   * karena layar makanan hari lampau jarang dibuka.
+   */
+  const ringkasKemarin = useDailySummary(kemarin);
+  const statusHari = useSetFoodDayStatus();
   const streak = useStreak();
   const profile = useProfile();
 
@@ -48,6 +57,7 @@ export default function HomeScreen() {
 
   const segarkan = () => {
     void summary.refetch();
+    void ringkasKemarin.refetch();
     void streak.refetch();
     void profile.refetch();
   };
@@ -103,6 +113,36 @@ export default function HomeScreen() {
         </Card>
       ) : null}
 
+      {ringkasKemarin.data?.food_low && ringkasKemarin.data.food_day_status === null ? (
+        <Card variant="outline">
+          <View style={styles.tanya}>
+            <Text variant="label">Catatan makan kemarin sudah lengkap?</Text>
+            <Text variant="caption" tone="secondary">
+              Tercatat {thousands(ringkasKemarin.data.calories_in)} kkal, di bawah separuh jatahmu.
+              Kalau ada yang lupa dicatat, kemarin tidak ikut rata-rata supaya defisitmu tidak
+              terlihat lebih besar dari kenyataan.
+            </Text>
+            <View style={styles.tanyaTombol}>
+              <Button
+                label="Belum lengkap"
+                variant="secondary"
+                size="sm"
+                fullWidth={false}
+                loading={statusHari.isPending}
+                onPress={() => statusHari.mutate({ date: kemarin, status: 'INCOMPLETE' })}
+              />
+              <Button
+                label="Memang segini"
+                variant="ghost"
+                size="sm"
+                fullWidth={false}
+                onPress={() => statusHari.mutate({ date: kemarin, status: 'COMPLETE' })}
+              />
+            </View>
+          </View>
+        </Card>
+      ) : null}
+
       {memuat ? (
         <Loading />
       ) : (
@@ -128,7 +168,7 @@ export default function HomeScreen() {
                     tidak punya cara tahu yang mana yang sedang dia baca.
                   */}
                   <Text variant="overline" tone="tertiary">
-                    {data?.calories_out_source === 'device' ? 'Keluar (jam)' : 'Keluar'}
+                    {data?.calories_out_source === 'device' ? 'Keluar (+ jam)' : 'Keluar'}
                   </Text>
                   <Text variant="h3">{thousands(data?.calories_out ?? 0)}</Text>
                 </View>
@@ -157,8 +197,13 @@ export default function HomeScreen() {
               */}
               {data?.energy ? (
                 <Text variant="caption" tone="tertiary" style={styles.burnNote}>
-                  {thousands(data.energy.baseline)} metabolisme + {data.energy.workout_calories}{' '}
-                  olahraga
+                  {thousands(data.energy.baseline)} metabolisme
+                  {data.energy.device_active_kcal === null
+                    ? ''
+                    : ' + ' + thousands(data.energy.device_active_kcal) + ' aktif jam'}
+                  {' + '}
+                  {thousands(data.energy.workout_calories)}
+                  {data.energy.device_active_kcal === null ? ' olahraga' : ' olahraga di luar jam'}
                 </Text>
               ) : null}
 
@@ -237,6 +282,16 @@ export default function HomeScreen() {
                 carbs={data?.carbs_g ?? 0}
                 fat={data?.fat_g ?? 0}
               />
+              {/* Gula total lawan batas ATAS hariannya, bukan target yang dikejar. */}
+              {data ? (
+                <Text
+                  variant="caption"
+                  tone={data.sugar_g > data.targets.sugar_max_g ? 'warning' : 'secondary'}
+                >
+                  Gula {String(data.sugar_g).replace('.', ',')} g dari batas{' '}
+                  {data.targets.sugar_max_g} g per hari
+                </Text>
+              ) : null}
             </View>
           </Card>
 
@@ -286,6 +341,8 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   notice: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  tanya: { gap: spacing.sm },
+  tanyaTombol: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   noticeText: { flex: 1, gap: 2 },
   ringCard: { gap: spacing.xl, alignItems: 'stretch' },
   burnRow: { flexDirection: 'row', alignItems: 'center' },

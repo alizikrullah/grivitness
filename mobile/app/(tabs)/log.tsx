@@ -102,7 +102,13 @@ export default function LogHubScreen() {
       label: 'Kalori jam',
       Icon: WatchIcon,
       color: metricColors.device,
-      status: d?.device_kcal != null ? thousands(d.device_kcal) + ' kkal' : 'Belum dicatat',
+      // Yang dihitung bagian AKTIF-nya, jadi itu yang disebut di sini.
+      status:
+        d?.energy?.device_active_kcal != null
+          ? 'aktif ' + thousands(d.energy.device_active_kcal) + ' kkal'
+          : d?.device_kcal != null
+            ? thousands(d.device_kcal) + ' kkal'
+            : 'Belum dicatat',
       done: d?.device_kcal != null,
     },
     {

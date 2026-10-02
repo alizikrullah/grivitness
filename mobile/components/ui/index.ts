@@ -1,6 +1,7 @@
 export { BalanceChart, type BalanceDatum } from './BalanceChart';
 export { BarChart, type BarDatum } from './BarChart';
 export { Button } from './Button';
+export { Calendar } from './Calendar';
 export { Card } from './Card';
 export { Checkbox } from './Checkbox';
 export { Chip, ChipGroup } from './Chip';
@@ -21,7 +22,7 @@ export {
   Skeleton,
   StatPill,
 } from './Misc';
-export { DateStrip, Stepper } from './Pickers';
+export { Stepper } from './Pickers';
 export { Ring } from './Ring';
 export { ScoreSelector } from './ScoreSelector';
 export { Screen, TAB_BAR_SPACE } from './Screen';
