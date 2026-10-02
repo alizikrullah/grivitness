@@ -213,7 +213,7 @@ export const create = async (userId: string, data: CreateWorkoutDto): Promise<Wo
     load_kg: data.load_kg === undefined ? null : data.load_kg.toFixed(2),
     calories_burned: sumber.calories_burned,
     calories_source: sumber.calories_source,
-    intensity: data.intensity,
+    intensity: data.intensity ?? null,
     tracked_by_device: data.tracked_by_device ?? false,
     notes: data.notes ?? null,
     logged_at: data.logged_at ?? todayInJakarta(),

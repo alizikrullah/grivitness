@@ -9,7 +9,9 @@ import * as foodService from './food.service.js';
 import type {
   CreateFoodDto,
   FoodDateDto,
+  FoodDayStatusDto,
   FoodSuggestionDto,
+  ForgetSuggestionDto,
   UpdateFoodDto,
 } from './food.validation.js';
 
@@ -40,6 +42,16 @@ export const suggestions = async (req: Request, res: Response): Promise<void> =>
   const { q } = getValidatedQuery<FoodSuggestionDto>(res);
 
   sendSuccess(res, await foodService.suggestions(user.id, q ?? ''));
+};
+
+export const forgetSuggestion = async (req: Request, res: Response): Promise<void> => {
+  const user = getAuthUser(req);
+  sendSuccess(res, await foodService.forgetSuggestion(user.id, req.body as ForgetSuggestionDto));
+};
+
+export const setDayStatus = async (req: Request, res: Response): Promise<void> => {
+  const user = getAuthUser(req);
+  sendSuccess(res, await foodService.setDayStatus(user.id, req.body as FoodDayStatusDto));
 };
 
 export const getByDate = async (req: Request, res: Response): Promise<void> => {

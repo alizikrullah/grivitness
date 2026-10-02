@@ -270,6 +270,40 @@ describe('membaca rentang tanggal', () => {
     });
   }
 
+  it('kalender milik B kosong di semua layar, walau A punya data di hari yang sama', async () => {
+    const dari = new Date(new Date(`${hariIni}T00:00:00Z`).getTime() - 30 * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    const jenis = [
+      'food',
+      'water',
+      'workout',
+      'steps',
+      'sleep',
+      'weight',
+      'mood',
+      'body-photo',
+      'device-energy',
+    ];
+
+    // Tanda belum lengkap milik A juga tidak boleh terbaca B.
+    await request(app)
+      .put('/api/food/day-status')
+      .set(sebagai(A))
+      .send({ date: hariIni, status: 'INCOMPLETE' });
+
+    for (const type of jenis) {
+      const res = await request(app)
+        .get('/api/summary/calendar')
+        .set(sebagai(B))
+        .query({ type, from: dari, to: hariIni });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.dates).toEqual([]);
+      expect(res.body.data.incomplete).toEqual([]);
+    }
+  });
+
   it('daftar goal dan custom workout milik B tidak memuat milik A', async () => {
     const [goals, custom] = await Promise.all([
       request(app).get('/api/goals').set(sebagai(B)),
@@ -312,6 +346,12 @@ describe('mengubah dan menghapus dengan id milik user lain', () => {
       isi: { duration_minutes: 15 },
     },
     { nama: 'makanan', jalur: '/api/food', kunci: 'food', isi: { meal_type: 'DINNER' } },
+    {
+      nama: 'Abaikan tanda foto makanan',
+      jalur: '/api/food',
+      kunci: 'food',
+      isi: { dismiss_photo_note: true },
+    },
     { nama: 'tidur', jalur: '/api/sleep', kunci: 'sleep', isi: { quality_score: 3 } },
     { nama: 'goal', jalur: '/api/goals', kunci: 'goal', isi: { target_weight_kg: 65 } },
   ];

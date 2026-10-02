@@ -15,15 +15,11 @@ import type { CreateDeviceEnergyDto } from './device-energy.validation.js';
  * ditambahkan di sini karena kalori aktif memang mengukur pengeluaran di ATAS
  * istirahat, sehingga metabolisme basalnya justru bagian yang belum terhitung.
  *
- * Angka ini MENGGANTIKAN hitungan TDEE hari itu, tidak pernah ditambahkan ke
- * atasnya. Alasannya struktural: jam tangan mengukur seluruh hari, termasuk
- * jalan kaki dan kegiatan di luar olahraga yang sudah dihitung metode faktorial
- * dari step_logs dan activity_level. Menjumlahkan keduanya berarti menghitung
- * jam yang sama dua kali, persis kekeliruan yang membuat rumus lama dibuang.
- *
- * Yang boleh ditambahkan di atasnya hanya olahraga yang TIDAK dilihat jam
- * tangan, misalnya berenang atau sesi yang jamnya kebetulan tidak dipakai.
- * Penandanya ada di workout_logs.tracked_by_device.
+ * Di summary, kalori AKTIF-nya DITAMBAHKAN ke BMR x PAL hari itu, bersama
+ * olahraga yang TIDAK terekam jam (workout_logs.tracked_by_device). Angka
+ * total diubah dulu jadi aktif dengan mengurangkan BMR. Aturan lengkapnya,
+ * dan kenapa versi lama yang memakai angka jam sebagai PENGGANTI rumus
+ * keliru, ada di dailyCaloriesOut (utils/calories.ts).
  */
 
 /**

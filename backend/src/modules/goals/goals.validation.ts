@@ -31,7 +31,11 @@ export const UpdateGoalSchema = z
   .object({
     target_weight_kg: CreateGoalSchema.shape.target_weight_kg.optional(),
     target_date: dateString.optional(),
-    daily_calorie_budget: CreateGoalSchema.shape.daily_calorie_budget,
+    /**
+     * Angka: jatah manual yang dikunci. null: kembali ke jatah otomatis yang
+     * mengikuti berat terbaru. Tidak dikirim: sifat jatahnya tidak berubah.
+     */
+    daily_calorie_budget: CreateGoalSchema.shape.daily_calorie_budget.nullable(),
     is_active: z.boolean().optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {

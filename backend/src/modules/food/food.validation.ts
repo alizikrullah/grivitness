@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { FOOD_UNIT, MEAL_TYPE } from '../../constants/enums.js';
+import { FOOD_DAY_STATUS, FOOD_UNIT, MEAL_TYPE } from '../../constants/enums.js';
 import { dateString } from '../../utils/query.js';
 
 /**
@@ -47,8 +47,22 @@ const FoodItemSchema = z.object({
       protein_g: z.coerce.number().min(0).max(500).optional(),
       carbs_g: z.coerce.number().min(0).max(500).optional(),
       fat_g: z.coerce.number().min(0).max(500).optional(),
+      sugar_g: z.coerce.number().min(0).max(500).optional(),
+    })
+    // Gula bagian dari karbohidrat. Gula yang lebih besar dari karbo pasti
+    // salah baca baris di tabel gizi, jadi ditolak, bukan disimpan.
+    .refine((l) => l.sugar_g === undefined || l.carbs_g === undefined || l.sugar_g <= l.carbs_g, {
+      message: 'Gula tidak mungkin lebih besar dari karbohidrat. Cek lagi angka di kemasan.',
+      path: ['sugar_g'],
     })
     .optional(),
+
+  /**
+   * true kalau item ini dipilih dari saran "Dari catatanmu". HANYA ini yang
+   * membuat ingatan makanan dipakai; nama yang diketik sama persis tetap
+   * ditaksir dari nol. Server tetap mencocokkan ulang nama dan satuannya.
+   */
+  from_memory: z.boolean().optional(),
 });
 
 /**
@@ -90,6 +104,22 @@ export const FoodSuggestionSchema = z.object({
 
 export type FoodSuggestionDto = z.infer<typeof FoodSuggestionSchema>;
 
+/** Tekan lama chip saran, Lupakan. Nama dan satuan persis seperti di saran. */
+export const ForgetSuggestionSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  unit: z.enum(FOOD_UNIT, { message: 'Satuan harus g atau ml' }),
+});
+
+export type ForgetSuggestionDto = z.infer<typeof ForgetSuggestionSchema>;
+
+/** Jawaban "belum lengkap" atau "memang segini" untuk catatan makan satu hari. */
+export const FoodDayStatusSchema = z.object({
+  date: dateString,
+  status: z.enum(FOOD_DAY_STATUS, { message: 'status harus COMPLETE atau INCOMPLETE' }),
+});
+
+export type FoodDayStatusDto = z.infer<typeof FoodDayStatusSchema>;
+
 export const FoodDateSchema = z.object({
   date: dateString.optional(),
 });
@@ -104,7 +134,14 @@ export const FoodDateSchema = z.object({
  * meleset tanpa memanggil model. Menambah makanan yang belum pernah
  * dianalisa tidak bisa lewat sini, itu sesi baru.
  */
-const FoodItemEditSchema = FoodItemSchema;
+const FoodItemEditSchema = FoodItemSchema.extend({
+  /**
+   * Urutan (mulai 0) item ini di catatan yang tersimpan. Supaya menghapus
+   * item di tengah tidak membuat item sesudahnya mewarisi gizi item yang
+   * dihapus. Kosong berarti dicocokkan lewat nama, lalu urutan (client lama).
+   */
+  source_index: z.number().int().min(0).max(19).optional(),
+});
 
 export const UpdateFoodSchema = z
   .object({
@@ -117,6 +154,9 @@ export const UpdateFoodSchema = z
       .min(1, 'Minimal satu makanan')
       .max(20, 'Maksimal 20 makanan dalam satu sesi')
       .optional(),
+
+    /** Tombol Abaikan pada tanda "foto terlihat berbeda". */
+    dismiss_photo_note: z.literal(true).optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: 'Tidak ada field yang diubah',

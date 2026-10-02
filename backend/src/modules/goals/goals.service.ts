@@ -75,6 +75,26 @@ const susunRencana = (
   });
 };
 
+/**
+ * Jatah kalori yang BERLAKU hari ini untuk sebuah goal.
+ *
+ * Jatah manual (diketik user) dikunci: itu keputusannya, mungkin dari dokter
+ * atau pelatih, dan tidak boleh bergeser diam-diam. Jatah otomatis dihitung
+ * ulang dari berat terbaru setiap dibaca. Dulu angka saat goal dibuat dipakai
+ * selamanya, sementara kartu rencana menghitung ulang, sehingga beranda dan
+ * kartu rencana menyebut dua jatah berbeda, dan selisihnya membesar ke arah
+ * jatah kebesaran seiring berat turun.
+ *
+ * Kalau rencana belum bisa disusun (profil belum lengkap), angka tersimpan
+ * yang dipakai sebagai cadangan.
+ */
+export const effectiveBudget = (goal: GoalRecord, p: EnergyProfile): number => {
+  if (goal.budget_manual) return goal.daily_calorie_budget;
+
+  const sisaHari = Math.max(daysBetween(todayInJakarta(), goal.target_date), 0);
+  return susunRencana(goal, p, sisaHari)?.daily_calorie_budget ?? goal.daily_calorie_budget;
+};
+
 const withProgress = (goal: GoalRecord, m: EnergyProfile): GoalWithProgress => {
   const daysRemaining = Math.max(daysBetween(todayInJakarta(), goal.target_date), 0);
   const targetKg = toNumber(goal.target_weight_kg);
@@ -83,6 +103,11 @@ const withProgress = (goal: GoalRecord, m: EnergyProfile): GoalWithProgress => {
 
   return {
     ...goal,
+    // Jatah yang berlaku, bukan angka saat goal dibuat. Untuk jatah otomatis
+    // keduanya bisa berbeda begitu berat turun; layar cukup membaca kolom ini.
+    daily_calorie_budget: goal.budget_manual
+      ? goal.daily_calorie_budget
+      : (rencana?.daily_calorie_budget ?? goal.daily_calorie_budget),
     current_weight_kg: m.hasWeight ? m.weightKg : null,
     remaining_kg: m.hasWeight ? Number((m.weightKg - targetKg).toFixed(2)) : null,
     days_remaining: daysRemaining,
@@ -121,6 +146,9 @@ export const create = async (userId: string, data: CreateGoalDto): Promise<GoalW
     loadEnergyProfile(userId),
   ]);
 
+  // Jatah yang diketik user dikunci; yang kosong jadi jatah otomatis yang
+  // mengikuti berat terbaru. Angka otomatis tetap disimpan sebagai cadangan.
+  const manual = data.daily_calorie_budget !== undefined;
   const budget = data.daily_calorie_budget ?? autoBudget(metrics, data);
 
   const goal = await unitOfWork(async (tx) => {
@@ -134,6 +162,7 @@ export const create = async (userId: string, data: CreateGoalDto): Promise<GoalW
       target_weight_kg: data.target_weight_kg,
       target_date: data.target_date,
       daily_calorie_budget: budget,
+      budget_manual: manual,
       is_active: true,
     });
   });
@@ -150,7 +179,10 @@ export const create = async (userId: string, data: CreateGoalDto): Promise<GoalW
  * budget-nya ditahan di batas aman dan ketidakcocokannya dilaporkan lewat
  * `plan.achievable` beserta tanggal realistisnya.
  */
-const autoBudget = (m: EnergyProfile, data: CreateGoalDto): number => {
+const autoBudget = (
+  m: EnergyProfile,
+  data: Pick<CreateGoalDto, 'target_weight_kg' | 'target_date'>,
+): number => {
   const rencana = susunRencana(
     { target_weight_kg: String(data.target_weight_kg), target_date: data.target_date },
     m,
@@ -181,14 +213,44 @@ export const update = async (
 ): Promise<GoalWithProgress> => {
   const repo = forUser(userId);
 
-  // Melempar NOT_FOUND kalau goal ini bukan milik user tersebut.
-  await repo.findById('goals', goalId);
-
   const perluMenonaktifkanYangLain = data.is_active === true;
 
-  const aktifLain = perluMenonaktifkanYangLain
-    ? await repo.list('goals', { filter: { is_active: { _eq: true }, id: { _neq: goalId } } })
-    : [];
+  // Melempar NOT_FOUND kalau goal ini bukan milik user tersebut.
+  const [lama, aktifLain, metrics] = await Promise.all([
+    repo.findById('goals', goalId),
+    perluMenonaktifkanYangLain
+      ? repo.list('goals', { filter: { is_active: { _eq: true }, id: { _neq: goalId } } })
+      : Promise.resolve([]),
+    loadEnergyProfile(userId),
+  ]);
+
+  const { daily_calorie_budget: jatahBaru, ...sisa } = data;
+  const perubahan: Partial<GoalRecord> = { ...sisa };
+
+  // Angka diketik: jatah manual, dikunci. null: kembali ke otomatis. Tidak
+  // disebut: sifatnya tetap, tapi jatah otomatis dihitung ulang kalau target
+  // atau tanggalnya berubah, supaya angka cadangannya ikut benar.
+  const otomatis = jatahBaru === null || (jatahBaru === undefined && !lama.budget_manual);
+
+  if (typeof jatahBaru === 'number') {
+    perubahan.daily_calorie_budget = jatahBaru;
+    perubahan.budget_manual = true;
+  } else if (otomatis && (jatahBaru === null || data.target_weight_kg || data.target_date)) {
+    // Profil yang belum lengkap tidak boleh membuat koreksi target gagal:
+    // angka tersimpan dipertahankan sebagai cadangan sampai rencananya bisa
+    // disusun.
+    const target = {
+      target_weight_kg: data.target_weight_kg ?? lama.target_weight_kg,
+      target_date: data.target_date ?? lama.target_date,
+    };
+    const rencana = susunRencana(
+      target,
+      metrics,
+      Math.max(daysBetween(todayInJakarta(), target.target_date), 0),
+    );
+    if (rencana) perubahan.daily_calorie_budget = rencana.daily_calorie_budget;
+    perubahan.budget_manual = false;
+  }
 
   const updated = await unitOfWork(async (tx) => {
     const scoped = forUser(userId, tx);
@@ -197,10 +259,8 @@ export const update = async (
       await scoped.update('goals', lain.id, { is_active: false });
     }
 
-    return scoped.update('goals', goalId, data);
+    return scoped.update('goals', goalId, perubahan);
   });
-
-  const metrics = await loadEnergyProfile(userId);
 
   return withProgress(updated, metrics);
 };

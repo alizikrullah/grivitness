@@ -64,17 +64,80 @@ const main = async (): Promise<void> => {
       const d = teks.body.data;
       const a = d.ai_analysis as {
         source: string;
-        items: { name: string; portions: number; amount: number; calories: number }[];
+        items: {
+          name: string;
+          portions: number;
+          amount: number;
+          calories: number;
+          carbs_g: number;
+          sugar_g: number;
+          sugar_source: string | null;
+        }[];
       };
       ok(`sumber ${a.source}, foto_url ${String(d.photo_url)}`);
       for (const item of a.items) {
-        ok(`${item.name}: ${item.portions} porsi, ${item.amount} total, ${item.calories} kkal`);
+        ok(
+          `${item.name}: ${item.portions} porsi, ${item.amount} total, ${item.calories} kkal, karbo ${item.carbs_g} g, gula ${item.sugar_g} g (${String(item.sugar_source)})`,
+        );
+        if (item.sugar_g > item.carbs_g) bad(`${item.name}: gula melebihi karbo`);
       }
-      ok(`total ${d.total_calories} kkal, protein ${d.protein_g} g`);
+      ok(`total ${d.total_calories} kkal, protein ${d.protein_g} g, gula ${d.sugar_g} g`);
 
       const telur = a.items[1];
       if (telur?.amount === 120) ok('2 porsi × 60 g = 120 g, jumlah dari user dihormati');
       else bad(`telur seharusnya 120 g, dapat ${telur?.amount}`);
+
+      // Ganti nama di koreksi = makanan lain: item itu saja yang ditaksir
+      // ulang model teks, item lain tidak tersentuh.
+      write('\nPATCH /api/food/:id ganti nama item pertama (ditaksir ulang)');
+      const sebelum = a.items[0]?.calories;
+      const telurSebelum = a.items[1]?.calories;
+      const ubah = await request(app)
+        .patch(`/api/food/${d.id as string}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          items: [
+            { name: 'Nasi merah', portions: 1, weight: 200, unit: 'g', source_index: 0 },
+            { name: 'Telur balado', portions: 2, weight: 60, unit: 'g', source_index: 1 },
+            { name: 'Teh manis', portions: 1, weight: 250, unit: 'ml', source_index: 2 },
+          ],
+        });
+
+      if (ubah.status !== 200) {
+        bad(`status ${ubah.status}: ${JSON.stringify(ubah.body.error)}`);
+      } else {
+        const b = ubah.body.data.ai_analysis.items as { name: string; calories: number }[];
+        ok(`${b[0]?.name}: ${String(sebelum)} kkal jadi ${String(b[0]?.calories)} kkal`);
+        if (b[1]?.calories === telurSebelum) ok('telur tidak tersentuh');
+        else bad(`telur berubah ${String(telurSebelum)} -> ${String(b[1]?.calories)}`);
+      }
+    }
+
+    write('\nPOST /api/food kemasan tanpa gula (gula diturunkan dari rasio taksiran model)');
+    const biskuat = await request(app)
+      .post('/api/food')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        meal_type: 'SNACK',
+        items: [
+          { name: 'Biskuat cokelat', portions: 1, unit: 'g', label: { kcal: 95, carbs_g: 17 } },
+        ],
+      });
+
+    if (biskuat.status !== 201) {
+      bad(`status ${biskuat.status}: ${JSON.stringify(biskuat.body.error)}`);
+    } else {
+      const item = biskuat.body.data.ai_analysis.items[0] as {
+        calories: number;
+        sugar_g: number;
+        sugar_source: string | null;
+      };
+      ok(
+        `kalori ${item.calories} (kemasan), gula ${item.sugar_g} g (${String(item.sugar_source)})`,
+      );
+      if (item.calories === 95 && item.sugar_g <= 17)
+        ok('kalori dari kemasan, gula tidak melebihi karbo');
+      else bad('kalori atau gula tidak sesuai');
     }
 
     write('\nPOST /api/food tanpa foto dan tanpa berat: harus ditolak');
@@ -117,13 +180,14 @@ const main = async (): Promise<void> => {
           weight_source: string;
           amount: number;
           calories: number;
+          sugar_g: number;
         }[];
       };
       fileTerunggah.push(d.directus_file_id as string);
       ok(`log dibuat, file ${d.directus_file_id}, sumber ${a.source}`);
       for (const item of a.items) {
         ok(
-          `${item.name}: ${item.portions} × ${item.weight_per_portion} (${item.weight_source}) = ${item.amount}, ${item.calories} kkal`,
+          `${item.name}: ${item.portions} × ${item.weight_per_portion} (${item.weight_source}) = ${item.amount}, ${item.calories} kkal, gula ${item.sugar_g} g`,
         );
       }
       ok(

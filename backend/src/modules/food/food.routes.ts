@@ -12,7 +12,9 @@ import * as foodController from './food.controller.js';
 import {
   CreateFoodSchema,
   FoodDateSchema,
+  FoodDayStatusSchema,
   FoodSuggestionSchema,
+  ForgetSuggestionSchema,
   UpdateFoodSchema,
 } from './food.validation.js';
 
@@ -24,6 +26,17 @@ router.get('/today', foodController.getToday);
 // Saran nama dari catatan user sendiri, untuk pelengkap otomatis di form.
 router.get('/suggestions', validateQuery(FoodSuggestionSchema), foodController.suggestions);
 router.get('/', validateQuery(FoodDateSchema), foodController.getByDate);
+
+// Tekan lama chip saran: nama itu berhenti jadi sumber saran dan ingatan.
+router.post(
+  '/suggestions/forget',
+  validateBody(ForgetSuggestionSchema),
+  foodController.forgetSuggestion,
+);
+
+// Jawaban "belum lengkap" atau "memang segini" untuk hari yang makannya di
+// bawah separuh jatah. Hari belum lengkap tidak ikut rata-rata mana pun.
+router.put('/day-status', validateBody(FoodDayStatusSchema), foodController.setDayStatus);
 
 // upload.single dijalankan SEBELUM validateBody. Field non-file di request
 // multipart baru tersedia di req.body setelah Multer selesai mem-parse-nya.

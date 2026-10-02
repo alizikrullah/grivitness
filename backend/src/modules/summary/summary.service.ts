@@ -1,8 +1,12 @@
+import type { FoodDayStatus } from '../../constants/enums.js';
 import { forUser } from '../../data/scoped.js';
 import { loadEnergyProfile } from '../../data/energy-profile.js';
+import { hariBelumLengkap } from '../../data/food-day-status.js';
 import { AppError } from '../../utils/api-error.js';
-import { calculateTDEE } from '../../utils/calories.js';
+import { dailyCaloriesOut } from '../../utils/calories.js';
 import { jakartaDate, todayInJakarta } from '../../utils/daily-key.js';
+import { effectiveBudget } from '../goals/goals.service.js';
+import type { CalendarSection } from './summary.validation.js';
 import { toNumber } from '../../utils/number.js';
 import { dateRangeFilter, timestampDayFilter, timestampRangeFilter } from '../../utils/query.js';
 import { type DailyTargets, dailyTargets } from '../../utils/targets.js';
@@ -14,16 +18,22 @@ import { type DailyTargets, dailyTargets } from '../../utils/targets.js';
  * harus dipercaya begitu saja.
  */
 export interface EnergyBreakdown {
-  /** Physical Activity Level hari itu, hasil membagi habis 24 jam. */
+  /** Physical Activity Level hari itu: kalori keluar dibagi BMR. */
   pal: number;
   /**
-   * Metabolisme basal dikali PAL: hidup, kegiatan sehari-hari, dan jalan-jalan
+   * Metabolisme basal dikali PAL partisi: hidup, pekerjaan, dan jalan-jalan
    * kecil sepanjang hari. Langkah tidak dirinci terpisah karena memang tidak
    * dihitung terpisah, lihat catatan LANGKAH di utils/calories.ts.
    */
   baseline: number;
-  /** Kalori bersih dari olahraga tercatat. */
+  /**
+   * Kalori bersih olahraga yang ikut dijumlahkan. Tanpa angka jam: semua
+   * olahraga. Dengan angka jam: hanya yang tidak terekam jam, karena yang
+   * terekam sudah ada di kalori aktif jam.
+   */
   workout_calories: number;
+  /** Kalori aktif jam tangan yang dijumlahkan. Null kalau hari itu tanpa angka jam. */
+  device_active_kcal: number | null;
 }
 
 export interface DailySummary {
@@ -32,18 +42,14 @@ export interface DailySummary {
   calories_in: number;
   calories_out: number;
   /**
-   * Kalori keluar menurut smartwatch, kalau user mencatatnya hari itu.
-   *
-   * Disertakan terpisah supaya layar bisa menyebut angkanya apa adanya dan user
-   * bisa membandingkannya dengan hitungan rumus, bukan cuma melihat satu angka
-   * tanpa tahu dari mana asalnya.
+   * Angka TOTAL smartwatch hari itu apa adanya, kalau user mencatatnya.
+   * Sekadar keterangan; yang masuk hitungan adalah kalori aktifnya, lihat
+   * energy.device_active_kcal.
    */
   device_kcal: number | null;
   /**
-   * Dari mana calories_out diambil hari itu.
-   *
-   * "device" berarti angka smartwatch yang dipakai, ditambah olahraga yang
-   * jamnya tidak melihat. "formula" berarti metode faktorial biasa.
+   * "device" berarti kalori aktif jam ikut dijumlahkan hari itu (BMR x PAL +
+   * aktif jam + olahraga tanpa jam). "formula" berarti tanpa angka jam.
    */
   calories_out_source: 'formula' | 'device';
   calorie_budget: number | null;
@@ -54,6 +60,16 @@ export interface DailySummary {
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  /** Gula total dari semua catatan makan hari itu, gram. */
+  sugar_g: number;
+  /** Jawaban user soal lengkap tidaknya catatan makan hari itu, null kalau belum ditanya. */
+  food_day_status: FoodDayStatus | null;
+  /**
+   * true kalau hari itu sudah lewat, ada catatan makan, tapi totalnya di bawah
+   * separuh jatah. Layar menanyakan "belum lengkap atau memang segini" kalau
+   * food_day_status masih null.
+   */
+  food_low: boolean;
   steps: number;
   water_ml: number;
   sleep_minutes: number;
@@ -85,8 +101,8 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
   const hari = { logged_at: { _eq: date } };
   const hariTimestamp = timestampDayFilter(date);
 
-  // Tiga belas query yang tidak saling bergantung. Berurutan berarti menumpuk
-  // tiga belas kali latensi HTTP ke Directus; paralel cuma selama yang paling
+  // Belasan query yang tidak saling bergantung. Berurutan berarti menumpuk
+  // latensi HTTP ke Directus sebanyak itu; paralel cuma selama yang paling
   // lambat. Ini alasan CLAUDE.md section 4 mewajibkan Promise.all.
   const [
     metrics,
@@ -105,6 +121,8 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
     fotoBadan,
     deviceLog,
     workoutKaloriLuarDevice,
+    gula,
+    statusMakan,
   ] = await Promise.all([
     loadEnergyProfile(userId),
     repo.findOne('weight_logs', { filter: hari }),
@@ -128,11 +146,14 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
       logged_at: { _eq: date },
       _or: [{ tracked_by_device: { _eq: false } }, { tracked_by_device: { _null: true } }],
     }),
+    repo.sum('food_logs', 'sugar_g', hariTimestamp),
+    repo.findOne('food_day_status', { filter: hari }),
   ]);
 
   const weightKg = weightLog ? toNumber(weightLog.weight_kg) : null;
   const langkah = stepLog?.steps ?? 0;
-  const budget = goal?.daily_calorie_budget ?? null;
+  // Jatah yang berlaku hari ini: otomatis mengikuti berat terbaru, manual dikunci.
+  const budget = goal ? effectiveBudget(goal, metrics) : null;
 
   /**
    * Berat yang dipakai berhitung: yang tercatat hari itu kalau ada, kalau tidak
@@ -142,78 +163,60 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
   const beratHitung = weightKg ?? metrics.weightKg;
 
   /**
-   * Pengeluaran energi lewat metode faktorial: 24 jam dibagi habis antara
-   * tidur, olahraga, dan sisa hari.
+   * Kalori keluar lewat metode faktorial, dengan angka jam tangan DITAMBAHKAN
+   * kalau ada. Aturannya ditulis sekali di dailyCaloriesOut (utils/calories.ts)
+   * supaya beranda, riwayat, dan chat tidak pernah menyebut dua angka berbeda
+   * untuk hari yang sama.
    *
-   * Rumus lama `TDEE + olahraga + langkah` menjumlahkan tiga hal yang saling
-   * menabrak, pengali aktivitas mendeskripsikan seluruh hari, jadi apa pun yang
-   * ditambahkan sesudahnya menghitung ulang jam yang sama. Efeknya defisit
-   * terlihat lebih besar daripada kenyataan.
-   *
-   * Langkah sengaja TIDAK dikirim ke sini. Jalan kaki yang dicatat sebagai
+   * Langkah sengaja TIDAK dikirim ke sana. Jalan kaki yang dicatat sebagai
    * olahraga juga terhitung pedometer, jadi memasukkan keduanya membayar jalan
    * yang sama dua kali. Langkah tetap ditampilkan sebagai pantauan di bawah.
-   */
-  const energi =
-    metrics.bmr === null
-      ? null
-      : calculateTDEE({
-          bmr: metrics.bmr,
-          activityLevel: metrics.activityLevel,
-          sleepMinutes: tidur > 0 ? tidur : null,
-          workoutMinutes: workoutMenit,
-          workoutCalories: workoutKalori,
-        });
-
-  const kaloriDevice = deviceLog?.total_kcal ?? null;
-
-  /**
-   * Kalori keluar hari itu, dengan angka smartwatch MENGGANTIKAN rumus.
-   *
-   * Bukan ditambahkan. Jam tangan mengukur semua jam ia dipakai: jalan kaki dan
-   * kegiatan di luar olahraga sudah ada di dalamnya, dan keduanya juga sudah
-   * terwakili di PAR pekerjaan pada metode faktorial. Menjumlahkan keduanya
-   * berarti menghitung jam yang sama dua kali, kekeliruan yang persis sama
-   * dengan rumus lama TDEE + olahraga + langkah yang sudah dibuang.
-   *
-   * Yang ditambahkan di atasnya hanya olahraga yang TIDAK dilihat jam tangan,
-   * ditandai tracked_by_device = false, misalnya berenang. Olahraga yang
-   * ditandai terekam jam TIDAK ditambahkan, karena sudah ada di dalam angka
-   * aktif perangkat. Tanda itu cuma berarti sesuatu kalau angka perangkatnya
-   * ada: di hari tanpa angka perangkat, semua olahraga ikut dihitung lewat
-   * cabang rumus di atas, jadi sesi yang ditandai tidak pernah hilang.
    *
    * Ini TIDAK menyentuh jatah kalori harian. Budget datang dari baselineTDEE()
    * dan sengaja stabil, supaya user tahu berapa yang boleh dimakan sejak pagi
    * dan bukan baru setelah harinya berakhir.
    */
-  const kaloriKeluar =
-    kaloriDevice === null
-      ? // Tanpa profil, metabolisme tidak bisa dihitung dan yang tersisa cuma
-        // kalori olahraga. Angkanya jadi jauh lebih kecil dari kenyataan, tapi
-        // itu lebih jujur daripada menebak metabolisme basal user.
-        (energi?.tdee ?? workoutKalori)
-      : kaloriDevice + workoutKaloriLuarDevice;
+  const keluar = dailyCaloriesOut({
+    bmr: metrics.bmr,
+    activityLevel: metrics.activityLevel,
+    sleepMinutes: tidur > 0 ? tidur : null,
+    workoutMinutes: workoutMenit,
+    workoutCalories: workoutKalori,
+    untrackedWorkoutCalories: workoutKaloriLuarDevice,
+    device: deviceLog,
+  });
+
+  const kaloriDevice = deviceLog?.total_kcal ?? null;
+
+  // Pertanyaan "belum lengkap?" cuma masuk akal untuk hari yang sudah lewat:
+  // jam sepuluh pagi, separuh jatah memang belum termakan.
+  const makanRendah =
+    date < todayInJakarta() && budget !== null && kaloriMasuk > 0 && kaloriMasuk < budget / 2;
 
   return {
     date,
     weight_kg: weightKg,
     calories_in: kaloriMasuk,
-    calories_out: kaloriKeluar,
+    calories_out: keluar.calories_out,
     device_kcal: kaloriDevice,
-    calories_out_source: kaloriDevice === null ? 'formula' : 'device',
+    calories_out_source: keluar.source,
     calorie_budget: budget,
     calories_remaining: budget === null ? null : budget - kaloriMasuk,
-    energy: energi
-      ? {
-          pal: energi.pal,
-          baseline: energi.baseline,
-          workout_calories: energi.workout_calories,
-        }
-      : null,
+    energy:
+      keluar.baseline === null || keluar.pal === null
+        ? null
+        : {
+            pal: keluar.pal,
+            baseline: keluar.baseline,
+            workout_calories: keluar.workout_calories,
+            device_active_kcal: keluar.device_active_kcal,
+          },
     protein_g: protein,
     carbs_g: karbo,
     fat_g: lemak,
+    sugar_g: Math.round(gula * 10) / 10,
+    food_day_status: statusMakan?.status ?? null,
+    food_low: makanRendah,
     steps: langkah,
     water_ml: air,
     sleep_minutes: tidur,
@@ -227,7 +230,9 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
       age: metrics.age,
       gender: metrics.gender,
       calorieBudget: budget,
-      isDeficit: budget !== null && energi !== null && budget < energi.tdee,
+      // Defisit dibandingkan dengan TDEE hari biasa, bukan keluar hari ini:
+      // target protein tidak boleh berayun mengikuti olahraga hari itu.
+      isDeficit: budget !== null && metrics.baselineTdee !== null && budget < metrics.baselineTdee,
       workoutMinutes: workoutMenit,
       customStepTarget: metrics.stepTarget,
     }),
@@ -250,7 +255,10 @@ export interface PeriodSummary {
    * pembaginya ikut dikirim supaya layar bisa menulis "dari N hari tercatat".
    */
   avg_calories_in: number;
+  /** Hari WIB yang makannya tercatat DAN tidak ditandai belum lengkap. */
   food_days: number;
+  /** Hari yang ditandai user belum lengkap, tidak ikut rata-rata kalori masuk. */
+  food_days_incomplete: number;
   total_steps: number;
   avg_steps: number;
   step_days: number;
@@ -303,6 +311,7 @@ const getPeriod = async (userId: string, from: string, to: string): Promise<Peri
     hariLangkah,
     hariTidur,
     catatanMakan,
+    belumLengkap,
   ] = await Promise.all([
     repo.findOne('weight_logs', { filter: filterTanggal, sort: ['logged_at'] }),
     repo.findOne('weight_logs', { filter: filterTanggal, sort: ['-logged_at'] }),
@@ -319,10 +328,25 @@ const getPeriod = async (userId: string, from: string, to: string): Promise<Peri
     repo.count('sleep_logs', filterTanggal),
     // Sesi makan bisa beberapa kali sehari, jadi yang dihitung hari WIB yang
     // berbeda, bukan jumlah barisnya.
-    repo.list('food_logs', { filter: filterTimestamp, fields: ['logged_at'], limit: -1 }),
+    repo.list('food_logs', {
+      filter: filterTimestamp,
+      fields: ['logged_at', 'total_calories'],
+      limit: -1,
+    }),
+    hariBelumLengkap(userId, range),
   ]);
 
-  const hariMakan = new Set(catatanMakan.map((c) => jakartaDate(c.logged_at))).size;
+  // Rata-rata kalori masuk dari hari yang tercatat DAN tidak ditandai belum
+  // lengkap. Hari yang user akui ada yang lupa dicatat bukan hari makan
+  // sedikit, dan merata-ratakannya menurunkan angka ke arah yang berbahaya.
+  const masukPerHari = new Map<string, number>();
+  for (const c of catatanMakan) {
+    const tanggal = jakartaDate(c.logged_at);
+    masukPerHari.set(tanggal, (masukPerHari.get(tanggal) ?? 0) + c.total_calories);
+  }
+  const hariLengkap = [...masukPerHari.entries()].filter(([t]) => !belumLengkap.has(t));
+  const hariMakan = hariLengkap.length;
+  const kaloriLengkap = hariLengkap.reduce((total, [, k]) => total + k, 0);
 
   const hari =
     Math.round(
@@ -341,8 +365,9 @@ const getPeriod = async (userId: string, from: string, to: string): Promise<Peri
     weight_end: akhir,
     weight_change_kg: awal === null || akhir === null ? null : Number((akhir - awal).toFixed(2)),
     total_calories_in: kalori,
-    avg_calories_in: rata(kalori, hariMakan),
+    avg_calories_in: rata(kaloriLengkap, hariMakan),
     food_days: hariMakan,
+    food_days_incomplete: masukPerHari.size - hariMakan,
     total_steps: langkah,
     avg_steps: rata(langkah, hariLangkah),
     step_days: hariLangkah,
@@ -405,15 +430,22 @@ export interface HistoryDay {
   balance: number;
   /** Ada catatan makan hari itu. Tanpa ini, defisitnya semu: bukan tidak makan, tapi tidak mencatat. */
   logged: boolean;
+  /**
+   * User menandai catatan makan hari itu belum lengkap. Tetap ditampilkan,
+   * tapi seperti hari tanpa catatan, TIDAK ikut rata-rata.
+   */
+  incomplete: boolean;
 }
 
 export interface HistorySummary {
   from: string;
   to: string;
   days: HistoryDay[];
-  /** Dihitung HANYA dari hari yang tercatat makannya. */
+  /** Dihitung HANYA dari hari yang tercatat makannya dan tidak ditandai belum lengkap. */
   summary: {
     days_logged: number;
+    /** Hari bercatatan yang ditandai belum lengkap, dikeluarkan dari rata-rata. */
+    days_incomplete: number;
     avg_calories_in: number;
     avg_calories_out: number;
     avg_balance: number;
@@ -429,22 +461,24 @@ export interface HistorySummary {
  * memanggil getDaily() per hari: 30 hari x 13 query adalah 390 round-trip ke
  * Directus, dan halaman ini dibuka untuk dilihat sekilas.
  *
- * Kalori keluar dihitung dengan aturan yang sama persis dengan getDaily():
- * angka jam tangan MENGGANTIKAN rumus dan hanya olahraga tanpa jam yang
- * ditambahkan; tanpa angka jam, metode faktorial dari tidur dan olahraga
- * hari itu. Bedanya cuma BMR-nya memakai berat terakhir untuk semua hari,
- * bukan berat pada hari itu, karena menarik berat per hari untuk 30 hari
- * demi selisih beberapa kalori tidak sepadan.
+ * Kalori keluar dihitung lewat dailyCaloriesOut(), fungsi yang sama dengan
+ * getDaily(): BMR x PAL dari tidur dan olahraga hari itu, ditambah semua
+ * olahraga, atau ditambah kalori aktif jam dan olahraga yang tidak terekam
+ * jam kalau angka jamnya ada. Bedanya cuma BMR-nya memakai berat terakhir
+ * untuk semua hari, bukan berat pada hari itu, karena menarik berat per hari
+ * untuk 30 hari demi selisih beberapa kalori tidak sepadan.
  *
- * Jatah yang ditampilkan adalah jatah SEKARANG. Jatah tidak disimpan per
- * hari, jadi hari-hari sebelum jatah berubah tampak dibandingkan dengan
- * angka yang saat itu belum berlaku. Balance-nya sendiri tidak terpengaruh,
- * itu murni keluar dikurangi masuk.
+ * Jatah yang ditampilkan adalah jatah yang berlaku SEKARANG. Jatah tidak
+ * disimpan per hari, jadi hari-hari sebelum jatah berubah tampak dibandingkan
+ * dengan angka yang saat itu belum berlaku. Balance-nya sendiri tidak
+ * terpengaruh, itu murni keluar dikurangi masuk.
  *
  * Hari tanpa catatan makan ditandai, bukan dibuang, dan TIDAK ikut rata-rata.
  * Nol kalori masuk pada hari yang tidak dicatat bukan defisit, cuma lupa
  * membuka aplikasi, dan merata-ratakannya membuat defisitnya tampak jauh lebih
  * besar dari kenyataan, persis arah kesalahan yang paling berbahaya di sini.
+ * Hari yang user tandai "belum lengkap" diperlakukan sama, dengan alasan yang
+ * sama: separuh catatan bukan separuh makan.
  */
 export const getHistory = async (userId: string, days: number): Promise<HistorySummary> => {
   const repo = forUser(userId);
@@ -452,7 +486,7 @@ export const getHistory = async (userId: string, days: number): Promise<HistoryS
   const from = geserHari(to, -(days - 1));
   const range = { from, to };
 
-  const [metrics, goal, makanan, olahraga, tidur, perangkat] = await Promise.all([
+  const [metrics, goal, makanan, olahraga, tidur, perangkat, belumLengkap] = await Promise.all([
     loadEnergyProfile(userId),
     repo.findOne('goals', { filter: { is_active: { _eq: true } } }),
     repo.list('food_logs', {
@@ -472,9 +506,10 @@ export const getHistory = async (userId: string, days: number): Promise<HistoryS
     }),
     repo.list('device_energy_logs', {
       filter: dateRangeFilter(range),
-      fields: ['logged_at', 'total_kcal'],
+      fields: ['logged_at', 'total_kcal', 'active_kcal'],
       limit: -1,
     }),
+    hariBelumLengkap(userId, range),
   ]);
 
   interface Harian {
@@ -484,7 +519,7 @@ export const getHistory = async (userId: string, days: number): Promise<HistoryS
     menitOlahraga: number;
     kaloriOlahraga: number;
     kaloriOlahragaTanpaJam: number;
-    perangkat: number | null;
+    perangkat: { total_kcal: number; active_kcal: number | null } | null;
   }
 
   const perHari = new Map<string, Harian>();
@@ -520,41 +555,40 @@ export const getHistory = async (userId: string, days: number): Promise<HistoryS
     if (o.tracked_by_device !== true) h.kaloriOlahragaTanpaJam += o.calories_burned;
   }
   for (const t of tidur) ambil(t.logged_at).tidur += t.duration_minutes;
-  for (const p of perangkat) ambil(p.logged_at).perangkat = p.total_kcal;
+  for (const p of perangkat) {
+    ambil(p.logged_at).perangkat = { total_kcal: p.total_kcal, active_kcal: p.active_kcal };
+  }
 
-  const budget = goal?.daily_calorie_budget ?? null;
+  const budget = goal ? effectiveBudget(goal, metrics) : null;
 
   const hasil: HistoryDay[] = [];
   for (let i = 0; i < days; i++) {
     const tanggal = geserHari(from, i);
     const h = ambil(tanggal);
 
-    const rumus =
-      metrics.bmr === null
-        ? null
-        : calculateTDEE({
-            bmr: metrics.bmr,
-            activityLevel: metrics.activityLevel,
-            sleepMinutes: h.tidur > 0 ? h.tidur : null,
-            workoutMinutes: h.menitOlahraga,
-            workoutCalories: h.kaloriOlahraga,
-          }).tdee;
-
-    const keluar =
-      h.perangkat === null ? (rumus ?? h.kaloriOlahraga) : h.perangkat + h.kaloriOlahragaTanpaJam;
+    const keluar = dailyCaloriesOut({
+      bmr: metrics.bmr,
+      activityLevel: metrics.activityLevel,
+      sleepMinutes: h.tidur > 0 ? h.tidur : null,
+      workoutMinutes: h.menitOlahraga,
+      workoutCalories: h.kaloriOlahraga,
+      untrackedWorkoutCalories: h.kaloriOlahragaTanpaJam,
+      device: h.perangkat,
+    });
 
     hasil.push({
       date: tanggal,
       calories_in: Math.round(h.masuk),
-      calories_out: Math.round(keluar),
-      calories_out_source: h.perangkat === null ? 'formula' : 'device',
+      calories_out: Math.round(keluar.calories_out),
+      calories_out_source: keluar.source,
       calorie_budget: budget,
-      balance: Math.round(keluar - h.masuk),
+      balance: Math.round(keluar.calories_out - h.masuk),
       logged: h.adaMakan,
+      incomplete: h.adaMakan && belumLengkap.has(tanggal),
     });
   }
 
-  const tercatat = hasil.filter((d) => d.logged);
+  const tercatat = hasil.filter((d) => d.logged && !d.incomplete);
   const n = tercatat.length;
   const jumlah = (ambilNilai: (d: HistoryDay) => number) =>
     tercatat.reduce((total, d) => total + ambilNilai(d), 0);
@@ -565,10 +599,95 @@ export const getHistory = async (userId: string, days: number): Promise<HistoryS
     days: hasil,
     summary: {
       days_logged: n,
+      days_incomplete: hasil.filter((d) => d.incomplete).length,
       avg_calories_in: n === 0 ? 0 : Math.round(jumlah((d) => d.calories_in) / n),
       avg_calories_out: n === 0 ? 0 : Math.round(jumlah((d) => d.calories_out) / n),
       avg_balance: n === 0 ? 0 : Math.round(jumlah((d) => d.balance) / n),
       deficit_days: tercatat.filter((d) => d.balance > 0).length,
     },
   };
+};
+
+// ============================================================
+// KALENDER: TANGGAL YANG ADA DATANYA PER LAYAR
+// ============================================================
+
+export interface CalendarDays {
+  from: string;
+  to: string;
+  /** Tanggal yang punya data untuk layar itu. Hari tanpa data sengaja tidak ditandai. */
+  dates: string[];
+  /** Khusus makanan: tanggal yang ditandai user belum lengkap. Kosong untuk layar lain. */
+  incomplete: string[];
+}
+
+type KoleksiTanggal =
+  | 'workout_logs'
+  | 'step_logs'
+  | 'sleep_logs'
+  | 'weight_logs'
+  | 'mood_logs'
+  | 'body_photos'
+  | 'body_measurements'
+  | 'device_energy_logs';
+
+/** Layar dengan kolom `date`: cukup daftar logged_at. */
+const KOLEKSI_TANGGAL: Partial<Record<CalendarSection, KoleksiTanggal[]>> = {
+  workout: ['workout_logs'],
+  steps: ['step_logs'],
+  sleep: ['sleep_logs'],
+  weight: ['weight_logs'],
+  mood: ['mood_logs'],
+  // Layar foto badan juga tempat mencatat lingkar pinggang.
+  'body-photo': ['body_photos', 'body_measurements'],
+  'device-energy': ['device_energy_logs'],
+};
+
+/**
+ * Tanggal yang ada datanya untuk SATU layar catat, supaya kalender bisa
+ * menandainya dan user tahu hari mana yang terlewat. Layar makanan menandai
+ * hari bercatatan makan, layar tidur hari bercatatan tidur, dan seterusnya;
+ * data layar lain tidak ikut.
+ *
+ * Makanan dan minum dikelompokkan menurut tanggal WIB dari timestamp-nya,
+ * sama seperti summary harian, supaya titik di kalender jatuh di hari yang
+ * sama dengan angka di layarnya.
+ */
+export const getCalendar = async (
+  userId: string,
+  type: CalendarSection,
+  from: string,
+  to: string,
+): Promise<CalendarDays> => {
+  const repo = forUser(userId);
+  const range = { from, to };
+
+  if (type === 'food' || type === 'water') {
+    const koleksi = type === 'food' ? 'food_logs' : 'water_logs';
+    const [baris, belumLengkap] = await Promise.all([
+      repo.list(koleksi, {
+        filter: timestampRangeFilter(range),
+        fields: ['logged_at'],
+        limit: -1,
+      }),
+      type === 'food' ? hariBelumLengkap(userId, range) : Promise.resolve(new Set<string>()),
+    ]);
+
+    const tanggal = new Set(baris.map((b) => jakartaDate(b.logged_at)));
+    return {
+      from,
+      to,
+      dates: [...tanggal].sort(),
+      incomplete: [...belumLengkap].filter((t) => tanggal.has(t)).sort(),
+    };
+  }
+
+  const daftar = await Promise.all(
+    (KOLEKSI_TANGGAL[type] ?? []).map((koleksi) =>
+      repo.list(koleksi, { filter: dateRangeFilter(range), fields: ['logged_at'], limit: -1 }),
+    ),
+  );
+
+  const tanggal = new Set(daftar.flat().map((b) => b.logged_at));
+  return { from, to, dates: [...tanggal].sort(), incomplete: [] };
 };

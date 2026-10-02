@@ -94,8 +94,16 @@ export interface GoalRecord {
   user_id: string;
   target_weight_kg: DecimalString;
   target_date: DateString;
-  /** Dihitung dari TDEE dikurangi defisit, bisa di-override manual */
+  /**
+   * Jatah saat goal dibuat atau diubah. Untuk jatah otomatis ini cuma cadangan: yang dipakai
+   * dihitung ulang dari berat terbaru setiap dibaca. Untuk jatah manual inilah angkanya.
+   */
   daily_calorie_budget: number;
+  /**
+   * true kalau jatah diisi user sendiri, dan karena itu DIKUNCI: tidak ikut berubah saat
+   * berat turun. false berarti jatah otomatis yang mengikuti berat terbaru.
+   */
+  budget_manual: boolean;
   /** Hanya satu goal aktif per user */
   is_active: boolean;
   /** Diisi otomatis oleh Directus saat item dibuat */
@@ -168,6 +176,11 @@ export interface FoodLogRecord {
   protein_g: DecimalString;
   carbs_g: DecimalString;
   fat_g: DecimalString;
+  /**
+   * Jumlah gula semua item dalam gram, dihitung backend. Gula total seperti di label
+   * kemasan, termasuk gula alami.
+   */
+  sugar_g: DecimalString | null;
   /** Pakai timestamp, bukan date, supaya urutan makan dalam sehari bisa di-sort */
   logged_at: TimestampString;
   /** Diisi otomatis oleh Directus saat item dibuat */
@@ -214,7 +227,11 @@ export interface WorkoutLogRecord {
    * berat berubah.
    */
   calories_source: 'MET' | 'MANUAL';
-  intensity: WorkoutIntensity;
+  /**
+   * Tidak dipakai hitungan apa pun dan tidak lagi ditanyakan form. Terisi hanya di baris
+   * lama.
+   */
+  intensity: WorkoutIntensity | null;
   /**
    * true kalau sesi ini SUDAH ikut terhitung di angka device_energy_logs hari itu. Dipakai
    * supaya kalorinya tidak dihitung dua kali.
@@ -391,6 +408,56 @@ export interface MoodLogRecord {
 }
 
 /**
+ * Jawaban user apakah catatan makan satu hari sudah lengkap. Satu baris per user per hari.
+ * Hari INCOMPLETE tidak ikut rata-rata mana pun.
+ */
+export interface FoodDayStatusRecord {
+  id: string;
+  /** Pemilik data ini */
+  user_id: string;
+  /**
+   * COMPLETE: memang segitu makannya. INCOMPLETE: ada yang lupa dicatat, jadi hari ini
+   * dikeluarkan dari rata-rata dan dari TDEE terukur.
+   */
+  status: 'COMPLETE' | 'INCOMPLETE';
+  /** Tanggal log dalam format YYYY-MM-DD */
+  logged_at: DateString;
+  /**
+   * Kunci unik "{user_id}:{YYYY-MM-DD}". Pengganti composite unique yang tidak didukung
+   * Directus. Diisi backend, jangan diedit manual.
+   */
+  user_date_key: string;
+  /** Diisi otomatis oleh Directus saat item dibuat */
+  created_at: TimestampString | null;
+  /** Diisi otomatis oleh Directus setiap item diubah */
+  updated_at: TimestampString | null;
+}
+
+/**
+ * Nama makanan yang diminta user dilupakan dari ingatan makanan. Catatan yang dibuat
+ * sebelum forgotten_at tidak lagi jadi sumber saran.
+ */
+export interface FoodMemoryForgetRecord {
+  id: string;
+  /** Pemilik data ini */
+  user_id: string;
+  /**
+   * Nama yang dinormalisasi, lalu "|" dan satuannya, mis. "nasi putih|g". Sama dengan kunci
+   * di food-memory.ts.
+   */
+  memory_key: string;
+  /** "{user_id}:{memory_key}". Satu baris per nama, diperbarui kalau dilupakan lagi. */
+  user_key: string;
+  /**
+   * Catatan yang DIBUAT sebelum waktu ini diabaikan saat menyusun ingatan. Catatan
+   * sesudahnya membangun ingatan dari nol.
+   */
+  forgotten_at: TimestampString;
+  /** Diisi otomatis oleh Directus saat item dibuat */
+  created_at: TimestampString | null;
+}
+
+/**
  * Riwayat percakapan dengan asisten AI. Satu percakapan berjalan per user, diurutkan
  * menurut created_at.
  */
@@ -515,6 +582,8 @@ export type UserOwnedCollection =
   | 'body_measurements'
   | 'body_comparisons'
   | 'mood_logs'
+  | 'food_day_status'
+  | 'food_memory_forgets'
   | 'chat_messages'
   | 'streaks'
   | 'notification_settings'
@@ -537,6 +606,8 @@ export interface DirectusSchema {
   body_measurements: BodyMeasurementRecord[];
   body_comparisons: BodyComparisonRecord[];
   mood_logs: MoodLogRecord[];
+  food_day_status: FoodDayStatusRecord[];
+  food_memory_forgets: FoodMemoryForgetRecord[];
   chat_messages: ChatMessageRecord[];
   streaks: StreakRecord[];
   notification_settings: NotificationSettingsRecord[];

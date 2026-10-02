@@ -40,6 +40,17 @@ export const MEAL_TYPE = ['BREAKFAST', 'LUNCH', 'DINNER', 'SNACK'] as const;
 export type MealType = (typeof MEAL_TYPE)[number];
 
 /**
+ * Jawaban user saat catatan makan satu hari jauh di bawah jatahnya.
+ *
+ * COMPLETE    memang segitu makannya, hari itu dihitung seperti biasa
+ * INCOMPLETE  ada yang lupa dicatat; hari itu dikeluarkan dari rata-rata
+ *             riwayat, chat, dan TDEE terukur, karena nol kalori yang tidak
+ *             dicatat bukan defisit
+ */
+export const FOOD_DAY_STATUS = ['COMPLETE', 'INCOMPLETE'] as const;
+export type FoodDayStatus = (typeof FOOD_DAY_STATUS)[number];
+
+/**
  * Satuan berat atau volume satu porsi makanan.
  *
  * Minuman ditakar dalam ml, dan model diminta nilai gizi per 100 ml untuk

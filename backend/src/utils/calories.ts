@@ -286,6 +286,134 @@ export const calculateTDEE = (input: TdeeInput): TdeeBreakdown => {
   };
 };
 
+// ============================================================
+// KALORI KELUAR HARIAN, DENGAN ATAU TANPA JAM TANGAN
+// ============================================================
+
+/** Angka jam tangan satu hari, seperti tersimpan di device_energy_logs. */
+export interface DeviceEnergy {
+  total_kcal: number;
+  /** Null kalau yang dimasukkan user angka total, bukan kalori aktif. */
+  active_kcal: number | null;
+}
+
+/**
+ * Kalori AKTIF jam tangan hari itu.
+ *
+ * Kalau user memasukkan kalori aktif, itu yang dipakai. Kalau yang dimasukkan
+ * angka total, BMR dikurangkan dulu: angka total jam adalah istirahat (taksiran
+ * BMR versi jam) ditambah aktif, dan istirahatnya sudah ditanggung BMR x PAL di
+ * rumus. Tidak pernah negatif.
+ */
+export const activeKcalFromDevice = (device: DeviceEnergy, bmr: number): number =>
+  Math.max(Math.round(device.active_kcal ?? device.total_kcal - bmr), 0);
+
+export interface DailyOutInput {
+  /** Null selama profil belum diisi atau user belum pernah menimbang. */
+  bmr: number | null;
+  activityLevel: ActivityLevel;
+  /** Menit tidur tercatat. Null berarti belum dicatat, dipakai asumsi 8 jam. */
+  sleepMinutes: number | null;
+  /** Menit gerak SEMUA olahraga hari itu, terekam jam atau tidak. */
+  workoutMinutes: number;
+  /** Kalori bersih SEMUA olahraga hari itu. */
+  workoutCalories: number;
+  /** Kalori bersih olahraga yang TIDAK dicentang "terekam jam tangan". */
+  untrackedWorkoutCalories: number;
+  /** Angka jam tangan hari itu, null kalau tidak dicatat. */
+  device: DeviceEnergy | null;
+}
+
+export interface DailyOut {
+  calories_out: number;
+  source: 'formula' | 'device';
+  /** calories_out dibagi BMR. Null kalau BMR belum bisa dihitung. */
+  pal: number | null;
+  /** BMR x PAL partisi: hidup, pekerjaan, dan gerak kecil sepanjang hari. */
+  baseline: number | null;
+  /**
+   * Kalori olahraga yang BENAR-BENAR dijumlahkan: semua olahraga kalau tanpa
+   * angka jam, cuma yang tidak terekam jam kalau ada angka jam.
+   */
+  workout_calories: number;
+  /** Kalori aktif jam yang dijumlahkan. Null kalau hari itu tanpa angka jam. */
+  device_active_kcal: number | null;
+}
+
+/**
+ * Kalori keluar satu hari. SATU-SATUNYA tempat aturan ini ditulis; beranda,
+ * riwayat kalori, rekap, dan chat semuanya lewat sini.
+ *
+ *   Tanpa angka jam : BMR x PAL + semua olahraga
+ *   Ada angka jam   : BMR x PAL + kalori aktif jam + olahraga yang tidak terekam jam
+ *
+ * Angka jam tangan DITAMBAHKAN, bukan menggantikan rumus. Versi lama memakai
+ * angka total jam sebagai pengganti seluruh hitungan, dan itu keliru: jam
+ * cuma melihat gerak saat dipakai, jadi hari jamnya dilepas jatuh ke sekitar
+ * BMR, dan bagian istirahatnya memakai taksiran jam sendiri. Di sini
+ * istirahat dan pekerjaan tetap dari BMR x PAL, jam menyumbang gerak yang dia
+ * ukur.
+ *
+ * Olahraga yang dicentang "terekam jam tangan" tidak ditambahkan lagi, karena
+ * kalorinya sudah ada di dalam angka aktif jam. Menitnya tetap dihitung PAR
+ * 1,0 di partisi, sama seperti tanpa jam, supaya jam yang sama tidak dibayar
+ * dua kali oleh PAR pekerjaan.
+ *
+ * Contoh nyata 30 Sep 2026: BMR 1.866, tidur 350 menit, olahraga 96 menit
+ * terekam jam, aktif jam 367. PAL partisi = (350 + 96 + 994 x 1,6) / 1.440
+ * = 1,414, jadi 1.866 x 1,414 + 367 = 3.005 kkal.
+ *
+ * Langkah tetap tidak masuk, lihat catatan LANGKAH di atas.
+ */
+export const dailyCaloriesOut = (input: DailyOutInput): DailyOut => {
+  if (input.bmr === null) {
+    // Tanpa profil, metabolisme tidak bisa dihitung. Kalau ada angka total
+    // jam, itu yang paling dekat ke kenyataan karena sudah memuat istirahat
+    // versi jam. Kalau tidak ada, yang tersisa cuma kalori olahraga: jauh di
+    // bawah kenyataan, tapi lebih jujur daripada menebak metabolisme user.
+    return input.device === null
+      ? {
+          calories_out: input.workoutCalories,
+          source: 'formula',
+          pal: null,
+          baseline: null,
+          workout_calories: input.workoutCalories,
+          device_active_kcal: null,
+        }
+      : {
+          calories_out: input.device.total_kcal + input.untrackedWorkoutCalories,
+          source: 'device',
+          pal: null,
+          baseline: null,
+          workout_calories: input.untrackedWorkoutCalories,
+          device_active_kcal: null,
+        };
+  }
+
+  const baseline = round(
+    input.bmr *
+      restingPartitionPAL({
+        activityLevel: input.activityLevel,
+        sleepMinutes: input.sleepMinutes,
+        workoutMinutes: input.workoutMinutes,
+      }),
+    0,
+  );
+
+  const aktif = input.device === null ? null : activeKcalFromDevice(input.device, input.bmr);
+  const olahraga = aktif === null ? input.workoutCalories : input.untrackedWorkoutCalories;
+  const keluar = baseline + (aktif ?? 0) + olahraga;
+
+  return {
+    calories_out: keluar,
+    source: aktif === null ? 'formula' : 'device',
+    pal: input.bmr > 0 ? round(keluar / input.bmr, 3) : 0,
+    baseline,
+    workout_calories: olahraga,
+    device_active_kcal: aktif,
+  };
+};
+
 /**
  * TDEE acuan: hari tanpa olahraga, tidur normal.
  *
