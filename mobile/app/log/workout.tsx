@@ -11,12 +11,12 @@ import {
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { DateNav } from '@/components/features/DateNav';
 import {
   Button,
   Card,
   Checkbox,
   ChipGroup,
-  DateStrip,
   EmptyState,
   ErrorNote,
   Header,
@@ -28,12 +28,7 @@ import {
   Text,
 } from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
-import {
-  CATEGORY_LABEL,
-  CATEGORY_OPTIONS,
-  INTENSITY_LABEL,
-  INTENSITY_OPTIONS,
-} from '@/constants/labels';
+import { CATEGORY_LABEL, CATEGORY_OPTIONS } from '@/constants/labels';
 import { radius, spacing } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
 import {
@@ -44,7 +39,7 @@ import {
   useWorkoutsDate,
   type WorkoutInput,
 } from '@/services/workouts.service';
-import type { WorkoutCategory, WorkoutIntensity, WorkoutLog, WorkoutMeasure } from '@/types';
+import type { WorkoutCategory, WorkoutLog, WorkoutMeasure } from '@/types';
 import { useProfile } from '@/services/users.service';
 import { dayPhrase, todayWIB } from '@/utils/date';
 import { duration, thousands, toNum } from '@/utils/format';
@@ -82,7 +77,6 @@ export default function WorkoutScreen() {
   const [pilihan, setPilihan] = useState<Pilihan | null>(null);
   const [manual, setManual] = useState('');
   const [ukuran, setUkuran] = useState(UKURAN_BAWAAN);
-  const [intensitas, setIntensitas] = useState<WorkoutIntensity>('MEDIUM');
   const [catatan, setCatatan] = useState('');
   const [terekam, setTerekam] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -123,7 +117,6 @@ export default function WorkoutScreen() {
 
     const body: WorkoutInput = {
       ...ukuranKeBody(measure, ukuran),
-      intensity: intensitas,
       notes: catatan.trim() === '' ? undefined : catatan.trim(),
       tracked_by_device: terekam,
       // Saat menelusuri hari lampau, sesi dicatat ke tanggal ITU.
@@ -174,7 +167,7 @@ export default function WorkoutScreen() {
       <Screen>
         <Header title="Olahraga" subtitle="Boleh lebih dari satu sesi per hari" />
 
-        <DateStrip value={tanggal} onChange={setTanggal} />
+        <DateNav value={tanggal} onChange={setTanggal} section="workout" />
 
         <Pressable
           onPress={() => setSheet(true)}
@@ -235,19 +228,11 @@ export default function WorkoutScreen() {
           }
         />
 
-        <View style={styles.group}>
-          <Text variant="label" tone="secondary">
-            Intensitas
-          </Text>
-          <ChipGroup
-            options={INTENSITY_OPTIONS}
-            value={intensitas}
-            onChange={setIntensitas}
-            labels={INTENSITY_LABEL}
-            wrap
-          />
-        </View>
-
+        {/*
+          Pilihan intensitas dicabut: tidak pernah dipakai menghitung apa pun.
+          Kalori datang dari MET jenis olahraganya, jadi intensitas sudah
+          terwakili oleh pilihannya (jalan santai lawan jalan cepat).
+        */}
         {/*
           SELALU tampil, tidak lagi menunggu angka harian jam diisi.
 
@@ -313,8 +298,7 @@ export default function WorkoutScreen() {
                     {log.workout_name}
                   </Text>
                   <Text variant="caption" tone="secondary">
-                    {ringkasSesi(log)} · {thousands(log.calories_burned)} kkal ·{' '}
-                    {INTENSITY_LABEL[log.intensity]}
+                    {ringkasSesi(log)} · {thousands(log.calories_burned)} kkal
                   </Text>
                   {log.tracked_by_device || log.calories_source === 'MANUAL' ? (
                     <Text variant="caption" tone="tertiary">
@@ -459,7 +443,6 @@ const styles = StyleSheet.create({
   },
   pickerText: { flex: 1, gap: 2 },
   pressed: { opacity: 0.75 },
-  group: { gap: spacing.md },
   logRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   logText: { flex: 1, gap: 2 },
   pickItem: {

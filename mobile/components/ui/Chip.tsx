@@ -9,16 +9,26 @@ interface ChipProps {
   label: string;
   active?: boolean;
   onPress?: () => void;
+  /** Tekan lama, misalnya untuk Lupakan pada chip saran. */
+  onLongPress?: () => void;
   size?: 'sm' | 'md';
 }
 
-export const Chip = ({ label, active = false, onPress, size = 'md' }: ChipProps) => (
+export const Chip = ({ label, active = false, onPress, onLongPress, size = 'md' }: ChipProps) => (
   <Pressable
     onPress={() => {
       if (!onPress) return;
       void Haptics.selectionAsync();
       onPress();
     }}
+    onLongPress={
+      onLongPress
+        ? () => {
+            void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            onLongPress();
+          }
+        : undefined
+    }
     accessibilityRole="button"
     accessibilityState={{ selected: active }}
     style={({ pressed }) => [

@@ -13,11 +13,12 @@ import { LogActions } from '@/components/features/LogActions';
 import { RemoteImage } from '@/components/features/RemoteImage';
 import { MacroBar } from '@/components/features/Metrics';
 import { PhotoSlot } from '@/components/features/PhotoSlot';
+import { DateNav } from '@/components/features/DateNav';
 import {
   Button,
   Card,
   ChipGroup,
-  DateStrip,
+  ConfirmDialog,
   EmptyState,
   ErrorNote,
   Header,
@@ -30,7 +31,15 @@ import { colors } from '@/constants/colors';
 import { MEAL_LABEL, MEAL_OPTIONS } from '@/constants/labels';
 import { radius, spacing } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
-import { useCreateFood, useDeleteFood, useFoodDate } from '@/services/food.service';
+import {
+  type FoodItemInput,
+  useCreateFood,
+  useDeleteFood,
+  useFoodDate,
+  useSetFoodDayStatus,
+  useUpdateFood,
+} from '@/services/food.service';
+import { useDailySummary } from '@/services/misc.service';
 import type { FoodItem, FoodLog, MealType } from '@/types';
 import { usePhotoPicker } from '@/hooks/usePhotoPicker';
 import { dayPhrase, timeWIB, todayWIB, wibToISO } from '@/utils/date';
@@ -59,8 +68,11 @@ export default function FoodScreen() {
   const hariIni = tanggal === todayWIB();
 
   const today = useFoodDate(tanggal);
+  const ringkasan = useDailySummary(tanggal);
   const createFood = useCreateFood();
   const deleteFood = useDeleteFood();
+  const updateFood = useUpdateFood();
+  const statusHari = useSetFoodDayStatus();
   const picker = usePhotoPicker();
 
   const [uri, setUri] = useState<string | null>(null);
@@ -68,6 +80,8 @@ export default function FoodScreen() {
   const [items, setItems] = useState<FoodItemDraft[]>([barisKosong()]);
   const [error, setError] = useState<string | null>(null);
   const [diedit, setDiedit] = useState<FoodLog | null>(null);
+  /** Item yang angka kemasannya janggal, menunggu keputusan "Simpan tetap". */
+  const [janggal, setJanggal] = useState<{ nama: string[]; items: FoodItemInput[] } | null>(null);
 
   const ambil = async (dari: 'kamera' | 'galeri') => {
     const hasil = dari === 'kamera' ? await picker.dariKamera() : await picker.dariGaleri();
@@ -88,11 +102,22 @@ export default function FoodScreen() {
 
     setError(null);
 
+    // Kalori kemasan yang tidak cocok dengan makronya ditanyakan dulu, bukan
+    // ditolak: bisa jadi user memang benar dan labelnya yang aneh.
+    if (susunan.janggal.length > 0) {
+      setJanggal({ nama: susunan.janggal, items: susunan.items });
+      return;
+    }
+
+    kirim(susunan.items);
+  };
+
+  const kirim = (siap: FoodItemInput[]) => {
     createFood.mutate(
       {
         uri,
         meal_type: jenis,
-        items: susunan.items,
+        items: siap,
         // Saat menelusuri hari lampau, makanan dicatat ke tanggal ITU, bukan ke
         // hari ini. Tengah hari dipakai sebagai jam netral karena jam
         // sesungguhnya sudah tidak bisa diingat lagi.
@@ -113,7 +138,7 @@ export default function FoodScreen() {
       <Screen>
         <Header title="Makanan" subtitle="Tulis apa yang kamu makan, AI menaksir gizinya" />
 
-        <DateStrip value={tanggal} onChange={setTanggal} />
+        <DateNav value={tanggal} onChange={setTanggal} section="food" />
 
         <View style={styles.group}>
           <Text variant="label" tone="secondary">
@@ -193,6 +218,71 @@ export default function FoodScreen() {
           }
         />
 
+        {/*
+          Hari yang sudah lewat dengan makan di bawah separuh jatah ditanya:
+          belum lengkap atau memang segini. Hari belum lengkap tidak ikut
+          rata-rata riwayat, chat, maupun TDEE terukur, karena separuh catatan
+          bukan separuh makan. Jawabannya bisa diubah kapan saja.
+        */}
+        {!hariIni && ringkasan.data?.food_low && ringkasan.data.food_day_status === null ? (
+          <Card variant="outline" padding="md">
+            <View style={styles.tanya}>
+              <Text variant="label">Catatan makan {dayPhrase(tanggal)} sudah lengkap?</Text>
+              <Text variant="caption" tone="secondary">
+                Tercatat {thousands(ringkasan.data.calories_in)} kkal, di bawah separuh jatahmu{' '}
+                {thousands(ringkasan.data.calorie_budget ?? 0)} kkal. Kalau ada yang lupa dicatat,
+                hari itu tidak ikut rata-rata supaya defisitmu tidak terlihat lebih besar dari
+                kenyataan.
+              </Text>
+              <View style={styles.tanyaTombol}>
+                <Button
+                  label="Belum lengkap"
+                  variant="secondary"
+                  size="sm"
+                  fullWidth={false}
+                  loading={statusHari.isPending}
+                  onPress={() => statusHari.mutate({ date: tanggal, status: 'INCOMPLETE' })}
+                />
+                <Button
+                  label="Memang segini"
+                  variant="ghost"
+                  size="sm"
+                  fullWidth={false}
+                  onPress={() => statusHari.mutate({ date: tanggal, status: 'COMPLETE' })}
+                />
+              </View>
+            </View>
+          </Card>
+        ) : null}
+
+        {!hariIni && today.data?.day_status ? (
+          <View style={styles.statusHari}>
+            <Text
+              variant="caption"
+              tone={today.data.day_status === 'INCOMPLETE' ? 'warning' : 'tertiary'}
+            >
+              {today.data.day_status === 'INCOMPLETE'
+                ? 'Ditandai belum lengkap, tidak ikut rata-rata.'
+                : 'Ditandai lengkap.'}
+            </Text>
+            <Button
+              label={
+                today.data.day_status === 'INCOMPLETE' ? 'Tandai lengkap' : 'Tandai belum lengkap'
+              }
+              variant="ghost"
+              size="sm"
+              fullWidth={false}
+              loading={statusHari.isPending}
+              onPress={() =>
+                statusHari.mutate({
+                  date: tanggal,
+                  status: today.data?.day_status === 'INCOMPLETE' ? 'COMPLETE' : 'INCOMPLETE',
+                })
+              }
+            />
+          </View>
+        ) : null}
+
         {today.isPending ? (
           <Loading />
         ) : (today.data?.logs.length ?? 0) === 0 ? (
@@ -211,6 +301,25 @@ export default function FoodScreen() {
                   carbs={today.data?.total_carbs_g ?? 0}
                   fat={today.data?.total_fat_g ?? 0}
                 />
+                {/*
+                  Gula total, dibandingkan dengan batas ATAS hariannya. Gula
+                  total seperti di label, termasuk gula alami buah dan susu,
+                  sementara batasnya untuk gula tambahan: sedikit ketat, dan
+                  untuk minuman manis kemasan bedanya hampir tidak ada.
+                */}
+                {ringkasan.data ? (
+                  <Text
+                    variant="caption"
+                    tone={
+                      (today.data?.total_sugar_g ?? 0) > ringkasan.data.targets.sugar_max_g
+                        ? 'warning'
+                        : 'secondary'
+                    }
+                  >
+                    Gula {String(today.data?.total_sugar_g ?? 0).replace('.', ',')} g dari batas{' '}
+                    {ringkasan.data.targets.sugar_max_g} g per hari
+                  </Text>
+                ) : null}
               </View>
             </Card>
 
@@ -276,7 +385,23 @@ export default function FoodScreen() {
                           Foto terlihat berbeda dari yang ditulis.
                           {analisa.photo_note ? ' ' + analisa.photo_note : ''}
                         </Text>
+                        <Button
+                          label="Abaikan"
+                          variant="ghost"
+                          size="sm"
+                          fullWidth={false}
+                          loading={updateFood.isPending && updateFood.variables?.id === log.id}
+                          onPress={() =>
+                            updateFood.mutate({ id: log.id, dismiss_photo_note: true })
+                          }
+                        />
                       </View>
+                    ) : log.photo_url && analisa?.photo_matches === null ? (
+                      // Semua item dari kemasan atau catatan: model tidak
+                      // dipanggil, jadi fotonya tersimpan tapi tidak dilihat.
+                      <Text variant="caption" tone="tertiary">
+                        Foto tidak diperiksa: semua angka dari kemasan atau catatanmu.
+                      </Text>
                     ) : null}
 
                     {/*
@@ -332,6 +457,25 @@ export default function FoodScreen() {
       {diedit ? (
         <FoodEditSheet key={diedit.id} log={diedit} onClose={() => setDiedit(null)} />
       ) : null}
+
+      <ConfirmDialog
+        visible={janggal !== null}
+        title="Angka kemasan janggal"
+        message={
+          'Kalori ' +
+          (janggal?.nama.join(', ') ?? '') +
+          ' tidak cocok dengan protein, karbo, dan lemaknya. Biasanya ini salah baca baris di tabel gizi. Periksa lagi, atau simpan apa adanya kalau memang begitu tertulis.'
+        }
+        confirmLabel="Simpan tetap"
+        cancelLabel="Periksa lagi"
+        destructive={false}
+        onCancel={() => setJanggal(null)}
+        onConfirm={() => {
+          const siap = janggal?.items;
+          setJanggal(null);
+          if (siap) kirim(siap);
+        }}
+      />
     </>
   );
 }
@@ -344,7 +488,15 @@ const styles = StyleSheet.create({
   macroCard: { gap: spacing.lg },
   logCard: { gap: spacing.md },
   logRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  peringatan: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  peringatan: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  tanya: { gap: spacing.sm },
+  tanyaTombol: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  statusHari: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
   peringatanText: { flex: 1 },
   rincian: {
     gap: spacing.sm,

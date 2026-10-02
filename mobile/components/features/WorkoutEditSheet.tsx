@@ -1,12 +1,9 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
 
-import { Button, Checkbox, ChipGroup, ErrorNote, Input, Sheet, Text } from '@/components/ui';
-import { INTENSITY_LABEL, INTENSITY_OPTIONS } from '@/constants/labels';
-import { spacing } from '@/constants/theme';
+import { Button, Checkbox, ErrorNote, Input, Sheet } from '@/components/ui';
 import { toApiError } from '@/lib/api';
 import { useUpdateWorkout } from '@/services/workouts.service';
-import type { WorkoutIntensity, WorkoutLog } from '@/types';
+import type { WorkoutLog } from '@/types';
 import {
   WorkoutMeasureFields,
   measureDariLog,
@@ -35,7 +32,6 @@ export const WorkoutEditSheet = ({ log, onClose }: WorkoutEditSheetProps) => {
   // sebagai set x ulangan, bukan dipaksa jadi menit.
   const measure = measureDariLog(log);
   const [ukuran, setUkuran] = useState(ukuranDariLog(log));
-  const [intensitas, setIntensitas] = useState<WorkoutIntensity>(log.intensity);
   const [catatan, setCatatan] = useState(log.notes ?? '');
   const [terekam, setTerekam] = useState(log.tracked_by_device);
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +63,6 @@ export const WorkoutEditSheet = ({ log, onClose }: WorkoutEditSheetProps) => {
         ...ukuranKeBody(measure, ukuran),
         // Beban yang dikosongkan berarti dihapus, bukan dibiarkan.
         ...(measure === 'REPS' && ukuran.beban.trim() === '' ? { load_kg: null } : {}),
-        intensity: intensitas,
         notes: catatan.trim() === '' ? null : catatan.trim(),
         tracked_by_device: terekam,
         ...(kalori === undefined ? {} : { calories_burned: kalori }),
@@ -102,19 +97,6 @@ export const WorkoutEditSheet = ({ log, onClose }: WorkoutEditSheetProps) => {
         }
       />
 
-      <View style={styles.group}>
-        <Text variant="label" tone="secondary">
-          Intensitas
-        </Text>
-        <ChipGroup
-          options={INTENSITY_OPTIONS}
-          value={intensitas}
-          onChange={setIntensitas}
-          labels={INTENSITY_LABEL}
-          wrap
-        />
-      </View>
-
       <Checkbox
         label="Sesi ini terekam jam tangan"
         checked={terekam}
@@ -136,7 +118,3 @@ export const WorkoutEditSheet = ({ log, onClose }: WorkoutEditSheetProps) => {
     </Sheet>
   );
 };
-
-const styles = StyleSheet.create({
-  group: { gap: spacing.md },
-});

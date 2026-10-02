@@ -3,11 +3,11 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { LogActions } from '@/components/features/LogActions';
+import { DateNav } from '@/components/features/DateNav';
 import {
   Button,
   Card,
   ChipGroup,
-  DateStrip,
   ErrorNote,
   Header,
   Input,
@@ -42,16 +42,12 @@ const JENIS_LABEL = { ACTIVE: 'Kalori aktif', TOTAL: 'Kalori total' };
 type Jenis = (typeof JENIS)[number];
 
 /**
- * Mencatat kalori keluar seharian menurut smartwatch.
+ * Mencatat kalori jam tangan seharian.
  *
- * Angka ini MENGGANTIKAN hitungan TDEE hari itu di backend, bukan ditambahkan
- * ke atasnya. Jam tangan mengukur seluruh hari, jadi jalan kaki dan kegiatan
- * sehari-hari sudah ada di dalamnya, dan keduanya juga sudah dihitung dari
- * step_logs serta activity_level. Menjumlahkannya berarti menghitung jam yang
- * sama dua kali.
- *
- * Yang masih ditambahkan hanyalah olahraga yang ditandai TIDAK terekam jam,
- * misalnya berenang atau sesi yang jamnya kebetulan dilepas.
+ * Kalori AKTIF jam DITAMBAHKAN ke metabolisme dan pekerjaan hari itu (BMR x
+ * PAL), bersama olahraga yang ditandai TIDAK terekam jam. Versi lama memakai
+ * angka jam sebagai PENGGANTI rumus, dan hari jamnya dilepas jatuh ke sekitar
+ * BMR. Angka total jam diubah jadi aktif di backend: total dikurangi BMR.
  */
 export default function DeviceEnergyScreen() {
   const [tanggal, setTanggal] = useState(todayWIB());
@@ -100,29 +96,24 @@ export default function DeviceEnergyScreen() {
     setTerisi(true);
   }
 
-  /**
-   * Hitungan rumus untuk hari itu, dipakai sebagai pembanding.
-   *
-   * Diambil dari rincian energi, bukan dari calories_out. Begitu angka
-   * perangkat tersimpan, calories_out SUDAH berisi angka perangkat itu sendiri,
-   * jadi memakainya sebagai pembanding berarti membandingkan sesuatu dengan
-   * dirinya sendiri.
-   */
-  const energi = ringkasan?.energy;
-  const rumus = energi ? Math.round(energi.baseline + energi.workout_calories) : null;
+  /** Susunan kalori keluar hari itu dari backend, untuk diperlihatkan apa adanya. */
+  const energi = ringkasan?.energy ?? null;
 
   const angka = Number(kalori.trim());
   const angkaValid = kalori.trim() !== '' && Number.isFinite(angka) && angka >= 0;
 
   const pakaiAktif = jenis === 'ACTIVE';
 
-  /** Total yang akan tersimpan, diperlihatkan sebelum disimpan supaya tidak ada kejutan. */
-  const totalSetelahnya = ((): number | null => {
+  /**
+   * Bagian aktif yang akan dihitung, diperlihatkan sebelum disimpan supaya
+   * tidak ada kejutan. Angka total jam memuat istirahat versi jam, dan bagian
+   * itu sudah ditanggung BMR x PAL, jadi yang ditambahkan cuma sisanya.
+   */
+  const aktifDihitung = ((): number | null => {
     if (!angkaValid) return null;
-    if (!pakaiAktif) return angka;
+    if (pakaiAktif) return angka;
     if (bmr === null) return null;
-
-    return Math.round(bmr) + angka;
+    return Math.max(angka - Math.round(bmr), 0);
   })();
 
   const simpan = () => {
@@ -161,8 +152,6 @@ export default function DeviceEnergyScreen() {
     });
   };
 
-  const selisih = rumus !== null && hari.data ? hari.data.total_kcal - rumus : null;
-
   return (
     <Screen>
       <Header
@@ -183,7 +172,7 @@ export default function DeviceEnergyScreen() {
         }
       />
 
-      <DateStrip value={tanggal} onChange={setTanggal} />
+      <DateNav value={tanggal} onChange={setTanggal} section="device-energy" />
 
       {/*
           Jam tangan tidak semuanya menampilkan angka yang sama. Sebagian punya
@@ -245,30 +234,28 @@ export default function DeviceEnergyScreen() {
                   backend. User harus bisa melihat angka mana yang dia berikan
                   dan angka mana yang ditambahkan aplikasi.
                 */}
-              {pakaiAktif && angkaValid ? (
-                bmr === null ? (
-                  <Text variant="caption" tone="warning">
-                    Metabolisme istirahatmu belum bisa dihitung. Lengkapi profil dan catat berat
-                    badanmu dulu.
+              {angkaValid && bmr === null ? (
+                <Text variant="caption" tone="warning">
+                  Metabolisme istirahatmu belum bisa dihitung. Lengkapi profil dan catat berat
+                  badanmu dulu.
+                </Text>
+              ) : !pakaiAktif && angkaValid && bmr !== null ? (
+                <View style={styles.hitungan}>
+                  <Row label="Total dari jam" value={thousands(angka) + ' kkal'} />
+                  <Row
+                    label="Dikurangi metabolisme istirahat (BMR)"
+                    value={thousands(Math.round(bmr)) + ' kkal'}
+                  />
+                  <Row
+                    label="Bagian aktif yang ditambahkan"
+                    value={thousands(aktifDihitung ?? 0) + ' kkal'}
+                    tone="accent"
+                  />
+                  <Text variant="caption" tone="tertiary">
+                    Istirahatmu sudah dihitung aplikasi dari BMR dan jenis pekerjaanmu, jadi dari
+                    angka total jam yang ditambahkan cuma bagian aktifnya.
                   </Text>
-                ) : (
-                  <View style={styles.hitungan}>
-                    <Row
-                      label="Metabolisme istirahat (BMR)"
-                      value={thousands(Math.round(bmr)) + ' kkal'}
-                    />
-                    <Row label="Kalori aktif dari jam" value={thousands(angka) + ' kkal'} />
-                    <Row
-                      label="Total yang tersimpan"
-                      value={thousands(totalSetelahnya ?? 0) + ' kkal'}
-                      tone="accent"
-                    />
-                    <Text variant="caption" tone="tertiary">
-                      BMR itu taksiran dari tinggi, berat, usia, dan jenis kelaminmu, bukan
-                      pengukuran. Angka aslinya tetap disimpan supaya bisa ditelusuri.
-                    </Text>
-                  </View>
-                )
+                </View>
               ) : null}
 
               <Input
@@ -283,38 +270,39 @@ export default function DeviceEnergyScreen() {
           </Card>
 
           {/*
-              Perbandingan dengan rumus. Ini alasan fitur ini berguna melampaui
-              sekadar mengganti satu angka: begitu terlihat seberapa jauh
-              keduanya berbeda, user bisa menilai sendiri seberapa layak jam
-              tangannya dipercaya.
+              Susunan kalori keluar hari itu, apa adanya dari backend. User
+              harus bisa melihat angka mana yang dia berikan dan angka mana
+              yang dihitung aplikasi, bukan cuma satu total.
             */}
-          {rumus !== null ? (
+          {energi && ringkasan ? (
             <Card padding="md">
               <View style={styles.banding}>
-                <Row label="Hitungan rumus aplikasi" value={thousands(rumus) + ' kkal'} />
-
-                {hari.data ? (
+                <Row
+                  label="Metabolisme dan pekerjaan"
+                  value={thousands(energi.baseline) + ' kkal'}
+                />
+                {energi.device_active_kcal === null ? (
+                  <Row label="Olahraga" value={thousands(energi.workout_calories) + ' kkal'} />
+                ) : (
                   <>
                     <Row
-                      label="Menurut jam tanganmu"
-                      value={thousands(hari.data.total_kcal) + ' kkal'}
-                      tone="accent"
+                      label="Kalori aktif jam"
+                      value={thousands(energi.device_active_kcal) + ' kkal'}
                     />
-
-                    {selisih !== null ? (
-                      <Text variant="caption" tone="tertiary">
-                        {selisih === 0
-                          ? 'Keduanya persis sama.'
-                          : 'Jam tanganmu ' +
-                            (selisih > 0 ? 'lebih tinggi ' : 'lebih rendah ') +
-                            thousands(Math.abs(selisih)) +
-                            ' kkal. Perangkat pergelangan memang dikenal kurang akurat menaksir kalori, jadi selisih sebesar ini wajar dan belum tentu rumusnya yang salah.'}
-                      </Text>
-                    ) : null}
+                    <Row
+                      label="Olahraga di luar jam"
+                      value={thousands(energi.workout_calories) + ' kkal'}
+                    />
                   </>
-                ) : (
+                )}
+                <Row
+                  label={'Kalori keluar ' + dayPhrase(tanggal)}
+                  value={thousands(ringkasan.calories_out) + ' kkal'}
+                  tone="accent"
+                />
+                {hari.data ? null : (
                   <Text variant="caption" tone="tertiary">
-                    Simpan angka jam tanganmu untuk membandingkannya dengan hitungan ini.
+                    Simpan angka jam tanganmu, dan kalori aktifnya ditambahkan ke sini.
                   </Text>
                 )}
               </View>
@@ -338,10 +326,10 @@ export default function DeviceEnergyScreen() {
 
           <Card variant="outline" padding="md">
             <Text variant="caption" tone="tertiary">
-              Angka ini menggantikan hitungan kalori keluar hari itu, bukan ditambahkan. Jam
-              tanganmu sudah memuat jalan kaki dan kegiatan sehari-hari, jadi menjumlahkan keduanya
-              berarti menghitung waktu yang sama dua kali. Olahraga yang kamu tandai tidak terekam
-              jam tetap ditambahkan di atasnya.
+              Kalori aktif jam ditambahkan ke metabolisme dan pekerjaanmu, bukan menggantikannya.
+              Jam cuma melihat gerak saat dipakai, jadi hari jamnya dilepas tidak lagi jatuh ke
+              sekitar BMR. Olahraga yang kamu centang terekam jam tidak ditambah lagi, karena sudah
+              ada di angka aktif itu.
             </Text>
           </Card>
 

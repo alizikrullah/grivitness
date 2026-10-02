@@ -7,7 +7,6 @@ import type {
   CustomWorkout,
   WorkoutCategory,
   WorkoutDay,
-  WorkoutIntensity,
   WorkoutLibraryItem,
   WorkoutLog,
   WorkoutMeasure,
@@ -31,7 +30,6 @@ export interface WorkoutInput {
   hold_seconds?: number;
   load_kg?: number;
   calories_burned?: number;
-  intensity: WorkoutIntensity;
   /**
    * true kalau sesi ini sudah ikut terhitung di angka smartwatch hari itu.
    *
@@ -144,7 +142,6 @@ export interface WorkoutEditInput {
   hold_seconds?: number;
   load_kg?: number | null;
   calories_burned?: number;
-  intensity?: WorkoutIntensity;
   tracked_by_device?: boolean;
   notes?: string | null;
 }

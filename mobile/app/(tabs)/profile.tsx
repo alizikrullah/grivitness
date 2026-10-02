@@ -37,6 +37,7 @@ import {
   useCreateGoal,
   useDailySummary,
   useNotificationSettings,
+  useUpdateGoal,
   useUpdateNotificationSettings,
 } from '@/services/misc.service';
 import { PlanCard } from '@/components/features/PlanCard';
@@ -56,6 +57,7 @@ export default function ProfileScreen() {
 
   const profile = useProfile();
   const goal = useActiveGoal();
+  const updateGoal = useUpdateGoal();
   const settings = useNotificationSettings();
 
   // Dipakai cuma untuk target makro di kartu rencana. Query-nya sudah terisi
@@ -173,6 +175,16 @@ export default function ProfileScreen() {
               <Text variant="caption" tone="accent">
                 Jatah {thousands(goal.data.daily_calorie_budget)} kkal per hari
               </Text>
+              {/*
+                Jatah otomatis ikut turun saat berat turun; jatah yang diketik
+                sendiri dikunci. Keterangannya ditulis supaya user tahu kenapa
+                angkanya berubah, atau kenapa tidak.
+              */}
+              <Text variant="caption" tone="tertiary">
+                {goal.data.budget_manual
+                  ? 'Kamu isi sendiri, dikunci'
+                  : 'Otomatis, menyesuaikan berat terbarumu'}
+              </Text>
             </View>
 
             <CaretRightIcon size={18} color={colors.textSecondary} weight="bold" />
@@ -186,6 +198,17 @@ export default function ProfileScreen() {
           </View>
         )}
       </Card>
+
+      {goal.data?.budget_manual ? (
+        <Button
+          label="Pakai jatah otomatis lagi"
+          variant="secondary"
+          loading={updateGoal.isPending}
+          onPress={() =>
+            goal.data && updateGoal.mutate({ id: goal.data.id, daily_calorie_budget: null })
+          }
+        />
+      ) : null}
 
       {goal.data ? <PlanCard goal={goal.data} targets={summary.data?.targets} /> : null}
 
@@ -372,7 +395,7 @@ const GoalSheet = ({ visible, onClose }: { visible: boolean; onClose: () => void
         placeholder="Kosongkan agar dihitung otomatis"
         keyboardType="number-pad"
         suffix="kkal"
-        hint="Dihitung dari TDEE dan selisih berat kalau dikosongkan"
+        hint="Kosong: dihitung otomatis dan ikut menyesuaikan berat terbarumu. Diisi: dikunci di angka itu."
       />
 
       {error ? <ErrorNote message={error} /> : null}

@@ -1,13 +1,17 @@
 import * as Haptics from 'expo-haptics';
-import { ClockCounterClockwiseIcon, PlusIcon, XIcon } from 'phosphor-react-native';
+import { CheckCircleIcon, ClockCounterClockwiseIcon, PlusIcon, XIcon } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Chip, Input, Text } from '@/components/ui';
+import { Chip, ConfirmDialog, Input, Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/theme';
-import { type FoodItemInput, useFoodSuggestions } from '@/services/food.service';
-import type { FoodSuggestion, FoodUnit } from '@/types';
+import {
+  type FoodItemEditInput,
+  useFoodSuggestions,
+  useForgetSuggestion,
+} from '@/services/food.service';
+import type { FoodLabel, FoodSuggestion, FoodUnit } from '@/types';
 
 /**
  * Satu baris isian, semuanya teks mentah. Angkanya baru diubah saat disimpan,
@@ -24,6 +28,15 @@ export interface FoodItemDraft {
   labelProtein: string;
   labelCarbs: string;
   labelFat: string;
+  labelSugar: string;
+  /**
+   * Baris ini dipilih dari saran "Dari catatanmu". HANYA ini yang membuat
+   * backend memakai angka catatan sebelumnya. Dicabut begitu nama atau
+   * satuannya diubah: itu makanan lain. Berat dan porsi boleh diubah.
+   */
+  dariCatatan: boolean;
+  /** Saat mengoreksi: urutan item ini di catatan yang tersimpan. */
+  sourceIndex?: number;
 }
 
 /** Nilai yang tertunda sebentar, supaya tiap ketukan tidak jadi satu permintaan. */
@@ -36,11 +49,13 @@ const useTertunda = (nilai: string, ms: number): string => {
   return tertunda;
 };
 
+const angkaLabel = (n: number | undefined): string => (n ? String(n) : '');
+
 /**
  * Isian dari satu saran: nama, satuan, berat, dan kemasannya kalau ada.
  * Porsi dibiarkan, itu yang berubah tiap kali. Untuk item yang gizinya dari
  * taksiran AI, kemasannya tidak dibuka: backend memakai ulang angka yang
- * sama lewat ingatan makanan, jadi tidak ada yang perlu diketik.
+ * sama karena barisnya ditandai dariCatatan.
  */
 export const dariSaran = (baris: FoodItemDraft, s: FoodSuggestion): FoodItemDraft => ({
   ...baris,
@@ -49,9 +64,11 @@ export const dariSaran = (baris: FoodItemDraft, s: FoodSuggestion): FoodItemDraf
   weight: s.weight_per_portion === null ? '' : String(s.weight_per_portion),
   pakaiKemasan: s.label !== null,
   labelKcal: s.label ? String(s.label.kcal) : '',
-  labelProtein: s.label?.protein_g ? String(s.label.protein_g) : '',
-  labelCarbs: s.label?.carbs_g ? String(s.label.carbs_g) : '',
-  labelFat: s.label?.fat_g ? String(s.label.fat_g) : '',
+  labelProtein: angkaLabel(s.label?.protein_g),
+  labelCarbs: angkaLabel(s.label?.carbs_g),
+  labelFat: angkaLabel(s.label?.fat_g),
+  labelSugar: s.label?.sugar_g === undefined ? '' : String(s.label.sugar_g),
+  dariCatatan: true,
 });
 
 export const barisKosong = (): FoodItemDraft => ({
@@ -64,7 +81,17 @@ export const barisKosong = (): FoodItemDraft => ({
   labelProtein: '',
   labelCarbs: '',
   labelFat: '',
+  labelSugar: '',
+  dariCatatan: false,
 });
+
+/** "Nescafe Classic bubuk · 8 g · 28 kkal": yang dipilih kelihatan sebelum dipilih. */
+const labelSaran = (s: FoodSuggestion): string =>
+  s.name +
+  (s.weight_per_portion ? ' · ' + s.weight_per_portion + ' ' + s.unit : '') +
+  (s.kcal_per_portion === null || s.kcal_per_portion === undefined
+    ? ''
+    : ' · ' + s.kcal_per_portion + ' kkal');
 
 interface FoodItemsEditorProps {
   items: FoodItemDraft[];
@@ -100,6 +127,14 @@ export const FoodItemsEditor = ({
   const ubah = (i: number, bagian: Partial<FoodItemDraft>) =>
     onChange(items.map((item, j) => (j === i ? { ...item, ...bagian } : item)));
 
+  /**
+   * Nama atau satuan yang berubah mencabut tanda "dari catatan": itu makanan
+   * lain. Klik "Nescafe Classic bubuk" lalu diubah jadi "Nescafe 2 sdm" tidak
+   * boleh diam-diam memakai angka yang pertama.
+   */
+  const ubahIdentitas = (i: number, bagian: Pick<Partial<FoodItemDraft>, 'name' | 'unit'>) =>
+    ubah(i, { ...bagian, dariCatatan: false });
+
   const hapus = (i: number) => {
     void Haptics.selectionAsync();
     onChange(items.filter((_, j) => j !== i));
@@ -118,6 +153,8 @@ export const FoodItemsEditor = ({
   const [aktif, setAktif] = useState<number | null>(null);
   const kataCari = useTertunda(aktif === null ? '' : (items[aktif]?.name ?? ''), 250);
   const saran = useFoodSuggestions(kataCari);
+  const lupakan = useForgetSuggestion();
+  const [akanDilupakan, setAkanDilupakan] = useState<FoodSuggestion | null>(null);
 
   const pilihSaran = (i: number, s: FoodSuggestion) => {
     void Haptics.selectionAsync();
@@ -151,7 +188,7 @@ export const FoodItemsEditor = ({
 
           <Input
             value={item.name}
-            onChangeText={(v) => ubah(i, { name: v })}
+            onChangeText={(v) => ubahIdentitas(i, { name: v })}
             onFocus={() => setAktif(i)}
             placeholder="Nama makanan, mis. ayam goreng tanpa kulit"
             autoCapitalize="sentences"
@@ -159,17 +196,27 @@ export const FoodItemsEditor = ({
             editable={!disabled}
           />
 
+          {item.dariCatatan ? (
+            <View style={styles.tanda}>
+              <CheckCircleIcon size={14} color={colors.success} weight="fill" />
+              <Text variant="caption" tone="success" style={styles.tandaTeks}>
+                Dari catatanmu: angkanya sama dengan terakhir kali. Ubah nama atau satuan berarti
+                makanan lain.
+              </Text>
+            </View>
+          ) : null}
+
           {/*
             Saran dari catatan sendiri. Sekali sentuh nama, satuan, berat, dan
             kemasannya terisi, dan backend memakai angka yang sama dengan
-            terakhir kali. Ini yang membuat kopi pagi jadi dua ketukan.
+            terakhir kali. Tekan lama untuk melupakan nama yang angkanya salah.
           */}
           {aktif === i && (saran.data?.length ?? 0) > 0 ? (
             <View style={styles.saran}>
               <View style={styles.saranJudul}>
                 <ClockCounterClockwiseIcon size={12} color={colors.textTertiary} weight="bold" />
                 <Text variant="caption" tone="tertiary">
-                  Dari catatanmu
+                  Dari catatanmu · tekan lama untuk lupakan
                 </Text>
               </View>
               <View style={styles.saranChip}>
@@ -177,12 +224,9 @@ export const FoodItemsEditor = ({
                   <Chip
                     key={s.name + s.unit}
                     size="sm"
-                    label={
-                      s.name +
-                      (s.weight_per_portion ? ' · ' + s.weight_per_portion + ' ' + s.unit : '') +
-                      (s.label ? ' · ' + s.label.kcal + ' kkal' : '')
-                    }
+                    label={labelSaran(s)}
                     onPress={() => pilihSaran(i, s)}
+                    onLongPress={() => setAkanDilupakan(s)}
                   />
                 ))}
               </View>
@@ -204,14 +248,20 @@ export const FoodItemsEditor = ({
             <View style={styles.berat}>
               <Input
                 label={
-                  beratWajib && !item.pakaiKemasan
+                  beratWajib && !item.pakaiKemasan && !item.dariCatatan
                     ? 'Berat per porsi'
                     : 'Berat per porsi (opsional)'
                 }
                 value={item.weight}
                 onChangeText={(v) => ubah(i, { weight: v })}
                 placeholder={
-                  beratWajib && !item.pakaiKemasan ? '150' : item.pakaiKemasan ? '' : 'AI menaksir'
+                  item.dariCatatan
+                    ? 'Dari catatan'
+                    : beratWajib && !item.pakaiKemasan
+                      ? '150'
+                      : item.pakaiKemasan
+                        ? ''
+                        : 'AI menaksir'
                 }
                 keyboardType="decimal-pad"
                 suffix={item.unit}
@@ -230,13 +280,13 @@ export const FoodItemsEditor = ({
               label="gram"
               size="sm"
               active={item.unit === 'g'}
-              onPress={() => ubah(i, { unit: 'g' })}
+              onPress={() => (item.unit === 'g' ? undefined : ubahIdentitas(i, { unit: 'g' }))}
             />
             <Chip
               label="ml"
               size="sm"
               active={item.unit === 'ml'}
-              onPress={() => ubah(i, { unit: 'ml' })}
+              onPress={() => (item.unit === 'ml' ? undefined : ubahIdentitas(i, { unit: 'ml' }))}
             />
             <Chip
               label={item.pakaiKemasan ? 'Dari kemasan ✓' : 'Dari kemasan'}
@@ -249,7 +299,8 @@ export const FoodItemsEditor = ({
           {/*
             Angka kemasan menang mutlak atas taksiran AI. Diisi PER SATU porsi,
             backend yang mengalikan dengan jumlah porsi, sama seperti berat.
-            Kalau semua item diisi dari kemasan, AI tidak dipanggil sama sekali.
+            Kalau semua item diisi dari kemasan lengkap dengan gulanya, AI tidak
+            dipanggil sama sekali.
           */}
           {item.pakaiKemasan ? (
             <View style={styles.kemasan}>
@@ -285,6 +336,8 @@ export const FoodItemsEditor = ({
                     editable={!disabled}
                   />
                 </View>
+              </View>
+              <View style={styles.angka}>
                 <View style={styles.makro}>
                   <Input
                     label="Lemak"
@@ -296,10 +349,21 @@ export const FoodItemsEditor = ({
                     editable={!disabled}
                   />
                 </View>
+                <View style={styles.makro}>
+                  <Input
+                    label="Gula"
+                    value={item.labelSugar}
+                    onChangeText={(v) => ubah(i, { labelSugar: v })}
+                    placeholder="0"
+                    keyboardType="decimal-pad"
+                    suffix="g"
+                    editable={!disabled}
+                  />
+                </View>
               </View>
               <Text variant="caption" tone="tertiary">
                 Angka untuk satu porsi, persis seperti di kemasan. Jumlah porsinya dikalikan
-                otomatis. Makro boleh dikosongkan.
+                otomatis. Makro boleh dikosongkan; gula yang kosong ditaksir AI.
               </Text>
             </View>
           ) : null}
@@ -318,22 +382,65 @@ export const FoodItemsEditor = ({
           </Text>
         </Pressable>
       ) : null}
+
+      <ConfirmDialog
+        visible={akanDilupakan !== null}
+        title={'Lupakan ' + (akanDilupakan?.name ?? '') + '?'}
+        message="Nama ini hilang dari saran, dan angka catatan lamanya tidak dipakai lagi. Catatan lamanya sendiri tidak dihapus. Kalau dicatat lagi, angkanya ditaksir dari awal."
+        confirmLabel="Lupakan"
+        onCancel={() => setAkanDilupakan(null)}
+        onConfirm={() => {
+          if (akanDilupakan) {
+            lupakan.mutate({ name: akanDilupakan.name, unit: akanDilupakan.unit });
+            // Baris yang sudah terlanjur memakai saran ini kehilangan tandanya.
+            onChange(
+              items.map((it) =>
+                it.dariCatatan && it.name === akanDilupakan.name && it.unit === akanDilupakan.unit
+                  ? { ...it, dariCatatan: false }
+                  : it,
+              ),
+            );
+          }
+          setAkanDilupakan(null);
+        }}
+      />
     </View>
   );
 };
 
 /**
+ * Kalori kemasan yang tidak cocok dengan makronya sendiri, cermin pemeriksaan
+ * backend (labelTidakCocok di utils/food-math.ts). Protein dan karbo 4 kkal per
+ * gram, lemak 9. Label resmi dibulatkan, jadi selisih kecil wajar; yang
+ * ditangkap salah baca seperti Biskuat: tertulis 25 kkal padahal makronya
+ * setara sekitar 95.
+ */
+export const kemasanJanggal = (label: FoodLabel): boolean => {
+  const { protein_g: p, carbs_g: c, fat_g: f } = label;
+  if (p === undefined && c === undefined && f === undefined) return false;
+
+  const dariMakro = 4 * (p ?? 0) + 4 * (c ?? 0) + 9 * (f ?? 0);
+  const toleransi = Math.max(15, 0.2 * Math.max(label.kcal, dariMakro));
+  const lengkap = p !== undefined && c !== undefined && f !== undefined;
+
+  return lengkap
+    ? Math.abs(label.kcal - dariMakro) > toleransi
+    : dariMakro - label.kcal > toleransi;
+};
+
+/**
  * Mengubah isian mentah jadi bentuk yang dikirim ke backend.
  *
- * Mengembalikan pesan kesalahan pertama yang ditemukan, atau daftar itemnya.
- * Pemeriksaan di sini sama dengan yang dilakukan backend, supaya pesannya
- * muncul sebelum request dikirim dan tanpa menunggu balasan.
+ * Mengembalikan pesan kesalahan pertama yang ditemukan, atau daftar itemnya
+ * beserta peringatan kemasan yang angkanya janggal. Peringatan tidak
+ * menghentikan apa pun: layar menanyakannya, user boleh "Simpan tetap".
  */
 export const susunItem = (
   items: FoodItemDraft[],
   beratWajib: boolean,
-): { error: string } | { items: FoodItemInput[] } => {
-  const hasil: FoodItemInput[] = [];
+): { error: string } | { items: FoodItemEditInput[]; janggal: string[] } => {
+  const hasil: FoodItemEditInput[] = [];
+  const janggal: string[] = [];
 
   for (const [i, item] of items.entries()) {
     const nama = item.name.trim();
@@ -345,7 +452,7 @@ export const susunItem = (
     }
 
     // Angka kemasan, per satu porsi. Kalorinya wajib kalau bagiannya dibuka.
-    let label: FoodItemInput['label'];
+    let label: FoodLabel | undefined;
 
     if (item.pakaiKemasan) {
       const kcal = Number(item.labelKcal.trim().replace(',', '.'));
@@ -360,12 +467,25 @@ export const susunItem = (
         return Number.isFinite(n) && n >= 0 ? n : undefined;
       };
 
+      const protein = makro(item.labelProtein);
+      const karbo = makro(item.labelCarbs);
+      const lemak = makro(item.labelFat);
+      const gula = makro(item.labelSugar);
+
+      // Gula bagian dari karbohidrat: lebih besar berarti salah baca baris.
+      if (gula !== undefined && karbo !== undefined && gula > karbo) {
+        return { error: `Gula ${nama} tidak mungkin lebih besar dari karbohidratnya` };
+      }
+
       label = {
         kcal,
-        ...(makro(item.labelProtein) === undefined ? {} : { protein_g: makro(item.labelProtein) }),
-        ...(makro(item.labelCarbs) === undefined ? {} : { carbs_g: makro(item.labelCarbs) }),
-        ...(makro(item.labelFat) === undefined ? {} : { fat_g: makro(item.labelFat) }),
+        ...(protein === undefined ? {} : { protein_g: protein }),
+        ...(karbo === undefined ? {} : { carbs_g: karbo }),
+        ...(lemak === undefined ? {} : { fat_g: lemak }),
+        ...(gula === undefined ? {} : { sugar_g: gula }),
       };
+
+      if (kemasanJanggal(label)) janggal.push(nama);
     }
 
     const beratTeks = item.weight.trim().replace(',', '.');
@@ -376,8 +496,9 @@ export const susunItem = (
       if (!Number.isFinite(weight) || weight <= 0) {
         return { error: `Berat ${nama} harus lebih dari nol` };
       }
-    } else if (beratWajib && !label) {
-      // Item dari kemasan tidak butuh berat: kalorinya sudah per porsi.
+    } else if (beratWajib && !label && !item.dariCatatan) {
+      // Item dari kemasan tidak butuh berat: kalorinya sudah per porsi. Item
+      // dari catatan memakai berat tersimpannya.
       return {
         error: `Isi perkiraan berat ${nama}, atau lampirkan foto supaya ditaksir dari sana`,
       };
@@ -389,18 +510,22 @@ export const susunItem = (
       unit: item.unit,
       ...(weight === undefined ? {} : { weight }),
       ...(label === undefined ? {} : { label }),
+      ...(item.dariCatatan ? { from_memory: true } : {}),
+      ...(item.sourceIndex === undefined ? {} : { source_index: item.sourceIndex }),
     });
   }
 
   if (hasil.length === 0) return { error: 'Tulis minimal satu makanan' };
 
-  return { items: hasil };
+  return { items: hasil, janggal };
 };
 
 const styles = StyleSheet.create({
   saran: { gap: spacing.xs },
   saranJudul: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   saranChip: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  tanda: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.xs },
+  tandaTeks: { flex: 1 },
   list: { gap: spacing.md },
   row: {
     gap: spacing.sm,

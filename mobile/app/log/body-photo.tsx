@@ -4,12 +4,12 @@ import { StyleSheet, View } from 'react-native';
 
 import { PhotoSlot } from '@/components/features/PhotoSlot';
 import { RemoteImage } from '@/components/features/RemoteImage';
+import { DateNav } from '@/components/features/DateNav';
 import {
   Button,
   Card,
   Chip,
   ConfirmDialog,
-  DateStrip,
   EmptyState,
   ErrorNote,
   Header,
@@ -154,7 +154,7 @@ export default function BodyPhotoScreen() {
         subtitle={sudahHariIni ? 'Sudah difoto ' + dayPhrase(dipilih) : 'Cukup 2-4 minggu sekali'}
       />
 
-      <DateStrip value={dipilih} onChange={setDipilih} />
+      <DateNav value={dipilih} onChange={setDipilih} section="body-photo" />
 
       <Card variant="outline" padding="md">
         <Text variant="caption" tone="secondary">

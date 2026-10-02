@@ -6,11 +6,11 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { LogActions } from '@/components/features/LogActions';
 import { GoalProgress } from '@/components/features/Metrics';
 import { StepTargetSheet } from '@/components/features/StepTargetSheet';
+import { DateNav } from '@/components/features/DateNav';
 import {
   BarChart,
   Button,
   Card,
-  DateStrip,
   ErrorNote,
   Header,
   Loading,
@@ -170,7 +170,7 @@ export default function StepsScreen() {
         }
       />
 
-      <DateStrip value={dipilih} onChange={setDipilih} />
+      <DateNav value={dipilih} onChange={setDipilih} section="steps" />
 
       {today.isPending ? (
         <Loading />

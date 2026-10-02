@@ -7,11 +7,11 @@ import {
   susunItem,
 } from '@/components/features/FoodItemsEditor';
 import { RemoteImage } from '@/components/features/RemoteImage';
-import { Button, ChipGroup, ErrorNote, Sheet, Text } from '@/components/ui';
+import { Button, ChipGroup, ConfirmDialog, ErrorNote, Sheet, Text } from '@/components/ui';
 import { MEAL_LABEL, MEAL_OPTIONS } from '@/constants/labels';
 import { radius, spacing } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
-import { useUpdateFood } from '@/services/food.service';
+import { type FoodItemEditInput, useUpdateFood } from '@/services/food.service';
 import type { FoodLog, MealType } from '@/types';
 
 interface FoodEditSheetProps {
@@ -20,13 +20,17 @@ interface FoodEditSheetProps {
 }
 
 /**
- * Mengoreksi sesi makan tanpa memanggil AI lagi.
+ * Mengoreksi sesi makan.
  *
- * Yang disunting adalah nama, jumlah porsi, dan berat tiap item. Nilai gizi
- * per 100 sudah tersimpan dari analisa pertama, jadi backend tinggal
- * menghitung ulang. Karena itu berat wajib di sini: tidak ada foto yang
- * dianalisa ulang untuk menaksirnya, dan yang tampil adalah berat yang
- * dipakai terakhir kali.
+ * Porsi dan berat dihitung ulang dari nilai per 100 yang tersimpan, tanpa
+ * AI. Nama atau satuan yang diganti berarti makanan lain: item ITU saja yang
+ * ditaksir ulang (atau memakai catatan kalau dipilih dari saran), item lain
+ * tidak tersentuh. Berat wajib di sini: tidak ada foto yang dianalisa ulang,
+ * dan yang tampil adalah berat yang dipakai terakhir kali.
+ *
+ * Tiap baris membawa urutannya di catatan tersimpan (sourceIndex), supaya
+ * menghapus item di tengah tidak membuat item sesudahnya mewarisi gizi yang
+ * salah.
  *
  * Menambah makanan dimatikan. Makanan baru butuh taksiran gizi baru, dan itu
  * sesi makan baru.
@@ -36,7 +40,7 @@ export const FoodEditSheet = ({ log, onClose }: FoodEditSheetProps) => {
 
   const [jenis, setJenis] = useState<MealType>(log.meal_type);
   const [items, setItems] = useState<FoodItemDraft[]>(
-    (log.ai_analysis?.items ?? []).map((item) => ({
+    (log.ai_analysis?.items ?? []).map((item, i) => ({
       name: item.name,
       portions: String(item.portions),
       weight: item.weight_per_portion > 0 ? String(item.weight_per_portion) : '',
@@ -47,9 +51,15 @@ export const FoodEditSheet = ({ log, onClose }: FoodEditSheetProps) => {
       labelProtein: item.label?.protein_g ? String(item.label.protein_g) : '',
       labelCarbs: item.label?.carbs_g ? String(item.label.carbs_g) : '',
       labelFat: item.label?.fat_g ? String(item.label.fat_g) : '',
+      labelSugar: item.label?.sugar_g === undefined ? '' : String(item.label.sugar_g),
+      dariCatatan: false,
+      sourceIndex: i,
     })),
   );
   const [error, setError] = useState<string | null>(null);
+  const [janggal, setJanggal] = useState<{ nama: string[]; items: FoodItemEditInput[] } | null>(
+    null,
+  );
 
   const simpan = () => {
     const susunan = susunItem(items, true);
@@ -61,11 +71,20 @@ export const FoodEditSheet = ({ log, onClose }: FoodEditSheetProps) => {
 
     setError(null);
 
+    if (susunan.janggal.length > 0) {
+      setJanggal({ nama: susunan.janggal, items: susunan.items });
+      return;
+    }
+
+    kirim(susunan.items);
+  };
+
+  const kirim = (siap: FoodItemEditInput[]) => {
     update.mutate(
       {
         id: log.id,
         meal_type: jenis,
-        items: susunan.items,
+        items: siap,
       },
       {
         onSuccess: onClose,
@@ -119,12 +138,31 @@ export const FoodEditSheet = ({ log, onClose }: FoodEditSheetProps) => {
       />
 
       <Text variant="caption" tone="tertiary">
-        Kalorinya dihitung ulang tanpa memanggil AI lagi. Kalau taksiran AI meleset dan kemasannya
-        ada, buka bagian Dari kemasan dan isi angkanya, itu yang dipakai. Untuk makanan yang belum
-        ada di daftar, catat sebagai sesi baru.
+        Porsi dan berat dihitung ulang tanpa AI. Ganti nama atau satuan berarti makanan lain, dan
+        item itu saja yang ditaksir ulang. Kalau taksiran meleset dan kemasannya ada, buka bagian
+        Dari kemasan dan isi angkanya. Makanan tambahan dicatat sebagai sesi baru.
       </Text>
 
       {error ? <ErrorNote message={error} /> : null}
+
+      <ConfirmDialog
+        visible={janggal !== null}
+        title="Angka kemasan janggal"
+        message={
+          'Kalori ' +
+          (janggal?.nama.join(', ') ?? '') +
+          ' tidak cocok dengan protein, karbo, dan lemaknya. Biasanya ini salah baca baris di tabel gizi. Periksa lagi, atau simpan apa adanya kalau memang begitu tertulis.'
+        }
+        confirmLabel="Simpan tetap"
+        cancelLabel="Periksa lagi"
+        destructive={false}
+        onCancel={() => setJanggal(null)}
+        onConfirm={() => {
+          const siap = janggal?.items;
+          setJanggal(null);
+          if (siap) kirim(siap);
+        }}
+      />
     </Sheet>
   );
 };
