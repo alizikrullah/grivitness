@@ -123,7 +123,10 @@ export const ProgressPage = () => {
               </span>
               <span className="t-caption c-tertiary">
                 {(w?.food_days ?? 0) > 0
-                  ? `Rata-rata ${thousands(w?.avg_calories_in ?? 0)} dari ${w?.food_days ?? 0} hari tercatat`
+                  ? `Rata-rata ${thousands(w?.avg_calories_in ?? 0)} dari ${w?.food_days ?? 0} hari tercatat` +
+                    ((w?.food_days_incomplete ?? 0) > 0
+                      ? `, ${w?.food_days_incomplete ?? 0} hari belum lengkap tidak dihitung`
+                      : '')
                   : 'Belum ada catatan makan'}
               </span>
             </div>

@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { get, patch, post } from '@/lib/api';
 import { qk } from '@/lib/query';
 import type {
+  CalendarDays,
+  CalendarSection,
   DailySummary,
   Goal,
   GoalWithProgress,
@@ -27,6 +29,18 @@ export const useCalorieHistory = (days: number) =>
   useQuery({
     queryKey: qk.summaryHistory(days),
     queryFn: () => get<HistorySummary>('/api/summary/history', { params: { days } }),
+  });
+
+/**
+ * Tanggal yang ada datanya untuk satu layar catat, untuk titik di kalender.
+ * Kuncinya di bawah 'summary', jadi ikut segar setiap kali user mencatat.
+ */
+export const useCalendarDays = (type: CalendarSection, from: string, to: string, aktif = true) =>
+  useQuery({
+    queryKey: qk.calendar(type, from, to),
+    queryFn: () => get<CalendarDays>('/api/summary/calendar', { params: { type, from, to } }),
+    enabled: aktif,
+    staleTime: 60_000,
   });
 
 export const useWeeklySummary = (from: string) =>
@@ -60,6 +74,7 @@ export const useGoalHistory = () =>
 export interface GoalInput {
   target_weight_kg: number;
   target_date: string;
+  /** Diketik: jatah manual yang dikunci. Kosong: jatah otomatis mengikuti berat terbaru. */
   daily_calorie_budget?: number;
 }
 
@@ -79,8 +94,14 @@ export const useUpdateGoal = () => {
   const client = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, ...body }: { id: string } & Partial<GoalInput> & { is_active?: boolean }) =>
-      patch<Goal>('/api/goals/' + id, body),
+    mutationFn: ({
+      id,
+      ...body
+    }: { id: string } & Partial<Omit<GoalInput, 'daily_calorie_budget'>> & {
+        is_active?: boolean;
+        /** null mengembalikan jatah ke otomatis. */
+        daily_calorie_budget?: number | null;
+      }) => patch<Goal>('/api/goals/' + id, body),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['goals'] });
       void client.invalidateQueries({ queryKey: ['summary'] });

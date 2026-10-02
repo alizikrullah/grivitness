@@ -120,3 +120,51 @@ export const dayPhrase = (date: string): string => (isToday(date) ? 'hari ini' :
  */
 export const wibToISO = (date: string, time: string): string =>
   new Date(new Date(date + 'T' + time + ':00Z').getTime() - WIB_OFFSET_MS).toISOString();
+
+/** "Sab 3 Okt", ditambah tahun kalau bukan tahun ini. Untuk kotak tanggal di layar catat. */
+export const compactDate = (date: string): string => {
+  const d = parseDateOnly(date);
+  const tahun =
+    d.getUTCFullYear() === Number(todayWIB().slice(0, 4)) ? '' : ' ' + d.getUTCFullYear();
+  return (
+    (HARI_PENDEK[d.getUTCDay()] ?? '') +
+    ' ' +
+    d.getUTCDate() +
+    ' ' +
+    (BULAN_PENDEK[d.getUTCMonth()] ?? '') +
+    tahun
+  );
+};
+
+/** "Hari ini, Sab 3 Okt", "Kemarin, Jum 2 Okt", atau "Kam 1 Okt". */
+export const navDateLabel = (date: string): string => {
+  const hariIni = todayWIB();
+  if (date === hariIni) return 'Hari ini, ' + compactDate(date);
+  if (date === shiftDays(hariIni, -1)) return 'Kemarin, ' + compactDate(date);
+  return compactDate(date);
+};
+
+/** Tanggal pertama bulan dari sebuah tanggal YYYY-MM-DD. */
+export const monthStart = (date: string): string => date.slice(0, 8) + '01';
+
+/** Tanggal terakhir bulan dari sebuah tanggal YYYY-MM-DD. */
+export const monthEnd = (date: string): string => {
+  const y = Number(date.slice(0, 4));
+  const m = Number(date.slice(5, 7));
+  // Hari ke-0 bulan berikutnya adalah hari terakhir bulan ini.
+  return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+};
+
+/** Tanggal pertama bulan yang digeser sejumlah bulan. */
+export const shiftMonths = (date: string, months: number): string => {
+  const y = Number(date.slice(0, 4));
+  const m = Number(date.slice(5, 7)) - 1 + months;
+  return new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10);
+};
+
+/** "Oktober 2026", judul kalender. */
+export const monthTitle = (date: string): string =>
+  (BULAN_PANJANG[Number(date.slice(5, 7)) - 1] ?? '') + ' ' + date.slice(0, 4);
+
+/** Urutan hari dalam minggu, Senin = 0 sampai Minggu = 6. */
+export const weekdayMon = (date: string): number => (parseDateOnly(date).getUTCDay() + 6) % 7;

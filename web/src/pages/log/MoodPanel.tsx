@@ -1,7 +1,8 @@
 import { SmileyIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
 
-import { Button, Card, DateField, ErrorNote, Loading, SectionHeader } from '@/components/ui';
+import { DateNav } from '@/components/features/DateNav';
+import { Button, Card, ErrorNote, Loading, SectionHeader } from '@/components/ui';
 import { metricColors } from '@/constants/colors';
 import { SCORE_LABEL } from '@/constants/labels';
 import { toApiError } from '@/lib/api';
@@ -88,7 +89,7 @@ export const MoodPanel = () => {
     <>
       <SectionHeader title={'Mood ' + dayPhrase(tanggal)} />
 
-      <DateField value={tanggal} onChange={setTanggal} />
+      <DateNav value={tanggal} onChange={setTanggal} section="mood" />
 
       <Card>
         <div className="stack">

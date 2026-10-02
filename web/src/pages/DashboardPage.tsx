@@ -11,11 +11,12 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 
 import { MetricTile } from '@/components/features/MetricTile';
-import { Card, Loading, Ring, SectionHeader, StatPill } from '@/components/ui';
+import { Button, Card, Loading, Ring, SectionHeader, StatPill } from '@/components/ui';
 import { colors, flame, metricColors } from '@/constants/colors';
+import { useSetFoodDayStatus } from '@/services/food.service';
 import { useDailySummary, useStreak } from '@/services/misc.service';
 import { useProfile } from '@/services/users.service';
-import { todayWIB } from '@/utils/date';
+import { shiftDays, todayWIB } from '@/utils/date';
 import { duration, kg, ratio, thousands, volume } from '@/utils/format';
 import './DashboardPage.css';
 
@@ -31,7 +32,11 @@ const rasio = (nilai: number, target: number | undefined): number =>
 export const DashboardPage = () => {
   const navigate = useNavigate();
   const hariIni = todayWIB();
+  const kemarin = shiftDays(hariIni, -1);
   const summary = useDailySummary(hariIni);
+  /** Kemarin dibaca untuk satu pertanyaan: makannya di bawah separuh jatah, lengkap atau belum. */
+  const ringkasKemarin = useDailySummary(kemarin);
+  const statusHari = useSetFoodDayStatus();
   const streak = useStreak();
   const profile = useProfile();
 
@@ -56,6 +61,34 @@ export const DashboardPage = () => {
           </span>
           <ArrowRightIcon size={18} color={colors.textSecondary} weight="bold" />
         </Link>
+      ) : null}
+
+      {ringkasKemarin.data?.food_low && ringkasKemarin.data.food_day_status === null ? (
+        <Card variant="outline" padding="md">
+          <div className="stack-sm">
+            <span className="t-label">Catatan makan kemarin sudah lengkap?</span>
+            <span className="t-caption c-secondary">
+              Tercatat {thousands(ringkasKemarin.data.calories_in)} kkal, di bawah separuh jatahmu.
+              Kalau ada yang lupa dicatat, kemarin tidak ikut rata-rata supaya defisitmu tidak
+              terlihat lebih besar dari kenyataan.
+            </span>
+            <div className="row">
+              <Button
+                label="Belum lengkap"
+                variant="secondary"
+                size="sm"
+                loading={statusHari.isPending}
+                onClick={() => statusHari.mutate({ date: kemarin, status: 'INCOMPLETE' })}
+              />
+              <Button
+                label="Memang segini"
+                variant="ghost"
+                size="sm"
+                onClick={() => statusHari.mutate({ date: kemarin, status: 'COMPLETE' })}
+              />
+            </div>
+          </div>
+        </Card>
       ) : null}
 
       <div className="dash-top">
@@ -84,7 +117,7 @@ export const DashboardPage = () => {
                   punya cara tahu yang mana yang sedang dia baca.
                 */}
                 <span className="t-overline c-tertiary">
-                  {data?.calories_out_source === 'device' ? 'Keluar (jam)' : 'Keluar'}
+                  {data?.calories_out_source === 'device' ? 'Keluar (+ jam)' : 'Keluar'}
                 </span>
                 <span className="t-h3">{thousands(data?.calories_out ?? 0)}</span>
               </div>
@@ -122,8 +155,13 @@ export const DashboardPage = () => {
             */}
             {data?.energy ? (
               <span className="t-caption c-tertiary dash-breakdown">
-                {thousands(data.energy.baseline)} metabolisme + {data.energy.workout_calories}{' '}
-                olahraga
+                {thousands(data.energy.baseline)} metabolisme
+                {data.energy.device_active_kcal === null
+                  ? ''
+                  : ' + ' + thousands(data.energy.device_active_kcal) + ' aktif jam'}
+                {' + '}
+                {thousands(data.energy.workout_calories)}
+                {data.energy.device_active_kcal === null ? ' olahraga' : ' olahraga di luar jam'}
               </span>
             ) : null}
             <span className="t-caption c-tertiary">
@@ -204,7 +242,7 @@ export const DashboardPage = () => {
       />
 
       <Card>
-        <div className="grid-3">
+        <div className="grid-4">
           <MacroBar
             label="Protein"
             value={data?.protein_g ?? 0}
@@ -222,6 +260,17 @@ export const DashboardPage = () => {
             value={data?.fat_g ?? 0}
             target={data?.targets.macros?.fat_g}
             color={metricColors.calories}
+          />
+          {/* Gula: batas ATAS, bukan target. Bilahnya kuning kalau sudah lewat. */}
+          <MacroBar
+            label="Gula (batas)"
+            value={data?.sugar_g ?? 0}
+            target={data?.targets.sugar_max_g}
+            color={
+              (data?.sugar_g ?? 0) > (data?.targets.sugar_max_g ?? Infinity)
+                ? colors.warning
+                : metricColors.mood
+            }
           />
         </div>
       </Card>
