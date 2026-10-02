@@ -248,16 +248,32 @@ export interface Keputusan {
 export const gulaDariRasio = (label: FoodLabel, model: Per100): number | null => {
   if (model.missing || model.sugar === null) return null;
 
+  const karbo = karboKemasan(label);
   let gula: number;
-  if (label.carbs_g !== undefined && model.carbs > 0) {
-    gula = (label.carbs_g * model.sugar) / model.carbs;
+  if (karbo !== undefined && model.carbs > 0) {
+    gula = (karbo * model.sugar) / model.carbs;
   } else if (model.kcal > 0) {
     gula = (label.kcal * model.sugar) / model.kcal;
   } else {
     gula = 0;
   }
 
-  return bulat(label.carbs_g === undefined ? gula : Math.min(gula, label.carbs_g), 1);
+  return bulat(karbo === undefined ? gula : Math.min(gula, karbo), 1);
+};
+
+/**
+ * Karbohidrat kemasan yang bisa dipercaya, atau undefined kalau tidak diketahui.
+ *
+ * Nol di sini ambigu: item kemasan yang tersimpan menulis makro yang tidak
+ * diisi sebagai nol. Nol dipercaya hanya kalau protein dan lemak sudah
+ * menjelaskan sebagian besar kalorinya; teh botol 120 kkal dengan karbo "0"
+ * jelas karbonya tidak diisi, bukan tidak ada.
+ */
+const karboKemasan = (label: FoodLabel): number | undefined => {
+  if (label.carbs_g === undefined) return undefined;
+  if (label.carbs_g > 0) return label.carbs_g;
+  const lainnya = 4 * (label.protein_g ?? 0) + 9 * (label.fat_g ?? 0);
+  return lainnya >= 0.8 * label.kcal ? 0 : undefined;
 };
 
 /**

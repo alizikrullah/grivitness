@@ -555,3 +555,18 @@ describe('pemeriksaan kemasan', () => {
     expect(labelTidakCocok({ kcal: 120 })).toBe(false);
   });
 });
+
+describe('karbo nol di kemasan lama', () => {
+  it('nol yang tidak menjelaskan kalori dianggap tidak diisi: jatuh ke rasio kalori', () => {
+    // Teh botol 120 kkal tersimpan dengan karbo 0 karena kolomnya tidak diisi.
+    const teh = { kcal: 120, protein_g: 0, carbs_g: 0, fat_g: 0 };
+    expect(gulaDariRasio(teh, per100(28, { carbs: 7, sugar: 6.5 }))).toBeCloseTo(27.9, 1);
+  });
+
+  it('nol yang memang dijelaskan protein dan lemak dipercaya', () => {
+    const minyak = { kcal: 90, protein_g: 0, carbs_g: 0, fat_g: 10 };
+    expect(gulaDariRasio(minyak, per100(884, { carbs: 0, sugar: 0 }))).toBe(0);
+    const telur = { kcal: 70, protein_g: 6, carbs_g: 0, fat_g: 5 };
+    expect(gulaDariRasio(telur, per100(155, { carbs: 1, sugar: 1 }))).toBe(0);
+  });
+});
