@@ -31,7 +31,6 @@ import {
   mightMeanTonight,
   sleepDayNow,
   sleepRange,
-  sleepRangeLabel,
   timeWIB,
   todayWIB,
 } from '@/utils/date';
@@ -153,15 +152,18 @@ export default function SleepScreen() {
               >
                 {menit > 0 ? duration(menit) : '-'}
               </Text>
-              {rentang && menit > 0 ? (
-                <Text variant="caption" tone={belumTerjadi ? 'warning' : 'tertiary'} align="center">
-                  {sleepRangeLabel(rentang.start, rentang.end)}
-                  {belumTerjadi ? ', belum terjadi' : ''}
+              {/*
+                Keterangan cuma muncul kalau ada yang perlu dibetulkan. Rentang
+                lengkap di bawah setiap isian sempat dipasang dan terasa
+                mengganggu; untuk isian biasa tanggalnya memang sudah benar.
+              */}
+              {belumTerjadi ? (
+                <Text variant="caption" tone="warning" align="center">
+                  Jam bangun ini belum terjadi, cek tanggalnya.
                 </Text>
-              ) : null}
-              {mungkinSoreIni ? (
+              ) : mungkinSoreIni ? (
                 <Text variant="caption" tone="secondary" align="center">
-                  Kalau jam itu maksudnya hari ini, geser tanggal ke besok.
+                  Ini masuk malam kemarin. Kalau maksudnya malam ini, geser tanggal ke besok.
                 </Text>
               ) : null}
             </View>

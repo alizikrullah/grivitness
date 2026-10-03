@@ -8,7 +8,7 @@ import { spacing, typography } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
 import { useUpdateSleep } from '@/services/sleep.service';
 import type { SleepLog } from '@/types';
-import { isFutureTime, sleepRange, sleepRangeLabel, timeWIB } from '@/utils/date';
+import { isFutureTime, sleepRange, timeWIB } from '@/utils/date';
 import { duration } from '@/utils/format';
 
 interface SleepEditSheetProps {
@@ -108,10 +108,9 @@ export const SleepEditSheet = ({ log, onClose }: SleepEditSheetProps) => {
         >
           {menit > 0 ? duration(menit) : '-'}
         </Text>
-        {menit > 0 ? (
-          <Text variant="caption" tone={belumTerjadi ? 'warning' : 'tertiary'} align="center">
-            {sleepRangeLabel(rentang.start, rentang.end)}
-            {belumTerjadi ? ', belum terjadi' : ''}
+        {belumTerjadi ? (
+          <Text variant="caption" tone="warning" align="center">
+            Jam bangun ini belum terjadi, cek jamnya.
           </Text>
         ) : null}
       </View>

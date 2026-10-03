@@ -20,7 +20,6 @@ import {
   mightMeanTonight,
   sleepDayNow,
   sleepRange,
-  sleepRangeLabel,
   timeWIB,
   todayWIB,
 } from '@/utils/date';
@@ -114,16 +113,14 @@ export const SleepPanel = () => {
             />
           </div>
 
-          {rentang && menit > 0 ? (
-            <span className={'t-caption ' + (belumTerjadi ? 'c-warning' : 'c-tertiary')}>
-              {duration(menit)}, {sleepRangeLabel(rentang.start, rentang.end)}
-              {belumTerjadi ? ', belum terjadi' : ''}
+          {/* Cuma muncul kalau ada yang perlu dibetulkan, sama dengan mobile. */}
+          {belumTerjadi ? (
+            <span className="t-caption c-warning">
+              Jam bangun ini belum terjadi, cek tanggalnya.
             </span>
-          ) : null}
-
-          {mungkinSoreIni ? (
+          ) : mungkinSoreIni ? (
             <span className="t-caption c-secondary">
-              Kalau jam itu maksudnya hari ini, geser tanggal ke besok.
+              Ini masuk malam kemarin. Kalau maksudnya malam ini, geser tanggal ke besok.
             </span>
           ) : null}
 

@@ -192,15 +192,6 @@ export const sleepRange = (
   return { start: wibToISO(hariMulai, start), end: wibToISO(hariBangun, wake) };
 };
 
-/** "Sen 28 Sep 21:00 sampai 23:00", tanggal kedua hanya kalau harinya beda. */
-export const sleepRangeLabel = (start: string, end: string): string => {
-  const hariMulai = toWIBDate(new Date(start));
-  const hariBangun = toWIBDate(new Date(end));
-  const akhir =
-    hariBangun === hariMulai ? timeWIB(end) : compactDate(hariBangun) + ' ' + timeWIB(end);
-  return compactDate(hariMulai) + ' ' + timeWIB(start) + ' sampai ' + akhir;
-};
-
 /**
  * Apakah sebuah waktu belum terjadi. Kelonggaran lima menit sama dengan
  * backend: jam dipilih per menit, dan menyimpan sesaat sesudah bangun tidak
