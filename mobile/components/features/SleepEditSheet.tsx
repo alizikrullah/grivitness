@@ -8,7 +8,7 @@ import { spacing, typography } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
 import { useUpdateSleep } from '@/services/sleep.service';
 import type { SleepLog } from '@/types';
-import { shiftDays, timeWIB, toWIBDate, wibToISO } from '@/utils/date';
+import { isFutureTime, sleepRange, sleepRangeLabel, timeWIB } from '@/utils/date';
 import { duration } from '@/utils/format';
 
 interface SleepEditSheetProps {
@@ -19,8 +19,9 @@ interface SleepEditSheetProps {
 /**
  * Mengoreksi sesi tidur yang sudah tercatat.
  *
- * Tanggal acuan diambil dari waktu BANGUN sesi ini, bukan dari hari ini, mengedit
- * catatan kemarin tidak boleh diam-diam memindahkannya ke hari ini.
+ * Tanggal acuan diambil dari tanggal tidur sesi ini (logged_at), bukan dari hari
+ * ini: mengedit catatan kemarin tidak boleh diam-diam memindahkannya ke hari ini.
+ * Aturan jamnya sama dengan layar catat, lihat sleepRange di utils/date.
  */
 export const SleepEditSheet = ({ log, onClose }: SleepEditSheetProps) => {
   const update = useUpdateSleep();
@@ -31,19 +32,13 @@ export const SleepEditSheet = ({ log, onClose }: SleepEditSheetProps) => {
   const [catatan, setCatatan] = useState(log.notes ?? '');
   const [error, setError] = useState<string | null>(null);
 
-  const tanggalBangun = toWIBDate(new Date(log.sleep_end));
+  const rentang = sleepRange(log.logged_at, mulai, bangun);
 
-  const rentang = () => ({
-    // Jam bangun yang lebih kecil dari jam tidur berarti tidurnya dimulai
-    // sehari sebelumnya, bukan durasi negatif.
-    start: wibToISO(mulai >= bangun ? shiftDays(tanggalBangun, -1) : tanggalBangun, mulai),
-    end: wibToISO(tanggalBangun, bangun),
-  });
+  const menit = Math.round(
+    (new Date(rentang.end).getTime() - new Date(rentang.start).getTime()) / 60_000,
+  );
 
-  const menit = (() => {
-    const { start, end } = rentang();
-    return Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60_000);
-  })();
+  const belumTerjadi = isFutureTime(rentang.end);
 
   const simpan = () => {
     if (kualitas === null) {
@@ -56,15 +51,18 @@ export const SleepEditSheet = ({ log, onClose }: SleepEditSheetProps) => {
       return;
     }
 
-    setError(null);
+    if (belumTerjadi) {
+      setError('Jam bangun itu belum terjadi. Cek lagi jamnya.');
+      return;
+    }
 
-    const { start, end } = rentang();
+    setError(null);
 
     update.mutate(
       {
         id: log.id,
-        sleep_start: start,
-        sleep_end: end,
+        sleep_start: rentang.start,
+        sleep_end: rentang.end,
         quality_score: kualitas,
         notes: catatan.trim() === '' ? null : catatan.trim(),
       },
@@ -110,6 +108,12 @@ export const SleepEditSheet = ({ log, onClose }: SleepEditSheetProps) => {
         >
           {menit > 0 ? duration(menit) : '-'}
         </Text>
+        {menit > 0 ? (
+          <Text variant="caption" tone={belumTerjadi ? 'warning' : 'tertiary'} align="center">
+            {sleepRangeLabel(rentang.start, rentang.end)}
+            {belumTerjadi ? ', belum terjadi' : ''}
+          </Text>
+        ) : null}
       </View>
 
       <View style={styles.group}>

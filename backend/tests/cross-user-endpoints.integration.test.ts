@@ -28,6 +28,9 @@ let A: { id: string; token: string };
 let B: { id: string; token: string };
 
 const hariIni = todayInJakarta();
+const kemarin = new Date(new Date(`${hariIni}T00:00:00Z`).getTime() - 86_400_000)
+  .toISOString()
+  .slice(0, 10);
 
 /** Id baris milik A, dikumpulkan saat penyemaian untuk dipakai menyerang. */
 const milikA: Record<string, string> = {};
@@ -101,9 +104,13 @@ beforeAll(async () => {
     logged_at: hariIni,
   });
 
+  // Jam 19.00 sampai 21.00 WIB kemarin: selalu sudah terjadi saat test
+  // berjalan, dan mulai sesudah jam 18:00 jadi tercatat sebagai tidur hariIni.
+  // Dengan begitu pembacaan tanggal hariIni oleh B benar-benar menguji
+  // penyaringnya, bukan tanggal yang kebetulan kosong.
   milikA.sleep = await buat('/api/sleep', {
-    sleep_start: `${hariIni}T15:00:00.000Z`,
-    sleep_end: `${hariIni}T22:30:00.000Z`,
+    sleep_start: `${kemarin}T12:00:00.000Z`,
+    sleep_end: `${kemarin}T14:00:00.000Z`,
     quality_score: 4,
   });
 

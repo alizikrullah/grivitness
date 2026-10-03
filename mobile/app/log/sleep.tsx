@@ -25,16 +25,25 @@ import { spacing, typography } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
 import { useCreateSleep, useDeleteSleep, useSleepDate } from '@/services/sleep.service';
 import type { SleepLog } from '@/types';
-import { dayPhrase, shiftDays, timeWIB, todayWIB, wibToISO } from '@/utils/date';
+import {
+  dayPhrase,
+  isFutureTime,
+  sleepRange,
+  sleepRangeLabel,
+  timeWIB,
+  todayWIB,
+} from '@/utils/date';
 import { duration } from '@/utils/format';
 
 const FORMAT_JAM = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export default function SleepScreen() {
   /**
-   * Tanggal yang sedang dilihat, yaitu tanggal BANGUN. Backend mengelompokkan
-   * tidur menurut hari bangunnya, jadi memilih tanggal di sini berarti memilih
-   * "tidur untuk pagi hari itu".
+   * Tanggal yang sedang dilihat: "tidur untuk pagi hari itu". Jam mulai 18:00
+   * ke atas berarti malam sebelumnya, di bawahnya tanggal itu sendiri
+   * (sleepRange di utils/date, sama dengan sleepDay() di backend). Satu malam
+   * yang terpotong, misalnya 21:00 sampai 23:00 lalu 02:00 sampai 04:20,
+   * dicatat dua kali di tanggal yang SAMA.
    */
   const [tanggal, setTanggal] = useState(todayWIB());
 
@@ -51,29 +60,17 @@ export default function SleepScreen() {
 
   const jamValid = FORMAT_JAM.test(mulai) && FORMAT_JAM.test(bangun);
 
-  /**
-   * Tidur hampir selalu melewati tengah malam, jadi jam bangun yang lebih kecil
-   * dari jam tidur berarti keesokan harinya, bukan durasi negatif.
-   */
-  const hitungRentang = () => {
-    const tidurMalamSebelumnya = mulai >= bangun;
+  // Dihitung terhadap tanggal yang sedang dilihat, bukan terhadap hari ini.
+  // Tanpa itu, tidur yang dicatat sambil menelusuri hari lampau tetap jatuh
+  // ke hari ini dan tanggal yang sedang dibuka tetap terlihat kosong.
+  const rentang = jamValid ? sleepRange(tanggal, mulai, bangun) : null;
 
-    // Dihitung terhadap tanggal yang sedang dilihat, bukan terhadap hari ini.
-    // Tanpa itu, tidur yang dicatat sambil menelusuri hari lampau tetap jatuh
-    // ke hari ini dan tanggal yang sedang dibuka tetap terlihat kosong.
-    const tanggalMulai = tidurMalamSebelumnya ? shiftDays(tanggal, -1) : tanggal;
+  const menit = rentang
+    ? Math.round((new Date(rentang.end).getTime() - new Date(rentang.start).getTime()) / 60_000)
+    : 0;
 
-    return {
-      start: wibToISO(tanggalMulai, mulai),
-      end: wibToISO(tanggal, bangun),
-    };
-  };
-
-  const menit = (() => {
-    if (!jamValid) return 0;
-    const { start, end } = hitungRentang();
-    return Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60_000);
-  })();
+  /** Jam bangun yang belum terjadi hampir pasti tanggal yang salah. */
+  const belumTerjadi = rentang !== null && isFutureTime(rentang.end);
 
   const simpan = () => {
     setError(null);
@@ -88,17 +85,20 @@ export default function SleepScreen() {
       return;
     }
 
-    if (menit <= 0 || menit > 24 * 60) {
+    if (rentang === null || menit <= 0 || menit > 24 * 60) {
       setError('Durasi tidur tidak masuk akal. Periksa lagi jamnya.');
       return;
     }
 
-    const { start, end } = hitungRentang();
+    if (belumTerjadi) {
+      setError('Jam bangun itu belum terjadi. Cek lagi tanggal dan jamnya.');
+      return;
+    }
 
     createSleep.mutate(
       {
-        sleep_start: start,
-        sleep_end: end,
+        sleep_start: rentang.start,
+        sleep_end: rentang.end,
         quality_score: kualitas,
         notes: catatan.trim() === '' ? undefined : catatan.trim(),
       },
@@ -148,6 +148,12 @@ export default function SleepScreen() {
               >
                 {menit > 0 ? duration(menit) : '-'}
               </Text>
+              {rentang && menit > 0 ? (
+                <Text variant="caption" tone={belumTerjadi ? 'warning' : 'tertiary'} align="center">
+                  {sleepRangeLabel(rentang.start, rentang.end)}
+                  {belumTerjadi ? ', belum terjadi' : ''}
+                </Text>
+              ) : null}
             </View>
 
             <View style={styles.quality}>

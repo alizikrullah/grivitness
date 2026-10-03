@@ -25,7 +25,7 @@ interface DateNavProps {
   onChange: (date: string) => void;
   /** Panel yang memakai: menentukan tanggal mana yang bertitik. */
   section: CalendarSection;
-  /** Keterangan di atas kotak, mis. "Tanggal bangun" untuk tidur. */
+  /** Keterangan di atas kotak, mis. "Tidur untuk pagi tanggal" di layar tidur. */
   label?: string;
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { dailyKey, todayInJakarta } from './daily-key.js';
+import { dailyKey, sleepDay, todayInJakarta } from './daily-key.js';
 
 const USER_A = '11111111-2222-3333-4444-555555555555';
 const USER_B = '99999999-8888-7777-6666-555555555555';
@@ -62,5 +62,28 @@ describe('todayInJakarta', () => {
     const utc = new Date().toISOString().slice(0, 10);
 
     expect(jakarta >= utc).toBe(true);
+  });
+});
+
+describe('sleepDay', () => {
+  it('malam yang terpotong masuk satu tanggal: pagi harinya', () => {
+    // 28 Sep 21:00 sampai 23:00 WIB, lalu 29 Sep 02:00 sampai 04:20 WIB.
+    expect(sleepDay('2026-09-28T14:00:00.000Z')).toBe('2026-09-29');
+    expect(sleepDay('2026-09-28T19:00:00.000Z')).toBe('2026-09-29');
+  });
+
+  it('tidur malam biasa masuk ke tanggal bangunnya', () => {
+    // 29 Sep 22:30 WIB sampai 30 Sep 04:20 WIB.
+    expect(sleepDay('2026-09-29T15:30:00.000Z')).toBe('2026-09-30');
+  });
+
+  it('tidur siang tetap di harinya sendiri', () => {
+    // 30 Sep 14:30 WIB.
+    expect(sleepDay('2026-09-30T07:30:00.000Z')).toBe('2026-09-30');
+  });
+
+  it('batasnya jam 18:00 WIB tepat', () => {
+    expect(sleepDay('2026-09-30T10:59:00.000Z')).toBe('2026-09-30');
+    expect(sleepDay('2026-09-30T11:00:00.000Z')).toBe('2026-10-01');
   });
 });

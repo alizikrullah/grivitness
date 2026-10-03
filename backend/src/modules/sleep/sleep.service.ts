@@ -1,7 +1,7 @@
 import { forUser } from '../../data/scoped.js';
 import type { SleepLogRecord } from '../../types/directus-schema.js';
 import { AppError } from '../../utils/api-error.js';
-import { todayInJakarta } from '../../utils/daily-key.js';
+import { sleepDay, todayInJakarta } from '../../utils/daily-key.js';
 import { type DateRangeDto, dateRangeFilter } from '../../utils/query.js';
 import { recordActivitySafely } from '../streaks/streaks.service.js';
 import type { CreateSleepDto, UpdateSleepDto } from './sleep.validation.js';
@@ -12,32 +12,26 @@ import type { CreateSleepDto, UpdateSleepDto } from './sleep.validation.js';
  */
 
 /**
- * Tanggal yang dipakai untuk mengelompokkan sesi tidur.
+ * Tanggal yang dipakai untuk mengelompokkan sesi tidur: `sleepDay()`.
  *
- * Dipakai tanggal saat BANGUN, bukan saat mulai tidur. Tidur jam 23:00 tanggal
- * 22 dan bangun jam 06:30 tanggal 23 tercatat sebagai tidurnya tanggal 23.
+ * Tidur tanggal X adalah semua sesi yang MULAI antara jam 18:00 tanggal X-1
+ * dan jam 18:00 tanggal X. Tidur 23:00 tanggal 22 dan bangun 06:30 tanggal 23
+ * tetap tercatat di tanggal 23, seperti cara orang membicarakan tidurnya:
+ * bangun pagi ini, yang dicari "tidur saya semalam" di bawah hari ini.
  *
- * Ini mengikuti cara orang membicarakan tidurnya: bangun pagi ini lalu membuka
- * aplikasi, yang dicari adalah "tidur saya semalam" di bawah hari ini. Dengan
- * pengelompokan menurut waktu mulai, catatan itu jatuh ke kemarin dan layar
- * "Tidur hari ini" tampak kosong padahal datanya sudah tersimpan, persis
- * seperti gagal menyimpan.
+ * Dulu yang dipakai tanggal BANGUN tiap sesi, dan itu memecah malam yang
+ * terpotong. Tidur 21:00, kebangun 23:00, tidur lagi 02:00 sampai 04:20:
+ * potongan pertama bangun sebelum tengah malam, jadi jatuh ke tanggal lain
+ * dari potongan keduanya. Lihat catatan di `utils/daily-key.ts`.
  *
- * Tidur siang tidak terpengaruh: mulai dan bangunnya di hari yang sama.
- *
- * Perhitungannya dilakukan dalam WIB, bukan UTC, supaya pengelompokannya
- * sesuai dengan hari yang dirasakan user.
+ * Tidur siang tidak terpengaruh: mulainya sebelum jam 18:00.
  */
-const tanggalBangunWib = (sleepEnd: string): string => {
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Jakarta',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
 
-  return formatter.format(new Date(sleepEnd));
-};
+/**
+ * Kelonggaran untuk jam bangun di masa depan. Jam dipilih per menit, dan
+ * menyimpan beberapa menit sesudah bangun tidak boleh tertolak.
+ */
+const KELONGGARAN_MASA_DEPAN_MS = 5 * 60_000;
 
 const jamWIB = new Intl.DateTimeFormat('id-ID', {
   timeZone: 'Asia/Jakarta',
@@ -59,7 +53,12 @@ const tanggalWIB = new Intl.DateTimeFormat('id-ID', {
  * selesai setelah yang lain mulai. Bersentuhan persis (bangun 06.00, tidur
  * lagi 06.00) bukan tabrakan. Tanpa penjaga ini, entri ganda menjumlahkan jam
  * yang sama dua kali: tidur terbaca lebih lama, dan PAL hari itu ikut turun.
- * Kasus nyatanya 29 ke 30 Sep 2026: 21.00 sampai 23.00 dan 22.30 sampai 04.20.
+ *
+ * Catatan: "tabrakan" 29 ke 30 Sep 2026 (21.00 sampai 23.00 lawan 22.30
+ * sampai 04.20) BUKAN entri ganda. Potongan 21.00 sampai 23.00 itu milik
+ * malam 28, tapi form lama menaruhnya di malam 29. Itu yang dibetulkan aturan
+ * jam 18:00 dan `tolakMasaDepan()`; penjaga ini tetap untuk entri yang
+ * memang dobel.
  */
 const tolakTabrakan = async (
   userId: string,
@@ -85,10 +84,29 @@ const tolakTabrakan = async (
   }
 };
 
+/**
+ * Menolak jam bangun yang belum terjadi.
+ *
+ * Tidur dicatat sesudah terjadi, jadi jam bangun di masa depan hampir pasti
+ * tanggal yang salah. Kasus nyatanya: potongan 21.00 sampai 23.00 malam 28
+ * Sep disimpan jam 19.50 tanggal 29 sebagai malam 29, yang saat itu belum
+ * terjadi. Penjaga ini akan menolaknya di tempat.
+ */
+const tolakMasaDepan = (selesai: string): void => {
+  const akhir = new Date(selesai);
+
+  if (akhir.getTime() > Date.now() + KELONGGARAN_MASA_DEPAN_MS) {
+    throw AppError.badRequest(
+      `Jam bangun ${jamWIB.format(akhir)} tanggal ${tanggalWIB.format(akhir)} belum terjadi. Cek lagi tanggal dan jamnya.`,
+    );
+  }
+};
+
 export const create = async (userId: string, data: CreateSleepDto): Promise<SleepLogRecord> => {
   const mulai = new Date(data.sleep_start).getTime();
   const selesai = new Date(data.sleep_end).getTime();
 
+  tolakMasaDepan(data.sleep_end);
   await tolakTabrakan(userId, data.sleep_start, data.sleep_end);
 
   // Dihitung backend, bukan diterima dari client, supaya durasinya selalu
@@ -101,7 +119,7 @@ export const create = async (userId: string, data: CreateSleepDto): Promise<Slee
     duration_minutes: durationMinutes,
     quality_score: data.quality_score,
     notes: data.notes ?? null,
-    logged_at: tanggalBangunWib(data.sleep_end),
+    logged_at: sleepDay(data.sleep_start),
   });
 
   await recordActivitySafely(userId);
@@ -142,13 +160,19 @@ export const update = async (
     throw AppError.badRequest('Durasi tidur maksimal 24 jam');
   }
 
+  // Hanya kalau jamnya diubah: koreksi skor kualitas di baris lama tidak
+  // boleh tertahan oleh aturan yang lebih baru dari barisnya.
+  if (data.sleep_start !== undefined || data.sleep_end !== undefined) {
+    tolakMasaDepan(selesai);
+  }
+
   await tolakTabrakan(userId, mulai, selesai, logId);
 
   return repo.update('sleep_logs', logId, {
     sleep_start: mulai,
     sleep_end: selesai,
     duration_minutes: durasiMenit,
-    logged_at: tanggalBangunWib(selesai),
+    logged_at: sleepDay(mulai),
     ...(data.quality_score !== undefined ? { quality_score: data.quality_score } : {}),
     ...(data.notes !== undefined ? { notes: data.notes } : {}),
   });

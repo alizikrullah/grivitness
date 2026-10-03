@@ -14,14 +14,25 @@ import {
 import { colors, metricColors } from '@/constants/colors';
 import { toApiError } from '@/lib/api';
 import { useCreateSleep, useDeleteSleep, useSleepDate } from '@/services/sleep.service';
-import { dayPhrase, shiftDays, timeWIB, todayWIB, wibToISO } from '@/utils/date';
+import {
+  dayPhrase,
+  isFutureTime,
+  sleepRange,
+  sleepRangeLabel,
+  timeWIB,
+  todayWIB,
+} from '@/utils/date';
 import { duration } from '@/utils/format';
 import { LogActions } from './LogActions';
 
+const FORMAT_JAM = /^([01]\d|2[0-3]):[0-5]\d$/;
+
 export const SleepPanel = () => {
   /**
-   * Tanggal yang sedang dilihat, yaitu tanggal BANGUN. Backend mengelompokkan
-   * tidur menurut hari bangunnya.
+   * Tanggal yang sedang dilihat: "tidur untuk pagi hari itu". Jam mulai 18:00
+   * ke atas berarti malam sebelumnya, di bawahnya tanggal itu sendiri
+   * (sleepRange di utils/date, sama dengan sleepDay() di backend). Satu malam
+   * yang terpotong dicatat dua kali di tanggal yang SAMA.
    */
   const [tanggal, setTanggal] = useState(todayWIB());
 
@@ -34,26 +45,34 @@ export const SleepPanel = () => {
   const [kualitas, setKualitas] = useState(4);
   const [error, setError] = useState<string | null>(null);
 
+  // Dihitung terhadap tanggal yang sedang dilihat, bukan terhadap hari ini,
+  // supaya tidur yang dicatat sambil menelusuri hari lampau jatuh ke hari
+  // yang benar.
+  const rentang =
+    FORMAT_JAM.test(mulai) && FORMAT_JAM.test(bangun) ? sleepRange(tanggal, mulai, bangun) : null;
+
+  const menit = rentang
+    ? Math.round((new Date(rentang.end).getTime() - new Date(rentang.start).getTime()) / 60_000)
+    : 0;
+
+  /** Jam bangun yang belum terjadi hampir pasti tanggal yang salah. */
+  const belumTerjadi = rentang !== null && isFutureTime(rentang.end);
+
   const simpan = () => {
     setError(null);
 
-    /**
-     * Tidur hampir selalu melewati tengah malam. Kalau jam mulai lebih besar
-     * daripada jam bangun, artinya tidurnya dimulai SEHARI SEBELUMNYA; tanpa
-     * penyesuaian ini durasinya jadi negatif dan backend menolaknya.
-     *
-     * Dihitung terhadap tanggal yang sedang dilihat, bukan terhadap hari ini,
-     * supaya tidur yang dicatat sambil menelusuri hari lampau jatuh ke hari
-     * yang benar.
-     */
-    const tanggalMulai = mulai > bangun ? shiftDays(tanggal, -1) : tanggal;
+    if (rentang === null || menit <= 0 || menit > 24 * 60) {
+      setError('Durasi tidur tidak masuk akal. Periksa lagi jamnya.');
+      return;
+    }
+
+    if (belumTerjadi) {
+      setError('Jam bangun itu belum terjadi. Cek lagi tanggal dan jamnya.');
+      return;
+    }
 
     create.mutate(
-      {
-        sleep_start: wibToISO(tanggalMulai, mulai),
-        sleep_end: wibToISO(tanggal, bangun),
-        quality_score: kualitas,
-      },
+      { sleep_start: rentang.start, sleep_end: rentang.end, quality_score: kualitas },
       { onError: (e) => setError(toApiError(e).message) },
     );
   };
@@ -65,7 +84,12 @@ export const SleepPanel = () => {
     <>
       <SectionHeader title="Catat tidur" />
 
-      <DateNav value={tanggal} onChange={setTanggal} section="sleep" label="Tanggal bangun" />
+      <DateNav
+        value={tanggal}
+        onChange={setTanggal}
+        section="sleep"
+        label="Tidur untuk pagi tanggal"
+      />
 
       <Card>
         <div className="stack">
@@ -83,6 +107,13 @@ export const SleepPanel = () => {
               onChange={(e) => setBangun(e.target.value)}
             />
           </div>
+
+          {rentang && menit > 0 ? (
+            <span className={'t-caption ' + (belumTerjadi ? 'c-warning' : 'c-tertiary')}>
+              {duration(menit)}, {sleepRangeLabel(rentang.start, rentang.end)}
+              {belumTerjadi ? ', belum terjadi' : ''}
+            </span>
+          ) : null}
 
           <div className="stack-xs">
             <span className="t-label c-secondary">Kualitas tidur</span>
@@ -135,7 +166,7 @@ export const SleepPanel = () => {
                   <span className="t-body-medium">{duration(log.duration_minutes)}</span>
                   <span className="t-caption c-tertiary">
                     {' '}
-                    · {timeWIB(log.sleep_start)} – {timeWIB(log.sleep_end)} WIB · kualitas{' '}
+                    · {timeWIB(log.sleep_start)} - {timeWIB(log.sleep_end)} WIB · kualitas{' '}
                     {log.quality_score}/5
                   </span>
                 </span>
