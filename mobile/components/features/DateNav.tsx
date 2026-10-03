@@ -28,6 +28,8 @@ interface DateNavProps {
   onChange: (date: string) => void;
   /** Layar yang memakai: menentukan tanggal mana yang bertitik. */
   section: CalendarSection;
+  /** Tanggal terjauh yang boleh dipilih, bawaan hari ini. Layar tidur: sleepDayNow(). */
+  maxDate?: string;
 }
 
 /**
@@ -38,8 +40,9 @@ interface DateNavProps {
  * di layar ini, jadi hari yang lupa diisi kelihatan dari titiknya yang tidak
  * ada. Strip lama cuma menjangkau dua minggu dan tidak menandai apa pun.
  */
-export const DateNav = ({ value, onChange, section }: DateNavProps) => {
+export const DateNav = ({ value, onChange, section, maxDate }: DateNavProps) => {
   const hariIni = todayWIB();
+  const batas = maxDate ?? hariIni;
   const [buka, setBuka] = useState(false);
   const [bulan, setBulan] = useState(monthStart(value));
 
@@ -47,7 +50,7 @@ export const DateNav = ({ value, onChange, section }: DateNavProps) => {
   const kuning = new Set(tanda.data?.incomplete ?? []);
   const hijau = new Set((tanda.data?.dates ?? []).filter((t) => !kuning.has(t)));
 
-  const bisaMaju = value < hariIni;
+  const bisaMaju = value < batas;
 
   const geser = (hari: number) => {
     void Haptics.selectionAsync();
@@ -93,7 +96,7 @@ export const DateNav = ({ value, onChange, section }: DateNavProps) => {
         <Calendar
           month={bulan}
           selected={value}
-          maxDate={hariIni}
+          maxDate={batas}
           marked={hijau}
           warned={kuning}
           onSelect={pilih}

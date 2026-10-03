@@ -27,6 +27,8 @@ interface DateNavProps {
   section: CalendarSection;
   /** Keterangan di atas kotak, mis. "Tidur untuk pagi tanggal" di layar tidur. */
   label?: string;
+  /** Tanggal terjauh yang boleh dipilih, bawaan hari ini. Layar tidur: sleepDayNow(). */
+  maxDate?: string;
 }
 
 /**
@@ -37,8 +39,9 @@ interface DateNavProps {
  * kelihatan dari titiknya yang tidak ada. Input date bawaan browser yang
  * dulu dipakai tidak bisa menandai apa pun.
  */
-export const DateNav = ({ value, onChange, section, label }: DateNavProps) => {
+export const DateNav = ({ value, onChange, section, label, maxDate }: DateNavProps) => {
   const hariIni = todayWIB();
+  const batas = maxDate ?? hariIni;
   const [buka, setBuka] = useState(false);
   const [bulan, setBulan] = useState(monthStart(value));
 
@@ -81,7 +84,7 @@ export const DateNav = ({ value, onChange, section, label }: DateNavProps) => {
           type="button"
           className="datenav-panah"
           onClick={() => onChange(shiftDays(value, 1))}
-          disabled={value >= hariIni}
+          disabled={value >= batas}
           aria-label="Sehari sesudahnya"
         >
           <CaretRightIcon size={16} weight="bold" />
@@ -92,7 +95,7 @@ export const DateNav = ({ value, onChange, section, label }: DateNavProps) => {
         <Calendar
           month={bulan}
           selected={value}
-          maxDate={hariIni}
+          maxDate={batas}
           marked={hijau}
           warned={kuning}
           onSelect={pilih}

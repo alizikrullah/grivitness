@@ -28,6 +28,8 @@ import type { SleepLog } from '@/types';
 import {
   dayPhrase,
   isFutureTime,
+  mightMeanTonight,
+  sleepDayNow,
   sleepRange,
   sleepRangeLabel,
   timeWIB,
@@ -72,6 +74,9 @@ export default function SleepScreen() {
   /** Jam bangun yang belum terjadi hampir pasti tanggal yang salah. */
   const belumTerjadi = rentang !== null && isFutureTime(rentang.end);
 
+  /** Jam 18:00 ke atas di hari ini bisa juga berarti hari ini sendiri, lihat mightMeanTonight. */
+  const mungkinSoreIni = rentang !== null && mightMeanTonight(tanggal, mulai, bangun);
+
   const simpan = () => {
     setError(null);
 
@@ -114,7 +119,7 @@ export default function SleepScreen() {
       <Screen>
         <Header title="Tidur" subtitle="Boleh lebih dari satu sesi, termasuk tidur siang" />
 
-        <DateNav value={tanggal} onChange={setTanggal} section="sleep" />
+        <DateNav value={tanggal} onChange={setTanggal} section="sleep" maxDate={sleepDayNow()} />
 
         <Card>
           <View style={styles.card}>
@@ -152,6 +157,11 @@ export default function SleepScreen() {
                 <Text variant="caption" tone={belumTerjadi ? 'warning' : 'tertiary'} align="center">
                   {sleepRangeLabel(rentang.start, rentang.end)}
                   {belumTerjadi ? ', belum terjadi' : ''}
+                </Text>
+              ) : null}
+              {mungkinSoreIni ? (
+                <Text variant="caption" tone="secondary" align="center">
+                  Kalau jam itu maksudnya hari ini, geser tanggal ke besok.
                 </Text>
               ) : null}
             </View>

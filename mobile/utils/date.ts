@@ -132,11 +132,13 @@ export const compactDate = (date: string): string => {
   );
 };
 
-/** "Hari ini, Sab 3 Okt", "Kemarin, Jum 2 Okt", atau "Kam 1 Okt". */
+/** "Hari ini, Sab 3 Okt", "Kemarin, Jum 2 Okt", "Besok, Min 4 Okt", atau "Kam 1 Okt". */
 export const navDateLabel = (date: string): string => {
   const hariIni = todayWIB();
   if (date === hariIni) return 'Hari ini, ' + compactDate(date);
   if (date === shiftDays(hariIni, -1)) return 'Kemarin, ' + compactDate(date);
+  // Cuma layar tidur yang bisa sampai ke besok, lihat sleepDayNow().
+  if (date === shiftDays(hariIni, 1)) return 'Besok, ' + compactDate(date);
   return compactDate(date);
 };
 
@@ -206,3 +208,21 @@ export const sleepRangeLabel = (start: string, end: string): string => {
  */
 export const isFutureTime = (timestamp: string): boolean =>
   new Date(timestamp).getTime() > Date.now() + 5 * 60_000;
+
+/**
+ * Tanggal tidur yang sedang berjalan: besok kalau sudah lewat jam 18:00 WIB.
+ * Batas tanggal di layar tidur, supaya tidur sore ini (jam 18:00 ke atas)
+ * bisa dicatat malam itu juga di tanggal besok, tempat dia memang masuk.
+ */
+export const sleepDayNow = (): string =>
+  toWIBDate(new Date(Date.now() + (24 - Number(BATAS_MALAM.slice(0, 2))) * 3_600_000));
+
+/**
+ * Apakah isian di tanggal hari ini mungkin maksudnya sore atau malam ini, bukan
+ * malam kemarin: jam mulainya 18:00 ke atas DAN versi hari ininya juga sudah lewat.
+ * Dua-duanya masuk akal, jadi layar memberi tahu caranya, bukan menebak.
+ */
+export const mightMeanTonight = (date: string, start: string, wake: string): boolean =>
+  date === todayWIB() &&
+  start >= BATAS_MALAM &&
+  !isFutureTime(sleepRange(shiftDays(date, 1), start, wake).end);
