@@ -17,6 +17,8 @@ import { useCreateSleep, useDeleteSleep, useSleepDate } from '@/services/sleep.s
 import {
   dayPhrase,
   isFutureTime,
+  mightMeanTonight,
+  sleepDayNow,
   sleepRange,
   sleepRangeLabel,
   timeWIB,
@@ -58,6 +60,9 @@ export const SleepPanel = () => {
   /** Jam bangun yang belum terjadi hampir pasti tanggal yang salah. */
   const belumTerjadi = rentang !== null && isFutureTime(rentang.end);
 
+  /** Jam 18:00 ke atas di hari ini bisa juga berarti hari ini sendiri, lihat mightMeanTonight. */
+  const mungkinSoreIni = rentang !== null && mightMeanTonight(tanggal, mulai, bangun);
+
   const simpan = () => {
     setError(null);
 
@@ -89,6 +94,7 @@ export const SleepPanel = () => {
         onChange={setTanggal}
         section="sleep"
         label="Tidur untuk pagi tanggal"
+        maxDate={sleepDayNow()}
       />
 
       <Card>
@@ -112,6 +118,12 @@ export const SleepPanel = () => {
             <span className={'t-caption ' + (belumTerjadi ? 'c-warning' : 'c-tertiary')}>
               {duration(menit)}, {sleepRangeLabel(rentang.start, rentang.end)}
               {belumTerjadi ? ', belum terjadi' : ''}
+            </span>
+          ) : null}
+
+          {mungkinSoreIni ? (
+            <span className="t-caption c-secondary">
+              Kalau jam itu maksudnya hari ini, geser tanggal ke besok.
             </span>
           ) : null}
 
