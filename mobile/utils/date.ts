@@ -164,3 +164,45 @@ export const monthTitle = (date: string): string =>
 
 /** Urutan hari dalam minggu, Senin = 0 sampai Minggu = 6. */
 export const weekdayMon = (date: string): number => (parseDateOnly(date).getUTCDay() + 6) % 7;
+
+/**
+ * Batas hari tidur: jam 18:00 WIB, sama dengan sleepDay() di backend.
+ *
+ * Tanggal di layar tidur berarti "tidur untuk pagi hari itu". Jam mulai 18:00
+ * ke atas berarti malam SEBELUM tanggal itu; di bawahnya tanggal itu sendiri
+ * (sudah lewat tengah malam, atau tidur siang). Bangunnya di hari mulai kalau
+ * jamnya lebih besar dari jam mulai, kalau tidak di hari sesudahnya.
+ *
+ * Aturan lama memundurkan hari mulai hanya kalau tidurnya melewati tengah
+ * malam, jadi potongan pertama malam yang terpotong (tidur 21:00, kebangun
+ * 23:00) jatuh ke malam tanggal yang dipilih: malam berikutnya, yang bahkan
+ * belum terjadi. Kasus nyatanya 28 ke 29 Sep 2026.
+ */
+const BATAS_MALAM = '18:00';
+
+export const sleepRange = (
+  date: string,
+  start: string,
+  wake: string,
+): { start: string; end: string } => {
+  const hariMulai = start >= BATAS_MALAM ? shiftDays(date, -1) : date;
+  const hariBangun = wake > start ? hariMulai : shiftDays(hariMulai, 1);
+  return { start: wibToISO(hariMulai, start), end: wibToISO(hariBangun, wake) };
+};
+
+/** "Sen 28 Sep 21:00 sampai 23:00", tanggal kedua hanya kalau harinya beda. */
+export const sleepRangeLabel = (start: string, end: string): string => {
+  const hariMulai = toWIBDate(new Date(start));
+  const hariBangun = toWIBDate(new Date(end));
+  const akhir =
+    hariBangun === hariMulai ? timeWIB(end) : compactDate(hariBangun) + ' ' + timeWIB(end);
+  return compactDate(hariMulai) + ' ' + timeWIB(start) + ' sampai ' + akhir;
+};
+
+/**
+ * Apakah sebuah waktu belum terjadi. Kelonggaran lima menit sama dengan
+ * backend: jam dipilih per menit, dan menyimpan sesaat sesudah bangun tidak
+ * boleh tertolak.
+ */
+export const isFutureTime = (timestamp: string): boolean =>
+  new Date(timestamp).getTime() > Date.now() + 5 * 60_000;

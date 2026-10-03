@@ -274,7 +274,9 @@ model SleepLog {
   // Validate di level aplikasi bahwa nilainya 1-5
   quality_score    Int
   notes            String?
-  // Tanggal hari tidur dimulai (untuk grouping di summary)
+  // Tanggal tidur untuk grouping di summary: tanggal WIB dari sleep_start
+  // digeser 6 jam, jadi sesi yang mulai jam 18:00 ke atas masuk tanggal
+  // besoknya. Dihitung backend lewat sleepDay() di utils/daily-key.ts
   logged_at        DateTime @db.Date
   created_at       DateTime @default(now())
 
