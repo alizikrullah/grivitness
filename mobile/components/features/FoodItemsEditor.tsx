@@ -313,7 +313,19 @@ export const FoodItemsEditor = ({
                 suffix="kkal"
                 editable={!disabled}
               />
+              {/* Urutan tabel Informasi Nilai Gizi di kemasan: lemak, protein, karbo, gula. */}
               <View style={styles.angka}>
+                <View style={styles.makro}>
+                  <Input
+                    label="Lemak"
+                    value={item.labelFat}
+                    onChangeText={(v) => ubah(i, { labelFat: v })}
+                    placeholder="0"
+                    keyboardType="decimal-pad"
+                    suffix="g"
+                    editable={!disabled}
+                  />
+                </View>
                 <View style={styles.makro}>
                   <Input
                     label="Protein"
@@ -325,24 +337,13 @@ export const FoodItemsEditor = ({
                     editable={!disabled}
                   />
                 </View>
+              </View>
+              <View style={styles.angka}>
                 <View style={styles.makro}>
                   <Input
                     label="Karbo"
                     value={item.labelCarbs}
                     onChangeText={(v) => ubah(i, { labelCarbs: v })}
-                    placeholder="0"
-                    keyboardType="decimal-pad"
-                    suffix="g"
-                    editable={!disabled}
-                  />
-                </View>
-              </View>
-              <View style={styles.angka}>
-                <View style={styles.makro}>
-                  <Input
-                    label="Lemak"
-                    value={item.labelFat}
-                    onChangeText={(v) => ubah(i, { labelFat: v })}
                     placeholder="0"
                     keyboardType="decimal-pad"
                     suffix="g"

@@ -282,6 +282,15 @@ export const FoodItemsEditor = ({
               />
               <div className="food-kemasan-makro">
                 <Input
+                  label="Lemak"
+                  inputMode="decimal"
+                  value={item.labelFat}
+                  onChange={(e) => ubah(i, { labelFat: e.target.value })}
+                  placeholder="0"
+                  suffix="g"
+                  disabled={disabled}
+                />
+                <Input
                   label="Protein"
                   inputMode="decimal"
                   value={item.labelProtein}
@@ -295,15 +304,6 @@ export const FoodItemsEditor = ({
                   inputMode="decimal"
                   value={item.labelCarbs}
                   onChange={(e) => ubah(i, { labelCarbs: e.target.value })}
-                  placeholder="0"
-                  suffix="g"
-                  disabled={disabled}
-                />
-                <Input
-                  label="Lemak"
-                  inputMode="decimal"
-                  value={item.labelFat}
-                  onChange={(e) => ubah(i, { labelFat: e.target.value })}
                   placeholder="0"
                   suffix="g"
                   disabled={disabled}
