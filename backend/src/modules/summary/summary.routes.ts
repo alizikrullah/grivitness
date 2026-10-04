@@ -23,6 +23,9 @@ router.get('/monthly', validateQuery(MonthlySummarySchema), summaryController.ge
 // sekaligus, bukan memanggil /daily 30 kali (30 x 13 query).
 router.get('/history', validateQuery(HistorySummarySchema), summaryController.getHistory);
 
+// Overview beranda: yang perlu dibenahi dari tujuh hari terakhir dan kemarin.
+router.get('/overview', summaryController.getOverview);
+
 // Tanggal yang ada datanya untuk satu layar catat, untuk titik di kalender.
 router.get('/calendar', validateQuery(CalendarSchema), summaryController.getCalendar);
 

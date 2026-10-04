@@ -296,30 +296,17 @@ export default function FoodScreen() {
             <Card>
               <View style={styles.macroCard}>
                 <Text variant="label">{'Total gizi ' + dayPhrase(tanggal)}</Text>
+                {/*
+                  Gula ikut di batang, digambar di dalam karbo karena memang
+                  bagiannya. Perbandingannya dengan batas harian ada di kartu
+                  overview beranda.
+                */}
                 <MacroBar
                   protein={today.data?.total_protein_g ?? 0}
                   carbs={today.data?.total_carbs_g ?? 0}
                   fat={today.data?.total_fat_g ?? 0}
+                  sugar={today.data?.total_sugar_g ?? 0}
                 />
-                {/*
-                  Gula total, dibandingkan dengan batas ATAS hariannya. Gula
-                  total seperti di label, termasuk gula alami buah dan susu,
-                  sementara batasnya untuk gula tambahan: sedikit ketat, dan
-                  untuk minuman manis kemasan bedanya hampir tidak ada.
-                */}
-                {ringkasan.data ? (
-                  <Text
-                    variant="caption"
-                    tone={
-                      (today.data?.total_sugar_g ?? 0) > ringkasan.data.targets.sugar_max_g
-                        ? 'warning'
-                        : 'secondary'
-                    }
-                  >
-                    Gula {String(today.data?.total_sugar_g ?? 0).replace('.', ',')} g dari batas{' '}
-                    {ringkasan.data.targets.sugar_max_g} g per hari
-                  </Text>
-                ) : null}
               </View>
             </Card>
 

@@ -133,9 +133,9 @@ export interface ObservedTdee {
  * Berat badan berayun satu sampai dua kilo hanya karena air, garam, dan isi
  * perut; dua titik ujung membuat seluruh kesimpulan bergantung pada kebetulan
  * kondisi dua hari itu. Regresi memakai SEMUA penimbangan, jadi ayunannya
- * saling meredam.
+ * saling meredam. Dipakai juga tren berat di overview beranda.
  */
-const lajuPerHari = (weights: WeightPoint[]): number | null => {
+export const lajuPerHari = (weights: WeightPoint[]): number | null => {
   if (weights.length < 2) return null;
 
   const urut = [...weights].sort((a, b) => a.date.localeCompare(b.date));

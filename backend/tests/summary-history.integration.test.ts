@@ -139,6 +139,42 @@ describe('GET /api/summary/history', () => {
   });
 });
 
+interface ItemOverview {
+  key: string;
+  tone: string;
+  value: string;
+}
+
+const ambilOverview = async () => {
+  const res = await request(app).get('/api/summary/overview').set(auth());
+  expect(res.status).toBe(200);
+  return res.body.data as {
+    date: string;
+    sugar_today: { grams: number; max_g: number };
+    improve: ItemOverview[];
+    good: ItemOverview[];
+  };
+};
+
+describe('GET /api/summary/overview', () => {
+  it('menilai tujuh hari terakhir dan membawa gula hari ini', async () => {
+    const o = await ambilOverview();
+    const kunci = [...o.improve, ...o.good].map((i) => i.key);
+
+    expect(o.date).toBe(hariIni);
+    // Roti 5 g gula hari ini; tanpa jatah, batasnya 50 g.
+    expect(o.sugar_today).toEqual({ grams: 5, max_g: 50 });
+    // Renang 40 menit kemarin, di bawah anjuran WHO 150 menit per minggu.
+    expect(o.improve.find((i) => i.key === 'workout')?.value).toBe('40m');
+    // Makan cuma tercatat kemarin; hari ini belum selesai, jadi tidak dihitung.
+    expect(o.improve.find((i) => i.key === 'food_log')?.value).toBe('1 dari 7 hari');
+    // Tanpa target berat, kalori dan protein tidak dinilai. Tidur tidak dicatat.
+    expect(kunci).not.toContain('calories');
+    expect(kunci).not.toContain('protein');
+    expect(kunci).not.toContain('sleep');
+  });
+});
+
 /**
  * Hari yang user tandai "belum lengkap" tetap tampil, tapi seperti hari tanpa
  * catatan, tidak ikut rata-rata. Separuh catatan bukan separuh makan.
@@ -162,6 +198,11 @@ describe('hari yang ditandai belum lengkap', () => {
     expect(s.days_logged).toBe(1);
     expect(s.days_incomplete).toBe(1);
     expect(s.avg_calories_in).toBe(250);
+  });
+
+  it('ikut dikeluarkan dari overview beranda', async () => {
+    const o = await ambilOverview();
+    expect(o.improve.find((i) => i.key === 'food_log')?.value).toBe('0 dari 7 hari');
   });
 
   it('ikut dikeluarkan dari rata-rata mingguan', async () => {

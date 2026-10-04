@@ -2,6 +2,7 @@ import { ForkKnifeIcon, SparkleIcon, WarningCircleIcon } from '@phosphor-icons/r
 import { useState } from 'react';
 
 import { AuthImage } from '@/components/features/AuthImage';
+import { MacroStack } from '@/components/features/MacroStack';
 import {
   barisKosong,
   type FoodItemDraft,
@@ -236,29 +237,24 @@ export const FoodPanel = () => {
       ) : (
         <>
           <Card padding="md">
-            <div className="row-between">
-              <span className="t-caption c-secondary">{'Total ' + dayPhrase(tanggal)}</span>
-              <span className="t-h3 c-accent">
-                {thousands(today.data?.total_calories ?? 0)} kkal
-              </span>
+            <div className="stack-sm">
+              <div className="row-between">
+                <span className="t-caption c-secondary">{'Total ' + dayPhrase(tanggal)}</span>
+                <span className="t-h3 c-accent">
+                  {thousands(today.data?.total_calories ?? 0)} kkal
+                </span>
+              </div>
+              {/*
+                Padanan batang gizi mobile, gula di dalam batang karbo.
+                Perbandingannya dengan batas harian ada di kartu overview beranda.
+              */}
+              <MacroStack
+                protein={today.data?.total_protein_g ?? 0}
+                carbs={today.data?.total_carbs_g ?? 0}
+                fat={today.data?.total_fat_g ?? 0}
+                sugar={today.data?.total_sugar_g ?? 0}
+              />
             </div>
-            {/*
-              Gula total lawan batas ATAS hariannya. Gula total seperti di label,
-              termasuk gula alami, sementara batasnya untuk gula tambahan.
-            */}
-            {ringkasan.data ? (
-              <span
-                className={
-                  't-caption ' +
-                  ((today.data?.total_sugar_g ?? 0) > ringkasan.data.targets.sugar_max_g
-                    ? 'c-warning'
-                    : 'c-secondary')
-                }
-              >
-                Gula {String(today.data?.total_sugar_g ?? 0).replace('.', ',')} g dari batas{' '}
-                {ringkasan.data.targets.sugar_max_g} g per hari
-              </span>
-            ) : null}
           </Card>
 
           <div className="grid-2">

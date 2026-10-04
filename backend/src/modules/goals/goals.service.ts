@@ -95,6 +95,18 @@ export const effectiveBudget = (goal: GoalRecord, p: EnergyProfile): number => {
   return susunRencana(goal, p, sisaHari)?.daily_calorie_budget ?? goal.daily_calorie_budget;
 };
 
+/**
+ * Rencana yang berlaku untuk goal ini, dengan profil yang sudah dimuat
+ * pemanggil. Null untuk jatah manual: rencananya menghitung jatah sendiri,
+ * jadi lajunya bukan laju jatah yang benar-benar dipakai user.
+ */
+export const activePlan = (goal: GoalRecord, p: EnergyProfile): WeightPlan | null => {
+  if (goal.budget_manual) return null;
+
+  const sisaHari = Math.max(daysBetween(todayInJakarta(), goal.target_date), 0);
+  return susunRencana(goal, p, sisaHari);
+};
+
 const withProgress = (goal: GoalRecord, m: EnergyProfile): GoalWithProgress => {
   const daysRemaining = Math.max(daysBetween(todayInJakarta(), goal.target_date), 0);
   const targetKg = toNumber(goal.target_weight_kg);

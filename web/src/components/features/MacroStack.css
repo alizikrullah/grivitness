@@ -1,0 +1,54 @@
+.macro-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.macro-stack-bar {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: var(--surface-high);
+}
+
+.macro-stack-bar > span,
+.macro-stack-carbs > span {
+  height: 100%;
+}
+
+/* Gula menempel di dalam batang karbo, tanpa celah, karena memang bagiannya. */
+.macro-stack-carbs {
+  display: flex;
+}
+
+.macro-stack-empty {
+  flex: 1;
+  background: var(--surface-high);
+}
+
+.macro-stack-legend {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.macro-stack-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.macro-stack-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.macro-stack-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}

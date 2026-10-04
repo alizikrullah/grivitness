@@ -23,6 +23,8 @@ export const qk = {
   summaryWeekly: (from: string) => ['summary', 'weekly', from] as const,
   summaryHistory: (days: number) => ['summary', 'history', days] as const,
   summaryMonthly: (year: number, month: number) => ['summary', 'monthly', year, month] as const,
+  /** Overview beranda. Di bawah 'summary', jadi ikut segar setiap kali user mencatat. */
+  summaryOverview: (date: string) => ['summary', 'overview', date] as const,
   /** Titik di kalender: tanggal berdata per layar. Di bawah 'summary', ikut segar setiap mencatat. */
   calendar: (type: string, from: string, to: string) =>
     ['summary', 'calendar', type, from, to] as const,
