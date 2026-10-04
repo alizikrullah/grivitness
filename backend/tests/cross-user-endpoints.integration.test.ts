@@ -502,6 +502,22 @@ describe('ringkasan tidak mencampur angka antar user', () => {
     expect(d.weight_change_kg).toBeNull();
   });
 
+  it('overview milik B tidak membawa catatan A', async () => {
+    const res = await request(app).get('/api/summary/overview').set(sebagai(B));
+    const o = res.body.data as {
+      sugar_today: { grams: number };
+      improve: { key: string }[];
+      good: { key: string }[];
+    };
+    const kunci = [...o.improve, ...o.good].map((i) => i.key);
+
+    expect(res.status).toBe(200);
+    expect(o.sugar_today.grams).toBe(0);
+    expect(kunci).not.toContain('water');
+    expect(kunci).not.toContain('steps');
+    expect(kunci).not.toContain('sleep');
+  });
+
   it('streak dan pengaturan notifikasi B berdiri sendiri', async () => {
     const [streak, notifikasi] = await Promise.all([
       request(app).get('/api/streaks/me').set(sebagai(B)),

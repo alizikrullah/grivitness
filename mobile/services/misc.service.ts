@@ -5,6 +5,7 @@ import { qk } from '@/lib/query';
 import type {
   CalendarDays,
   CalendarSection,
+  DailyOverview,
   DailySummary,
   Goal,
   GoalWithProgress,
@@ -23,6 +24,21 @@ export const useDailySummary = (date: string = todayWIB()) =>
     queryKey: qk.summaryDaily(date),
     queryFn: () => get<DailySummary>('/api/summary/daily', { params: { date } }),
   });
+
+/**
+ * Overview beranda. Kuncinya ikut tanggal supaya berganti sendiri lewat
+ * tengah malam, dan staleTime-nya panjang: isinya cuma berubah kalau user
+ * mencatat sesuatu, dan setiap catatan sudah menyegarkan semua kunci
+ * 'summary'. Bolak-balik ke beranda tidak perlu meminta ulang.
+ */
+export const useDailyOverview = () => {
+  const hariIni = todayWIB();
+  return useQuery({
+    queryKey: qk.summaryOverview(hariIni),
+    queryFn: () => get<DailyOverview>('/api/summary/overview'),
+    staleTime: 5 * 60_000,
+  });
+};
 
 /** Riwayat masuk vs keluar per hari, untuk halaman kontrol defisit. */
 export const useCalorieHistory = (days: number) =>

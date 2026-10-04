@@ -5,11 +5,12 @@ import { hariBelumLengkap } from '../../data/food-day-status.js';
 import { AppError } from '../../utils/api-error.js';
 import { dailyCaloriesOut } from '../../utils/calories.js';
 import { jakartaDate, todayInJakarta } from '../../utils/daily-key.js';
-import { effectiveBudget } from '../goals/goals.service.js';
+import { activePlan, effectiveBudget } from '../goals/goals.service.js';
 import type { CalendarSection } from './summary.validation.js';
 import { toNumber } from '../../utils/number.js';
 import { dateRangeFilter, timestampDayFilter, timestampRangeFilter } from '../../utils/query.js';
-import { type DailyTargets, dailyTargets } from '../../utils/targets.js';
+import { type DailyTargets, dailyTargets, waterTargetMl } from '../../utils/targets.js';
+import { type DailyOverview, type OverviewDay, susunOverview } from './overview.js';
 
 /**
  * Rincian dari mana pengeluaran energi hari itu datang.
@@ -606,6 +607,213 @@ export const getHistory = async (userId: string, days: number): Promise<HistoryS
       deficit_days: tercatat.filter((d) => d.balance > 0).length,
     },
   };
+};
+
+// ============================================================
+// OVERVIEW BERANDA: APA YANG PERLU DIBENAHI
+// ============================================================
+
+/**
+ * Bahan overview beranda: tujuh hari penuh sebelum hari ini, tidur tujuh
+ * tanggal sampai hari ini, gula hari ini, dan penimbangan seminggu. Aturan
+ * penilaiannya di overview.ts, murni dan teruji.
+ *
+ * Tidur dibaca sampai HARI INI karena tanggal tidur hari ini adalah tidur
+ * semalam, malam terakhir yang sudah lengkap. Metrik lain berhenti di
+ * kemarin: hari ini belum selesai, dan "air hari ini kurang" jam delapan pagi
+ * bukan evaluasi.
+ *
+ * Kalori keluar per hari memakai dailyCaloriesOut() dengan BMR dari berat
+ * terakhir, sama persis dengan getHistory(), jadi defisitnya sama dengan
+ * halaman riwayat kalori.
+ */
+export const getOverview = async (userId: string): Promise<DailyOverview> => {
+  const repo = forUser(userId);
+  const hariIni = todayInJakarta();
+  const awal = geserHari(hariIni, -7);
+  const pekan = { from: awal, to: geserHari(hariIni, -1) };
+  const sampaiHariIni = { from: awal, to: hariIni };
+
+  const [
+    metrics,
+    goal,
+    makanan,
+    minum,
+    langkah,
+    olahraga,
+    tidur,
+    perangkat,
+    timbang,
+    belumLengkap,
+  ] = await Promise.all([
+    loadEnergyProfile(userId),
+    repo.findOne('goals', { filter: { is_active: { _eq: true } } }),
+    repo.list('food_logs', {
+      filter: timestampRangeFilter(sampaiHariIni),
+      fields: ['logged_at', 'total_calories', 'protein_g', 'sugar_g'],
+      limit: -1,
+    }),
+    repo.list('water_logs', {
+      filter: timestampRangeFilter(pekan),
+      fields: ['logged_at', 'amount_ml'],
+      limit: -1,
+    }),
+    repo.list('step_logs', {
+      filter: dateRangeFilter(pekan),
+      fields: ['logged_at', 'steps'],
+      limit: -1,
+    }),
+    repo.list('workout_logs', {
+      filter: dateRangeFilter(pekan),
+      fields: ['logged_at', 'duration_minutes', 'calories_burned', 'tracked_by_device'],
+      limit: -1,
+    }),
+    repo.list('sleep_logs', {
+      filter: dateRangeFilter(sampaiHariIni),
+      fields: ['logged_at', 'duration_minutes'],
+      limit: -1,
+    }),
+    repo.list('device_energy_logs', {
+      filter: dateRangeFilter(pekan),
+      fields: ['logged_at', 'total_kcal', 'active_kcal'],
+      limit: -1,
+    }),
+    repo.list('weight_logs', {
+      filter: dateRangeFilter(sampaiHariIni),
+      fields: ['logged_at', 'weight_kg'],
+      limit: -1,
+    }),
+    hariBelumLengkap(userId, pekan),
+  ]);
+
+  interface Harian {
+    masuk: number;
+    adaMakan: boolean;
+    protein: number;
+    gula: number;
+    air: number;
+    langkah: number | null;
+    tidur: number;
+    menitOlahraga: number;
+    kaloriOlahraga: number;
+    kaloriOlahragaTanpaJam: number;
+    perangkat: { total_kcal: number; active_kcal: number | null } | null;
+  }
+
+  const perHari = new Map<string, Harian>();
+  const ambil = (tanggal: string): Harian => {
+    let h = perHari.get(tanggal);
+    if (!h) {
+      h = {
+        masuk: 0,
+        adaMakan: false,
+        protein: 0,
+        gula: 0,
+        air: 0,
+        langkah: null,
+        tidur: 0,
+        menitOlahraga: 0,
+        kaloriOlahraga: 0,
+        kaloriOlahragaTanpaJam: 0,
+        perangkat: null,
+      };
+      perHari.set(tanggal, h);
+    }
+    return h;
+  };
+
+  let gulaHariIni = 0;
+  for (const m of makanan) {
+    if (m.logged_at === null) continue;
+    const tanggal = jakartaDate(m.logged_at);
+    const gula = m.sugar_g === null ? 0 : toNumber(m.sugar_g);
+    if (tanggal === hariIni) {
+      gulaHariIni += gula;
+      continue;
+    }
+    const h = ambil(tanggal);
+    h.masuk += m.total_calories;
+    h.adaMakan = true;
+    h.protein += toNumber(m.protein_g);
+    h.gula += gula;
+  }
+  for (const a of minum) {
+    if (a.logged_at === null) continue;
+    ambil(jakartaDate(a.logged_at)).air += a.amount_ml;
+  }
+  for (const l of langkah) ambil(l.logged_at).langkah = l.steps;
+  for (const o of olahraga) {
+    const h = ambil(o.logged_at);
+    h.menitOlahraga += o.duration_minutes;
+    h.kaloriOlahraga += o.calories_burned;
+    // Baris lama punya null, artinya tidak terekam jam, sama seperti di getDaily.
+    if (o.tracked_by_device !== true) h.kaloriOlahragaTanpaJam += o.calories_burned;
+  }
+  for (const t of tidur) ambil(t.logged_at).tidur += t.duration_minutes;
+  for (const p of perangkat) {
+    ambil(p.logged_at).perangkat = { total_kcal: p.total_kcal, active_kcal: p.active_kcal };
+  }
+
+  const days: OverviewDay[] = [];
+  for (let i = 0; i < 7; i++) {
+    const tanggal = geserHari(awal, i);
+    const h = ambil(tanggal);
+    const keluar = dailyCaloriesOut({
+      bmr: metrics.bmr,
+      activityLevel: metrics.activityLevel,
+      sleepMinutes: h.tidur > 0 ? h.tidur : null,
+      workoutMinutes: h.menitOlahraga,
+      workoutCalories: h.kaloriOlahraga,
+      untrackedWorkoutCalories: h.kaloriOlahragaTanpaJam,
+      device: h.perangkat,
+    });
+
+    days.push({
+      date: tanggal,
+      calories_in: h.adaMakan ? Math.round(h.masuk) : null,
+      incomplete: h.adaMakan && belumLengkap.has(tanggal),
+      calories_out: Math.round(keluar.calories_out),
+      protein_g: Math.round(h.protein * 10) / 10,
+      sugar_g: Math.round(h.gula * 10) / 10,
+      water_ml: h.air,
+      water_target_ml: waterTargetMl(metrics.weightKg, metrics.age, h.menitOlahraga),
+      steps: h.langkah,
+      workout_minutes: h.menitOlahraga,
+    });
+  }
+
+  const nights: { date: string; minutes: number }[] = [];
+  for (let i = -6; i <= 0; i++) {
+    const tanggal = geserHari(hariIni, i);
+    const menit = perHari.get(tanggal)?.tidur ?? 0;
+    if (menit > 0) nights.push({ date: tanggal, minutes: menit });
+  }
+
+  const budget = goal ? effectiveBudget(goal, metrics) : null;
+  const targets = dailyTargets({
+    weightKg: metrics.weightKg,
+    age: metrics.age,
+    gender: metrics.gender,
+    calorieBudget: budget,
+    isDeficit: budget !== null && metrics.baselineTdee !== null && budget < metrics.baselineTdee,
+    workoutMinutes: 0,
+    customStepTarget: metrics.stepTarget,
+  });
+
+  return susunOverview({
+    today: hariIni,
+    days,
+    sugarToday: gulaHariIni,
+    nights,
+    sleepTarget: targets.sleep,
+    stepTarget: targets.steps.steps,
+    proteinTarget: targets.macros?.protein_g ?? null,
+    sugarMax: targets.sugar_max_g,
+    budget,
+    weights: timbang.map((w) => ({ date: w.logged_at, kg: toNumber(w.weight_kg) })),
+    plannedWeeklyRate: goal ? (activePlan(goal, metrics)?.weekly_rate_kg ?? null) : null,
+    losing: goal ? toNumber(goal.target_weight_kg) < metrics.weightKg : null,
+  });
 };
 
 // ============================================================

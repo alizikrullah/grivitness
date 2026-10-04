@@ -5,19 +5,22 @@ import {
   BellIcon,
   DropIcon,
   FootprintsIcon,
+  HeartbeatIcon,
   MoonStarsIcon,
   ScalesIcon,
   WarningCircleIcon,
+  WatchIcon,
 } from 'phosphor-react-native';
 import { StyleSheet, View } from 'react-native';
 
 import { CalorieRingChart } from '@/components/features/CalorieRingChart';
-import { MacroBar, MetricTile, StreakBadge } from '@/components/features/Metrics';
+import { EnergyPart, MacroBar, MetricTile, StreakBadge } from '@/components/features/Metrics';
+import { OverviewCard } from '@/components/features/OverviewCard';
 import { Button, Card, IconCircle, Loading, Screen, SectionHeader, Text } from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/theme';
 import { useSetFoodDayStatus } from '@/services/food.service';
-import { useDailySummary, useStreak } from '@/services/misc.service';
+import { useDailyOverview, useDailySummary, useStreak } from '@/services/misc.service';
 import { useProfile } from '@/services/users.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { greeting, longDate, shiftDays, todayWIB } from '@/utils/date';
@@ -49,6 +52,7 @@ export default function HomeScreen() {
    */
   const ringkasKemarin = useDailySummary(kemarin);
   const statusHari = useSetFoodDayStatus();
+  const overview = useDailyOverview();
   const streak = useStreak();
   const profile = useProfile();
 
@@ -58,6 +62,7 @@ export default function HomeScreen() {
   const segarkan = () => {
     void summary.refetch();
     void ringkasKemarin.refetch();
+    void overview.refetch();
     void streak.refetch();
     void profile.refetch();
   };
@@ -189,29 +194,40 @@ export default function HomeScreen() {
 
               {/*
                 Susunan "keluar" dibuka, bukan cuma satu angka besar yang harus
-                dipercaya. Keduanya TIDAK saling tumpang tindih: 24 jam dibagi
+                dipercaya. Bagiannya TIDAK saling tumpang tindih: 24 jam dibagi
                 habis, jadi jam olahraga diambil dari jatah metabolisme, bukan
                 ditambahkan di atasnya. Langkah tidak ada di sini karena memang
                 tidak dihitung, jalan-jalan kecil sudah ada di dalam metabolisme
                 lewat jenis pekerjaan.
               */}
               {data?.energy ? (
-                <Text variant="caption" tone="tertiary" style={styles.burnNote}>
-                  {thousands(data.energy.baseline)} metabolisme
-                  {data.energy.device_active_kcal === null
-                    ? ''
-                    : ' + ' + thousands(data.energy.device_active_kcal) + ' aktif jam'}
-                  {' + '}
-                  {thousands(data.energy.workout_calories)}
-                  {data.energy.device_active_kcal === null ? ' olahraga' : ' olahraga di luar jam'}
-                </Text>
+                <View style={styles.parts}>
+                  <EnergyPart
+                    icon={<HeartbeatIcon size={14} color={metricColors.metabolism} weight="fill" />}
+                    label="Metabolisme"
+                    value={data.energy.baseline}
+                    color={metricColors.metabolism}
+                  />
+                  {data.energy.device_active_kcal === null ? null : (
+                    <EnergyPart
+                      icon={<WatchIcon size={14} color={metricColors.device} weight="fill" />}
+                      label="Jam tangan"
+                      value={data.energy.device_active_kcal}
+                      color={metricColors.device}
+                    />
+                  )}
+                  <EnergyPart
+                    icon={<BarbellIcon size={14} color={metricColors.workout} weight="fill" />}
+                    label={data.energy.device_active_kcal === null ? 'Olahraga' : 'Olahraga lain'}
+                    value={data.energy.workout_calories}
+                    color={metricColors.workout}
+                  />
+                </View>
               ) : null}
-
-              <Text variant="caption" tone="accent" align="center">
-                Sentuh untuk lihat riwayat masuk lawan keluar
-              </Text>
             </View>
           </Card>
+
+          {overview.data ? <OverviewCard data={overview.data} /> : null}
 
           <SectionHeader title="Hari ini" />
 
@@ -277,21 +293,13 @@ export default function HomeScreen() {
                   </Text>
                 }
               />
+              {/* Gula lawan batas hariannya ada di kartu overview, di sini cuma porsinya. */}
               <MacroBar
                 protein={data?.protein_g ?? 0}
                 carbs={data?.carbs_g ?? 0}
                 fat={data?.fat_g ?? 0}
+                sugar={data?.sugar_g ?? 0}
               />
-              {/* Gula total lawan batas ATAS hariannya, bukan target yang dikejar. */}
-              {data ? (
-                <Text
-                  variant="caption"
-                  tone={data.sugar_g > data.targets.sugar_max_g ? 'warning' : 'secondary'}
-                >
-                  Gula {String(data.sugar_g).replace('.', ',')} g dari batas{' '}
-                  {data.targets.sugar_max_g} g per hari
-                </Text>
-              ) : null}
             </View>
           </Card>
 
@@ -348,7 +356,7 @@ const styles = StyleSheet.create({
   burnRow: { flexDirection: 'row', alignItems: 'center' },
   burnItem: { flex: 1, alignItems: 'center', gap: spacing.xs },
   burnDivider: { width: StyleSheet.hairlineWidth, height: 32, backgroundColor: colors.border },
-  burnNote: { textAlign: 'center' },
+  parts: { flexDirection: 'row', gap: spacing.sm },
   grid: { flexDirection: 'row', gap: spacing.md },
   macroCard: { gap: spacing.lg },
   weightCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },

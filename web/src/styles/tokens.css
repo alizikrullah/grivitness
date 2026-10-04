@@ -27,7 +27,9 @@
   --text-tertiary: #5f5f68;
 
   --success: #2ed573;
+  --success-soft: rgba(46, 213, 115, 0.14);
   --warning: #ffa726;
+  --warning-soft: rgba(255, 167, 38, 0.14);
   --danger: #f2333f;
 
   --border: #232327;

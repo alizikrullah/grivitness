@@ -59,9 +59,32 @@ export const metricColors = {
    * tertukar hanya karena warnanya bersebelahan.
    */
   device: '#D9A441',
+  /** Metabolisme dan pekerjaan (BMR x PAL), bagian terbesar kalori keluar. */
+  metabolism: '#818CF8',
 } as const;
 
 export type MetricKey = keyof typeof metricColors;
+
+/**
+ * Warna komponen gizi. Gula sengaja satu keluarga dengan karbo, lebih muda:
+ * gula adalah bagian dari karbohidrat, dan batang gizi menggambarnya di dalam
+ * batang karbo.
+ */
+export const macroColors = {
+  protein: '#4DA3FF',
+  carbs: '#FFA726',
+  fat: '#F472B6',
+  sugar: '#FFD180',
+} as const;
+
+/**
+ * Warna dengan transparansi, untuk latar lingkaran ikon dan chip berwarna.
+ * '#38BDF8' dengan 0.14 menjadi 'rgba(56, 189, 248, 0.14)'.
+ */
+export const tint = (hex: string, alpha: number): string => {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${String((n >> 16) & 255)}, ${String((n >> 8) & 255)}, ${String(n & 255)}, ${String(alpha)})`;
+};
 
 /**
  * Nyala api pada cincin kalori.

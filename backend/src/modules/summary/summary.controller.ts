@@ -41,6 +41,12 @@ export const getHistory = async (req: Request, res: Response): Promise<void> => 
   sendSuccess(res, await summaryService.getHistory(user.id, days ?? 30));
 };
 
+export const getOverview = async (req: Request, res: Response): Promise<void> => {
+  const user = getAuthUser(req);
+
+  sendSuccess(res, await summaryService.getOverview(user.id));
+};
+
 export const getCalendar = async (req: Request, res: Response): Promise<void> => {
   const user = getAuthUser(req);
   const { type, from, to } = getValidatedQuery<CalendarDto>(res);

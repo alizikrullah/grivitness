@@ -633,6 +633,44 @@ export interface HistorySummary {
   };
 }
 
+export type OverviewKey =
+  | 'calories'
+  | 'protein'
+  | 'sleep'
+  | 'water'
+  | 'sugar'
+  | 'workout'
+  | 'weight'
+  | 'food_log'
+  | 'steps';
+
+/** bad: jauh dari target. warn: perlu dibenahi. good: sudah bagus. */
+export type OverviewTone = 'bad' | 'warn' | 'good';
+
+export interface OverviewItem {
+  key: OverviewKey;
+  tone: OverviewTone;
+  title: string;
+  /** Angka utama yang sudah diformat backend, mis. "5j 40m" atau "1,9 L". */
+  value: string;
+  detail: string;
+  /** Capaian terhadap target, bisa lebih dari 1. Null kalau tidak berbentuk progres. */
+  progress: number | null;
+}
+
+/**
+ * Bentuk balasan GET /api/summary/overview: yang perlu dibenahi dari tujuh
+ * hari terakhir dan kemarin, plus gula hari ini. Dihitung aturan di backend,
+ * bukan model, jadi murah dibaca setiap beranda dibuka.
+ */
+export interface DailyOverview {
+  date: DateString;
+  sugar_today: { grams: number; max_g: number };
+  /** Paling mendesak dulu. */
+  improve: OverviewItem[];
+  good: OverviewItem[];
+}
+
 export interface PeriodSummary {
   from: string;
   to: string;

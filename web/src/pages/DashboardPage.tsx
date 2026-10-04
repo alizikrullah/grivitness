@@ -4,17 +4,20 @@ import {
   DropIcon,
   FireIcon,
   FootprintsIcon,
+  HeartbeatIcon,
   MoonStarsIcon,
   ScalesIcon,
   WarningCircleIcon,
+  WatchIcon,
 } from '@phosphor-icons/react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { MetricTile } from '@/components/features/MetricTile';
+import { OverviewCard } from '@/components/features/OverviewCard';
 import { Button, Card, Loading, Ring, SectionHeader, StatPill } from '@/components/ui';
-import { colors, flame, metricColors } from '@/constants/colors';
+import { colors, flame, metricColors, tint } from '@/constants/colors';
 import { useSetFoodDayStatus } from '@/services/food.service';
-import { useDailySummary, useStreak } from '@/services/misc.service';
+import { useDailyOverview, useDailySummary, useStreak } from '@/services/misc.service';
 import { useProfile } from '@/services/users.service';
 import { shiftDays, todayWIB } from '@/utils/date';
 import { duration, kg, ratio, thousands, volume } from '@/utils/format';
@@ -37,6 +40,7 @@ export const DashboardPage = () => {
   /** Kemarin dibaca untuk satu pertanyaan: makannya di bawah separuh jatah, lengkap atau belum. */
   const ringkasKemarin = useDailySummary(kemarin);
   const statusHari = useSetFoodDayStatus();
+  const overview = useDailyOverview();
   const streak = useStreak();
   const profile = useProfile();
 
@@ -154,19 +158,29 @@ export const DashboardPage = () => {
               lewat jenis pekerjaan.
             */}
             {data?.energy ? (
-              <span className="t-caption c-tertiary dash-breakdown">
-                {thousands(data.energy.baseline)} metabolisme
-                {data.energy.device_active_kcal === null
-                  ? ''
-                  : ' + ' + thousands(data.energy.device_active_kcal) + ' aktif jam'}
-                {' + '}
-                {thousands(data.energy.workout_calories)}
-                {data.energy.device_active_kcal === null ? ' olahraga' : ' olahraga di luar jam'}
-              </span>
+              <div className="dash-parts">
+                <EnergyPart
+                  icon={<HeartbeatIcon size={14} color={metricColors.metabolism} weight="fill" />}
+                  label="Metabolisme"
+                  value={data.energy.baseline}
+                  color={metricColors.metabolism}
+                />
+                {data.energy.device_active_kcal === null ? null : (
+                  <EnergyPart
+                    icon={<WatchIcon size={14} color={metricColors.device} weight="fill" />}
+                    label="Jam tangan"
+                    value={data.energy.device_active_kcal}
+                    color={metricColors.device}
+                  />
+                )}
+                <EnergyPart
+                  icon={<BarbellIcon size={14} color={metricColors.workout} weight="fill" />}
+                  label={data.energy.device_active_kcal === null ? 'Olahraga' : 'Olahraga lain'}
+                  value={data.energy.workout_calories}
+                  color={metricColors.workout}
+                />
+              </div>
             ) : null}
-            <span className="t-caption c-tertiary">
-              Klik untuk lihat riwayat masuk lawan keluar
-            </span>
           </div>
         </Card>
 
@@ -231,6 +245,8 @@ export const DashboardPage = () => {
           </div>
         </div>
       </div>
+
+      {overview.data ? <OverviewCard data={overview.data} /> : null}
 
       <SectionHeader
         title="Komposisi gizi"
@@ -324,6 +340,38 @@ const MacroBar = ({
       />
     </div>
   </div>
+);
+
+/**
+ * Satu bagian kalori keluar: metabolisme, kalori aktif jam, atau olahraga.
+ * Padanan EnergyPart mobile, warnanya mengikuti metriknya.
+ */
+const EnergyPart = ({
+  icon,
+  label,
+  value,
+  color,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  color: string;
+}) => (
+  <span
+    className="dash-part"
+    style={{ background: tint(color, 0.12), borderColor: tint(color, 0.3) }}
+  >
+    <span className="dash-part-head">
+      {icon}
+      <span className="t-caption dash-part-label" style={{ color }}>
+        {label}
+      </span>
+    </span>
+    <span className="t-h3">
+      {thousands(value)}
+      <span className="t-caption c-tertiary"> kkal</span>
+    </span>
+  </span>
 );
 
 const QuickLink = ({ to, label, icon }: { to: string; label: string; icon: React.ReactNode }) => (

@@ -1,0 +1,118 @@
+.ov {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.ov-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.ov-head-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--primary-soft);
+}
+
+.ov-badge {
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-pill);
+}
+
+.ov-badge-warn {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.ov-badge-good {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.ov-sugar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  background: var(--surface-alt);
+  border: 1px solid var(--border-soft);
+}
+
+.ov-sugar-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+/* Dua daftar berdampingan di layar lebar, bertumpuk di layar sempit. */
+.ov-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+.ov-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.ov-row {
+  display: flex;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  background: var(--surface-alt);
+  border: 1px solid var(--border-soft);
+}
+
+.ov-row-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ov-row-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.ov-row-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.ov-row-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ov-good {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  padding: var(--space-xs) 0;
+}
+
+.ov-good-icon {
+  flex-shrink: 0;
+}
