@@ -54,12 +54,33 @@ export const ProgressBar = ({
   </div>
 );
 
-export const StatPill = ({ label, value }: { label: string; value: string }) => (
-  <div className="misc-pill">
-    <span className="t-overline c-tertiary">{label}</span>
-    <span className="t-label">{value}</span>
-  </div>
-);
+/**
+ * Pil kecil label dan nilai. Dengan ikon, bentuknya mengikuti StatPill mobile:
+ * ikon di lingkaran gelap, nilai di atas label.
+ */
+export const StatPill = ({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: string;
+  icon?: ReactNode;
+}) =>
+  icon ? (
+    <div className="misc-pill misc-pill-icon">
+      <span className="misc-pill-circle">{icon}</span>
+      <span className="misc-pill-text">
+        <span className="t-label">{value}</span>
+        <span className="t-caption c-secondary">{label}</span>
+      </span>
+    </div>
+  ) : (
+    <div className="misc-pill">
+      <span className="t-overline c-tertiary">{label}</span>
+      <span className="t-label">{value}</span>
+    </div>
+  );
 
 export const Loading = ({ label = 'Memuat…' }: { label?: string }) => (
   <div className="misc-center" role="status">

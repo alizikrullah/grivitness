@@ -55,36 +55,13 @@
   flex-shrink: 0;
 }
 
-/* Rincian kalori keluar sebagai chip berwarna, padanan EnergyPart mobile. */
+/* Rincian kalori keluar: StatPill berikon, padanan mobile. */
 .dash-parts {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: var(--space-sm);
   width: 100%;
-}
-
-.dash-part {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-md);
-  border: 1px solid;
-  text-align: left;
-}
-
-.dash-part-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  min-width: 0;
-}
-
-.dash-part-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .dash-quick {

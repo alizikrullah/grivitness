@@ -1,25 +1,27 @@
 import {
   BarbellIcon,
-  CheckCircleIcon,
-  CubeIcon,
   DropIcon,
-  EggIcon,
+  FishIcon,
   FootprintsIcon,
   ForkKnifeIcon,
   MoonStarsIcon,
   NotePencilIcon,
   ScalesIcon,
-  SparkleIcon,
+  CubeIcon,
 } from 'phosphor-react-native';
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { Card, ProgressBar, Text } from '@/components/ui';
-import { colors, macroColors, metricColors, tint } from '@/constants/colors';
+import { GoalProgress } from '@/components/features/Metrics';
+import { Card, IconCircle, ProgressBar, SectionHeader, Text } from '@/components/ui';
+import { colors, macroColors, metricColors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/theme';
 import type { DailyOverview, OverviewItem, OverviewKey } from '@/types';
 
-/** Ikon dan warna per metrik, warnanya sama dengan ikon metrik itu di layar lain. */
+/**
+ * Ikon dan warna per metrik. Warnanya warna metrik itu di layar lain, dan
+ * ikonnya selalu duduk di IconCircle gelap, sama seperti kartu metrik beranda.
+ */
 const METRIK: Record<OverviewKey, { color: string; icon: (color: string) => ReactNode }> = {
   calories: {
     color: metricColors.calories,
@@ -27,7 +29,7 @@ const METRIK: Record<OverviewKey, { color: string; icon: (color: string) => Reac
   },
   protein: {
     color: macroColors.protein,
-    icon: (c) => <EggIcon size={18} color={c} weight="fill" />,
+    icon: (c) => <FishIcon size={18} color={c} weight="fill" />,
   },
   sleep: {
     color: metricColors.sleep,
@@ -53,26 +55,25 @@ const METRIK: Record<OverviewKey, { color: string; icon: (color: string) => Reac
   },
 };
 
-const warnaTingkat = (item: OverviewItem): string =>
-  item.tone === 'bad' ? colors.danger : item.tone === 'warn' ? colors.warning : colors.success;
-
-/** Satu hal yang perlu dibenahi: ikon metrik, judul, angka, keterangan, dan progresnya. */
+/**
+ * Satu hal yang perlu dibenahi, berbentuk seperti kartu metrik beranda:
+ * permukaan gelap dengan garis tepi tipis, ikon di lingkaran gelap, batang
+ * progres berwarna metriknya. Angkanya oranye, bukan merah: merah di layar ini
+ * sudah dipakai tombol utama, dan aturan palet membatasinya satu titik.
+ */
 const Benahi = ({ item }: { item: OverviewItem }) => {
   const metrik = METRIK[item.key];
-  const warna = warnaTingkat(item);
 
   return (
     <View style={styles.row}>
-      <View style={[styles.rowIcon, { backgroundColor: tint(metrik.color, 0.14) }]}>
-        {metrik.icon(metrik.color)}
-      </View>
+      <IconCircle size={36}>{metrik.icon(metrik.color)}</IconCircle>
 
       <View style={styles.rowBody}>
         <View style={styles.rowHead}>
           <Text variant="label" numberOfLines={1} style={styles.rowTitle}>
             {item.title}
           </Text>
-          <Text variant="label" color={warna}>
+          <Text variant="label" tone="warning">
             {item.value}
           </Text>
         </View>
@@ -80,7 +81,7 @@ const Benahi = ({ item }: { item: OverviewItem }) => {
           {item.detail}
         </Text>
         {item.progress !== null ? (
-          <ProgressBar progress={item.progress} color={warna} height={4} />
+          <ProgressBar progress={item.progress} color={metrik.color} height={4} />
         ) : null}
       </View>
     </View>
@@ -88,24 +89,28 @@ const Benahi = ({ item }: { item: OverviewItem }) => {
 };
 
 /** Satu hal yang sudah bagus, lebih ringkas dari yang perlu dibenahi. */
-const Bagus = ({ item }: { item: OverviewItem }) => (
-  <View style={styles.good}>
-    <CheckCircleIcon size={18} color={colors.success} weight="fill" />
-    <View style={styles.rowBody}>
-      <View style={styles.rowHead}>
-        <Text variant="label" numberOfLines={1} style={styles.rowTitle}>
-          {item.title}
-        </Text>
-        <Text variant="caption" tone="secondary">
-          {item.value}
+const Bagus = ({ item }: { item: OverviewItem }) => {
+  const metrik = METRIK[item.key];
+
+  return (
+    <View style={styles.good}>
+      <IconCircle size={30}>{metrik.icon(metrik.color)}</IconCircle>
+      <View style={styles.rowBody}>
+        <View style={styles.rowHead}>
+          <Text variant="label" numberOfLines={1} style={styles.rowTitle}>
+            {item.title}
+          </Text>
+          <Text variant="caption" tone="success">
+            {item.value}
+          </Text>
+        </View>
+        <Text variant="caption" tone="tertiary">
+          {item.detail}
         </Text>
       </View>
-      <Text variant="caption" tone="tertiary">
-        {item.detail}
-      </Text>
     </View>
-  </View>
-);
+  );
+};
 
 /**
  * Overview di beranda, tepat di bawah kartu kalori: gula hari ini, lalu yang
@@ -114,54 +119,34 @@ const Bagus = ({ item }: { item: OverviewItem }) => (
  * Semua kalimat dan angkanya datang dari backend (GET /api/summary/overview),
  * dihitung aturan tetap, bukan model, supaya mobile dan web menulis hal yang
  * sama persis dan kartunya murah dibuka berkali-kali.
+ *
+ * Dibangun dari komponen yang sudah ada (SectionHeader, GoalProgress,
+ * IconCircle, ProgressBar). Versi pertamanya memakai latar ikon berwarna dan
+ * merah untuk yang jauh dari target, dua-duanya melanggar aturan desain.
  */
 export const OverviewCard = ({ data }: { data: DailyOverview }) => {
   const { improve, good, sugar_today: gula } = data;
-  const gulaLewat = gula.grams > gula.max_g;
 
   return (
     <Card>
       <View style={styles.wrap}>
-        <View style={styles.head}>
-          <View style={styles.headIcon}>
-            <SparkleIcon size={18} color={colors.primary} weight="fill" />
-          </View>
-          <Text variant="h3" style={styles.headTitle}>
-            Overview
-          </Text>
-          <View
-            style={[
-              styles.badge,
-              { backgroundColor: improve.length > 0 ? colors.warningSoft : colors.successSoft },
-            ]}
-          >
+        <SectionHeader
+          title="Overview"
+          action={
             <Text variant="caption" tone={improve.length > 0 ? 'warning' : 'success'}>
               {improve.length > 0 ? `${String(improve.length)} perlu dibenahi` : 'Semua aman'}
             </Text>
-          </View>
-        </View>
+          }
+        />
 
-        <View style={styles.sugar}>
-          <View style={styles.sugarHead}>
-            <View style={styles.sugarLabel}>
-              <CubeIcon size={16} color={macroColors.sugar} weight="fill" />
-              <Text variant="label" tone="secondary">
-                Gula hari ini
-              </Text>
-            </View>
-            <Text variant="label" tone={gulaLewat ? 'warning' : 'primary'}>
-              {String(gula.grams).replace('.', ',')}
-              <Text variant="caption" tone="tertiary">
-                {' / ' + String(gula.max_g) + ' g'}
-              </Text>
-            </Text>
-          </View>
-          <ProgressBar
-            progress={gula.max_g > 0 ? gula.grams / gula.max_g : 0}
-            color={gulaLewat ? colors.warning : macroColors.sugar}
-            height={8}
-          />
-        </View>
+        {/* Gula total lawan batas ATAS hariannya, bukan target yang dikejar. */}
+        <GoalProgress
+          label="Gula hari ini"
+          value={gula.grams}
+          target={gula.max_g}
+          unit="g"
+          color={gula.grams > gula.max_g ? colors.warning : macroColors.sugar}
+        />
 
         {improve.length > 0 ? (
           <View style={styles.section}>
@@ -197,31 +182,6 @@ export const OverviewCard = ({ data }: { data: DailyOverview }) => {
 
 const styles = StyleSheet.create({
   wrap: { gap: spacing.lg },
-  head: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  headIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primarySoft,
-  },
-  headTitle: { flex: 1 },
-  badge: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
-  },
-  sugar: {
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surfaceAlt,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderSoft,
-  },
-  sugarHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sugarLabel: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   section: { gap: spacing.sm },
   row: {
     flexDirection: 'row',
@@ -231,13 +191,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceAlt,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.borderSoft,
-  },
-  rowIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   rowBody: { flex: 1, gap: spacing.xs },
   rowHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },

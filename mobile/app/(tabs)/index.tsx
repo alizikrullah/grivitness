@@ -14,9 +14,18 @@ import {
 import { StyleSheet, View } from 'react-native';
 
 import { CalorieRingChart } from '@/components/features/CalorieRingChart';
-import { EnergyPart, MacroBar, MetricTile, StreakBadge } from '@/components/features/Metrics';
+import { MacroBar, MetricTile, StreakBadge } from '@/components/features/Metrics';
 import { OverviewCard } from '@/components/features/OverviewCard';
-import { Button, Card, IconCircle, Loading, Screen, SectionHeader, Text } from '@/components/ui';
+import {
+  Button,
+  Card,
+  IconCircle,
+  Loading,
+  Screen,
+  SectionHeader,
+  StatPill,
+  Text,
+} from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/theme';
 import { useSetFoodDayStatus } from '@/services/food.service';
@@ -200,27 +209,25 @@ export default function HomeScreen() {
                 tidak dihitung, jalan-jalan kecil sudah ada di dalam metabolisme
                 lewat jenis pekerjaan.
               */}
+              {/* StatPill: ikon di lingkaran gelap, pola yang sama dengan referensi. */}
               {data?.energy ? (
                 <View style={styles.parts}>
-                  <EnergyPart
-                    icon={<HeartbeatIcon size={14} color={metricColors.metabolism} weight="fill" />}
+                  <StatPill
+                    icon={<HeartbeatIcon size={16} color={metricColors.metabolism} weight="fill" />}
+                    value={thousands(data.energy.baseline) + ' kkal'}
                     label="Metabolisme"
-                    value={data.energy.baseline}
-                    color={metricColors.metabolism}
                   />
                   {data.energy.device_active_kcal === null ? null : (
-                    <EnergyPart
-                      icon={<WatchIcon size={14} color={metricColors.device} weight="fill" />}
+                    <StatPill
+                      icon={<WatchIcon size={16} color={metricColors.device} weight="fill" />}
+                      value={thousands(data.energy.device_active_kcal) + ' kkal'}
                       label="Jam tangan"
-                      value={data.energy.device_active_kcal}
-                      color={metricColors.device}
                     />
                   )}
-                  <EnergyPart
-                    icon={<BarbellIcon size={14} color={metricColors.workout} weight="fill" />}
+                  <StatPill
+                    icon={<BarbellIcon size={16} color={metricColors.workout} weight="fill" />}
+                    value={thousands(data.energy.workout_calories) + ' kkal'}
                     label={data.energy.device_active_kcal === null ? 'Olahraga' : 'Olahraga lain'}
-                    value={data.energy.workout_calories}
-                    color={metricColors.workout}
                   />
                 </View>
               ) : null}
@@ -356,7 +363,7 @@ const styles = StyleSheet.create({
   burnRow: { flexDirection: 'row', alignItems: 'center' },
   burnItem: { flex: 1, alignItems: 'center', gap: spacing.xs },
   burnDivider: { width: StyleSheet.hairlineWidth, height: 32, backgroundColor: colors.border },
-  parts: { flexDirection: 'row', gap: spacing.sm },
+  parts: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: spacing.sm },
   grid: { flexDirection: 'row', gap: spacing.md },
   macroCard: { gap: spacing.lg },
   weightCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
