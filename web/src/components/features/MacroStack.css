@@ -18,7 +18,7 @@
   height: 100%;
 }
 
-/* Gula menempel di dalam batang karbo, tanpa celah, karena memang bagiannya. */
+/* Gula menempel di ujung batang karbo, tanpa celah, karena memang bagiannya. */
 .macro-stack-carbs {
   display: flex;
 }
@@ -28,10 +28,10 @@
   background: var(--surface-high);
 }
 
+/* Kolom sama lebar, supaya keterangannya rata seperti tabel. */
 .macro-stack-legend {
-  display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-sm);
 }
 

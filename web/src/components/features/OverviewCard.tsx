@@ -1,24 +1,26 @@
 import {
   BarbellIcon,
-  CheckCircleIcon,
   CubeIcon,
   DropIcon,
-  EggIcon,
+  FishIcon,
   FootprintsIcon,
   ForkKnifeIcon,
   MoonStarsIcon,
   NotePencilIcon,
   ScalesIcon,
-  SparkleIcon,
 } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
 
 import { Card, ProgressBar } from '@/components/ui';
-import { colors, macroColors, metricColors, tint } from '@/constants/colors';
+import { colors, macroColors, metricColors } from '@/constants/colors';
 import type { DailyOverview, OverviewItem, OverviewKey } from '@/types';
+import { thousands } from '@/utils/format';
 import './OverviewCard.css';
 
-/** Ikon dan warna per metrik, padanan OverviewCard mobile. */
+/**
+ * Ikon dan warna per metrik, padanan OverviewCard mobile. Ikonnya selalu di
+ * lingkaran gelap seperti .tile-icon kartu metrik, tanpa latar berwarna.
+ */
 const METRIK: Record<OverviewKey, { color: string; icon: (color: string) => ReactNode }> = {
   calories: {
     color: metricColors.calories,
@@ -26,7 +28,7 @@ const METRIK: Record<OverviewKey, { color: string; icon: (color: string) => Reac
   },
   protein: {
     color: macroColors.protein,
-    icon: (c) => <EggIcon size={18} color={c} weight="fill" />,
+    icon: (c) => <FishIcon size={18} color={c} weight="fill" />,
   },
   sleep: {
     color: metricColors.sleep,
@@ -52,44 +54,43 @@ const METRIK: Record<OverviewKey, { color: string; icon: (color: string) => Reac
   },
 };
 
-const warnaTingkat = (item: OverviewItem): string =>
-  item.tone === 'bad' ? colors.danger : item.tone === 'warn' ? colors.warning : colors.success;
-
+/** Angkanya oranye, bukan merah: aturan palet membatasi merah satu titik per layar. */
 const Benahi = ({ item }: { item: OverviewItem }) => {
   const metrik = METRIK[item.key];
-  const warna = warnaTingkat(item);
 
   return (
     <div className="ov-row">
-      <span className="ov-row-icon" style={{ background: tint(metrik.color, 0.14) }}>
-        {metrik.icon(metrik.color)}
-      </span>
+      <span className="ov-icon">{metrik.icon(metrik.color)}</span>
       <div className="ov-row-body">
         <div className="ov-row-head">
           <span className="t-label ov-row-title">{item.title}</span>
-          <span className="t-label" style={{ color: warna }}>
-            {item.value}
-          </span>
+          <span className="t-label c-warning">{item.value}</span>
         </div>
         <span className="t-caption c-secondary">{item.detail}</span>
-        {item.progress !== null ? <ProgressBar progress={item.progress} color={warna} /> : null}
+        {item.progress !== null ? (
+          <ProgressBar progress={item.progress} color={metrik.color} />
+        ) : null}
       </div>
     </div>
   );
 };
 
-const Bagus = ({ item }: { item: OverviewItem }) => (
-  <div className="ov-good">
-    <CheckCircleIcon size={18} color={colors.success} weight="fill" className="ov-good-icon" />
-    <div className="ov-row-body">
-      <div className="ov-row-head">
-        <span className="t-label ov-row-title">{item.title}</span>
-        <span className="t-caption c-secondary">{item.value}</span>
+const Bagus = ({ item }: { item: OverviewItem }) => {
+  const metrik = METRIK[item.key];
+
+  return (
+    <div className="ov-good">
+      <span className="ov-icon ov-icon-sm">{metrik.icon(metrik.color)}</span>
+      <div className="ov-row-body">
+        <div className="ov-row-head">
+          <span className="t-label ov-row-title">{item.title}</span>
+          <span className="t-caption c-success">{item.value}</span>
+        </div>
+        <span className="t-caption c-tertiary">{item.detail}</span>
       </div>
-      <span className="t-caption c-tertiary">{item.detail}</span>
     </div>
-  </div>
-);
+  );
+};
 
 /**
  * Overview beranda, padanan mobile: gula hari ini, lalu yang perlu dibenahi
@@ -105,29 +106,20 @@ export const OverviewCard = ({ data }: { data: DailyOverview }) => {
   return (
     <Card>
       <div className="ov">
-        <div className="ov-head">
-          <span className="ov-head-icon">
-            <SparkleIcon size={18} color={colors.primary} weight="fill" />
-          </span>
-          <span className="t-h3 flex-1">Overview</span>
-          <span
-            className={
-              't-caption ov-badge ' + (improve.length > 0 ? 'ov-badge-warn' : 'ov-badge-good')
-            }
-          >
+        <div className="row-between">
+          <span className="t-h3">Overview</span>
+          <span className={'t-caption ' + (improve.length > 0 ? 'c-warning' : 'c-success')}>
             {improve.length > 0 ? `${String(improve.length)} perlu dibenahi` : 'Semua aman'}
           </span>
         </div>
 
-        <div className="ov-sugar">
+        {/* Gula total lawan batas ATAS hariannya, bentuknya sama dengan GoalProgress mobile. */}
+        <div className="stack-xs">
           <div className="row-between">
-            <span className="ov-sugar-label">
-              <CubeIcon size={16} color={macroColors.sugar} weight="fill" />
-              <span className="t-label c-secondary">Gula hari ini</span>
-            </span>
-            <span className={'t-label' + (gulaLewat ? ' c-warning' : '')}>
-              {String(gula.grams).replace('.', ',')}
-              <span className="t-caption c-tertiary">{' / ' + String(gula.max_g) + ' g'}</span>
+            <span className="t-body-medium c-secondary">Gula hari ini</span>
+            <span className="t-label">
+              {thousands(gula.grams)}
+              <span className="t-caption c-tertiary">{' / ' + thousands(gula.max_g) + ' g'}</span>
             </span>
           </div>
           <ProgressBar

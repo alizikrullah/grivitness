@@ -15,7 +15,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { MetricTile } from '@/components/features/MetricTile';
 import { OverviewCard } from '@/components/features/OverviewCard';
 import { Button, Card, Loading, Ring, SectionHeader, StatPill } from '@/components/ui';
-import { colors, flame, metricColors, tint } from '@/constants/colors';
+import { colors, flame, macroColors, metricColors } from '@/constants/colors';
 import { useSetFoodDayStatus } from '@/services/food.service';
 import { useDailyOverview, useDailySummary, useStreak } from '@/services/misc.service';
 import { useProfile } from '@/services/users.service';
@@ -159,25 +159,22 @@ export const DashboardPage = () => {
             */}
             {data?.energy ? (
               <div className="dash-parts">
-                <EnergyPart
-                  icon={<HeartbeatIcon size={14} color={metricColors.metabolism} weight="fill" />}
+                <StatPill
+                  icon={<HeartbeatIcon size={16} color={metricColors.metabolism} weight="fill" />}
+                  value={thousands(data.energy.baseline) + ' kkal'}
                   label="Metabolisme"
-                  value={data.energy.baseline}
-                  color={metricColors.metabolism}
                 />
                 {data.energy.device_active_kcal === null ? null : (
-                  <EnergyPart
-                    icon={<WatchIcon size={14} color={metricColors.device} weight="fill" />}
+                  <StatPill
+                    icon={<WatchIcon size={16} color={metricColors.device} weight="fill" />}
+                    value={thousands(data.energy.device_active_kcal) + ' kkal'}
                     label="Jam tangan"
-                    value={data.energy.device_active_kcal}
-                    color={metricColors.device}
                   />
                 )}
-                <EnergyPart
-                  icon={<BarbellIcon size={14} color={metricColors.workout} weight="fill" />}
+                <StatPill
+                  icon={<BarbellIcon size={16} color={metricColors.workout} weight="fill" />}
+                  value={thousands(data.energy.workout_calories) + ' kkal'}
                   label={data.energy.device_active_kcal === null ? 'Olahraga' : 'Olahraga lain'}
-                  value={data.energy.workout_calories}
-                  color={metricColors.workout}
                 />
               </div>
             ) : null}
@@ -259,25 +256,29 @@ export const DashboardPage = () => {
 
       <Card>
         <div className="grid-4">
+          {/*
+            Urutan tabel gizi kemasan (lemak, protein, karbo, gula) dan warna
+            yang sama dengan batang gizi di layar makanan.
+          */}
+          <MacroBar
+            label="Lemak"
+            value={data?.fat_g ?? 0}
+            target={data?.targets.macros?.fat_g}
+            color={macroColors.fat}
+          />
           <MacroBar
             label="Protein"
             value={data?.protein_g ?? 0}
             target={data?.targets.macros?.protein_g}
-            color={colors.success}
+            color={macroColors.protein}
           />
           <MacroBar
             label="Karbohidrat"
             value={data?.carbs_g ?? 0}
             target={data?.targets.macros?.carbs_g}
-            color={metricColors.steps}
+            color={macroColors.carbs}
           />
-          <MacroBar
-            label="Lemak"
-            value={data?.fat_g ?? 0}
-            target={data?.targets.macros?.fat_g}
-            color={metricColors.calories}
-          />
-          {/* Gula: batas ATAS, bukan target. Bilahnya kuning kalau sudah lewat. */}
+          {/* Gula: batas ATAS, bukan target. Bilahnya oranye kalau sudah lewat. */}
           <MacroBar
             label="Gula (batas)"
             value={data?.sugar_g ?? 0}
@@ -285,7 +286,7 @@ export const DashboardPage = () => {
             color={
               (data?.sugar_g ?? 0) > (data?.targets.sugar_max_g ?? Infinity)
                 ? colors.warning
-                : metricColors.mood
+                : macroColors.sugar
             }
           />
         </div>
@@ -340,38 +341,6 @@ const MacroBar = ({
       />
     </div>
   </div>
-);
-
-/**
- * Satu bagian kalori keluar: metabolisme, kalori aktif jam, atau olahraga.
- * Padanan EnergyPart mobile, warnanya mengikuti metriknya.
- */
-const EnergyPart = ({
-  icon,
-  label,
-  value,
-  color,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  color: string;
-}) => (
-  <span
-    className="dash-part"
-    style={{ background: tint(color, 0.12), borderColor: tint(color, 0.3) }}
-  >
-    <span className="dash-part-head">
-      {icon}
-      <span className="t-caption dash-part-label" style={{ color }}>
-        {label}
-      </span>
-    </span>
-    <span className="t-h3">
-      {thousands(value)}
-      <span className="t-caption c-tertiary"> kkal</span>
-    </span>
-  </span>
 );
 
 const QuickLink = ({ to, label, icon }: { to: string; label: string; icon: React.ReactNode }) => (

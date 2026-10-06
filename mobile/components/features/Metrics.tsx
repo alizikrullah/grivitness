@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ProgressBar, Text } from '@/components/ui';
-import { colors, macroColors, tint } from '@/constants/colors';
+import { colors, macroColors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/theme';
 import { ratio, thousands } from '@/utils/format';
 
@@ -54,14 +54,15 @@ export const MetricTile = ({
 );
 
 /**
- * Perbandingan protein, karbohidrat, dan lemak dalam satu batang, plus gula.
+ * Komposisi lemak, protein, karbohidrat, dan gula dalam satu batang.
  *
- * Ditampilkan sebagai proporsi, bukan angka mutlak, karena yang berguna dilihat
- * sehari-hari adalah komposisinya, bukan berapa gram persisnya.
+ * Urutannya urutan tabel Informasi Nilai Gizi di kemasan: lemak, protein,
+ * karbo, gula. Sama dengan isian kemasan di form makanan, dan batang serta
+ * keterangannya berurutan sama dari kiri ke kanan.
  *
- * Gula adalah BAGIAN dari karbohidrat, jadi digambar di dalam batang karbo,
- * bukan batang keempat. Batang keempat akan menghitung gram yang sama dua
- * kali dan membuat karbo terlihat lebih kecil dari kenyataannya.
+ * Gula adalah BAGIAN dari karbohidrat, jadi digambar di ujung batang karbo,
+ * bukan batang tersendiri yang menghitung gram yang sama dua kali. Karena
+ * gula paling akhir di urutan itu, ujung batang karbo memang tempatnya.
  */
 export const MacroBar = ({
   protein,
@@ -80,9 +81,9 @@ export const MacroBar = ({
   const lebar = (nilai: number) => Math.max(nilai, 0.0001);
 
   const legenda = [
+    { label: 'Lemak', value: fat, color: macroColors.fat },
     { label: 'Protein', value: protein, color: macroColors.protein },
     { label: 'Karbo', value: carbs, color: macroColors.carbs },
-    { label: 'Lemak', value: fat, color: macroColors.fat },
     ...(sugar === undefined ? [] : [{ label: 'Gula', value: sugar, color: macroColors.sugar }]),
   ];
 
@@ -93,6 +94,9 @@ export const MacroBar = ({
           <View style={[styles.macroSegment, { flex: 1, backgroundColor: colors.surfaceHigh }]} />
         ) : (
           <>
+            <View
+              style={[styles.macroSegment, { flex: lebar(fat), backgroundColor: macroColors.fat }]}
+            />
             <View
               style={[
                 styles.macroSegment,
@@ -105,13 +109,11 @@ export const MacroBar = ({
                 <View style={{ flex: lebar(gula), backgroundColor: macroColors.sugar }} />
               ) : null}
             </View>
-            <View
-              style={[styles.macroSegment, { flex: lebar(fat), backgroundColor: macroColors.fat }]}
-            />
           </>
         )}
       </View>
 
+      {/* Kolom sama lebar, supaya keterangannya rata seperti tabel. */}
       <View style={styles.macroLegend}>
         {legenda.map((b) => (
           <View key={b.label} style={styles.macroItem}>
@@ -128,40 +130,6 @@ export const MacroBar = ({
     </View>
   );
 };
-
-/**
- * Satu bagian kalori keluar: metabolisme, kalori aktif jam, atau olahraga.
- * Dijejer di bawah angka "Keluar" supaya susunannya terbaca sekilas dari
- * warnanya, bukan dari kalimat abu-abu yang harus dieja.
- */
-export const EnergyPart = ({
-  icon,
-  label,
-  value,
-  color,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: number;
-  color: string;
-}) => (
-  <View
-    style={[styles.part, { backgroundColor: tint(color, 0.12), borderColor: tint(color, 0.3) }]}
-  >
-    <View style={styles.partHead}>
-      {icon}
-      <Text variant="caption" color={color} numberOfLines={1} style={styles.partLabel}>
-        {label}
-      </Text>
-    </View>
-    <Text variant="h3" numberOfLines={1}>
-      {thousands(value)}
-      <Text variant="caption" tone="tertiary">
-        {' kkal'}
-      </Text>
-    </Text>
-  </View>
-);
 
 /**
  * Lencana rentetan hari.
@@ -252,19 +220,9 @@ const styles = StyleSheet.create({
   },
   macroSegment: { height: '100%' },
   macroCarbs: { flexDirection: 'row' },
-  macroLegend: { flexDirection: 'row', justifyContent: 'space-between' },
-  macroItem: { gap: 2 },
+  macroLegend: { flexDirection: 'row' },
+  macroItem: { flex: 1, gap: 2 },
   macroItemHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  part: {
-    flex: 1,
-    gap: 2,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  partHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  partLabel: { flexShrink: 1 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   streak: {
     flexDirection: 'row',

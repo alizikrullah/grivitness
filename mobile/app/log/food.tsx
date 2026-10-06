@@ -339,10 +339,14 @@ export default function FoodScreen() {
                           {rincian.map((item) => item.name).join(', ') || 'Tanpa rincian'}
                         </Text>
 
+                        {/* Urutan tabel gizi kemasan: lemak, protein, karbo, gula. */}
                         <Text variant="caption" tone="tertiary">
-                          {timeWIB(log.logged_at)} WIB · P {toNum(log.protein_g)?.toFixed(0) ?? 0}g
-                          · K {toNum(log.carbs_g)?.toFixed(0) ?? 0}g · L{' '}
-                          {toNum(log.fat_g)?.toFixed(0) ?? 0}g
+                          {timeWIB(log.logged_at)} WIB · L {toNum(log.fat_g)?.toFixed(0) ?? 0}g · P{' '}
+                          {toNum(log.protein_g)?.toFixed(0) ?? 0}g · K{' '}
+                          {toNum(log.carbs_g)?.toFixed(0) ?? 0}g
+                          {log.sugar_g === null
+                            ? ''
+                            : ' · G ' + (toNum(log.sugar_g)?.toFixed(0) ?? '0') + 'g'}
                         </Text>
                       </View>
 

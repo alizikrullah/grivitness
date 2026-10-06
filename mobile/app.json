@@ -2,7 +2,7 @@
   "expo": {
     "name": "GriviTness",
     "slug": "grivitness",
-    "version": "0.9.0",
+    "version": "0.9.1",
     "orientation": "portrait",
     "scheme": "grivitness",
     "userInterfaceStyle": "dark",

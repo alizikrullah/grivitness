@@ -67,8 +67,11 @@ export type MetricKey = keyof typeof metricColors;
 
 /**
  * Warna komponen gizi. Gula sengaja satu keluarga dengan karbo, lebih muda:
- * gula adalah bagian dari karbohidrat, dan batang gizi menggambarnya di dalam
+ * gula adalah bagian dari karbohidrat, dan batang gizi menggambarnya di ujung
  * batang karbo.
+ *
+ * Ikon dan kartu TIDAK diberi latar dari warna ini. Ikon duduk di wadah gelap
+ * (IconCircle, StatPill), kartu dari surface dan garis tepi tipis.
  */
 export const macroColors = {
   protein: '#4DA3FF',
@@ -76,15 +79,6 @@ export const macroColors = {
   fat: '#F472B6',
   sugar: '#FFD180',
 } as const;
-
-/**
- * Warna dengan transparansi, untuk latar lingkaran ikon dan chip berwarna.
- * '#38BDF8' dengan 0.14 menjadi 'rgba(56, 189, 248, 0.14)'.
- */
-export const tint = (hex: string, alpha: number): string => {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgba(${String((n >> 16) & 255)}, ${String((n >> 8) & 255)}, ${String(n & 255)}, ${String(alpha)})`;
-};
 
 /**
  * Nyala api pada cincin kalori.

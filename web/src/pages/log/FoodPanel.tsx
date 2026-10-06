@@ -296,10 +296,14 @@ export const FoodPanel = () => {
                       {thousands(log.total_calories)} kkal
                     </span>
 
+                    {/* Urutan tabel gizi kemasan: lemak, protein, karbo, gula. */}
                     <span className="t-caption c-secondary">
-                      P {Math.round(toNum(log.protein_g) ?? 0)}g · K{' '}
-                      {Math.round(toNum(log.carbs_g) ?? 0)}g · L {Math.round(toNum(log.fat_g) ?? 0)}
-                      g
+                      L {Math.round(toNum(log.fat_g) ?? 0)}g · P{' '}
+                      {Math.round(toNum(log.protein_g) ?? 0)}g · K{' '}
+                      {Math.round(toNum(log.carbs_g) ?? 0)}g
+                      {log.sugar_g === null
+                        ? ''
+                        : ' · G ' + String(Math.round(toNum(log.sugar_g) ?? 0)) + 'g'}
                     </span>
 
                     {/*
