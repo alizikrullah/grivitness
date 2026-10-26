@@ -15,6 +15,7 @@ import {
 import {
   UKURAN_BAWAAN,
   WorkoutMeasureFields,
+  kkalPerMenitIntensitas,
   menitGerak,
   ringkasSesi,
   ukuranKeBody,
@@ -27,11 +28,13 @@ import {
   useDeleteWorkout,
   useWorkoutLibrary,
   useWorkoutsDate,
+  useWorkoutsRange,
 } from '@/services/workouts.service';
 import { DateNav } from '@/components/features/DateNav';
+import { useTanggalLog } from '@/hooks/useTanggalLog';
 import { useProfile } from '@/services/users.service';
-import type { WorkoutCategory, WorkoutLibraryItem } from '@/types';
-import { dayPhrase, todayWIB } from '@/utils/date';
+import type { WorkoutCategory, WorkoutIntensity, WorkoutLibraryItem } from '@/types';
+import { dayPhrase, shiftDays, todayWIB } from '@/utils/date';
 import { duration, thousands, toNum } from '@/utils/format';
 import { LogActions } from './LogActions';
 
@@ -42,7 +45,7 @@ const BERAT_ACUAN_KG = 70;
 
 export const WorkoutPanel = () => {
   /** Tanggal yang sedang dilihat. Bawaannya hari ini. */
-  const [tanggal, setTanggal] = useState(todayWIB());
+  const [tanggal, setTanggal] = useTanggalLog();
   const hariIni = tanggal === todayWIB();
 
   const today = useWorkoutsDate(tanggal);
@@ -58,8 +61,29 @@ export const WorkoutPanel = () => {
 
   const [dipilih, setDipilih] = useState<WorkoutLibraryItem | null>(null);
   const [ukuran, setUkuran] = useState(UKURAN_BAWAAN);
+  const [intensitas, setIntensitas] = useState<WorkoutIntensity>('MEDIUM');
   const [terekam, setTerekam] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Maksimal lima olahraga yang terakhir dicatat dalam 60 hari, terbaru dulu,
+   * supaya yang biasa dilakukan tidak perlu dicari lewat kategori. Padanan
+   * mobile; olahraga custom tidak ada di panel web, jadi tidak ikut.
+   */
+  const tanggalHariIni = todayWIB();
+  const riwayat = useWorkoutsRange(shiftDays(tanggalHariIni, -59), tanggalHariIni);
+  const semuaLibrary = useWorkoutLibrary();
+  const terakhir: WorkoutLibraryItem[] = [];
+  const urutTerbaru = [...(riwayat.data ?? [])].sort((a, b) =>
+    a.logged_at === b.logged_at
+      ? (b.created_at ?? '').localeCompare(a.created_at ?? '')
+      : b.logged_at.localeCompare(a.logged_at),
+  );
+  for (const log of urutTerbaru) {
+    const cocok = semuaLibrary.data?.find((w) => w.id === log.workout_library_id);
+    if (cocok && !terakhir.some((t) => t.id === cocok.id)) terakhir.push(cocok);
+    if (terakhir.length === 5) break;
+  }
 
   /**
    * Kolom kalori punya dua keadaan: masih taksiran, atau sudah disentuh user.
@@ -73,11 +97,21 @@ export const WorkoutPanel = () => {
    */
   const [kaloriDiketik, setKaloriDiketik] = useState<string | null>(null);
 
+  /**
+   * Intensitas cuma berlaku untuk olahraga berukuran menit yang kalorinya
+   * ditaksir aplikasi. Sesi yang terekam jam tangan atau kalorinya diketik
+   * sendiri tidak memakainya, sama seperti backend.
+   */
+  const pakaiIntensitas = dipilih?.measure === 'TIME' && !terekam && kaloriDiketik === null;
+
   // Taksiran dari MENIT GERAK, cermin perhitungan backend: untuk repetisi
   // itu ulangan x detik per ulangan, jeda antar set tidak dihitung.
   const taksiran = dipilih
     ? Math.round(
-        ((toNum(dipilih.calories_burned_per_minute) ?? 0) *
+        (kkalPerMenitIntensitas(
+          toNum(dipilih.calories_burned_per_minute) ?? 0,
+          pakaiIntensitas ? intensitas : null,
+        ) *
           menitGerak(dipilih.measure, ukuran, dipilih.seconds_per_rep) *
           beratKg) /
           BERAT_ACUAN_KG,
@@ -112,6 +146,7 @@ export const WorkoutPanel = () => {
         workout_library_id: dipilih.id,
         ...ukuranKeBody(dipilih.measure, ukuran),
         tracked_by_device: terekam,
+        ...(pakaiIntensitas ? { intensity: intensitas } : {}),
         ...(kalori === undefined ? {} : { calories_burned: kalori }),
         // Dicatat ke tanggal yang sedang dilihat, bukan selalu ke hari ini.
         logged_at: hariIni ? undefined : tanggal,
@@ -122,6 +157,7 @@ export const WorkoutPanel = () => {
           setDipilih(null);
           setKaloriDiketik(null);
           setTerekam(false);
+          setIntensitas('MEDIUM');
         },
       },
     );
@@ -135,6 +171,25 @@ export const WorkoutPanel = () => {
 
       <Card>
         <div className="stack">
+          {terakhir.length > 0 && cari.trim() === '' ? (
+            <div className="stack-xs">
+              <span className="t-overline c-tertiary">Terakhir kamu lakukan</span>
+              <div className="chip-group">
+                {terakhir.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setDipilih(item)}
+                    aria-pressed={dipilih?.id === item.id}
+                    className={'chip' + (dipilih?.id === item.id ? ' chip-active' : '')}
+                  >
+                    {item.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <ChipGroup
             options={KATEGORI}
             value={kategori}
@@ -175,13 +230,9 @@ export const WorkoutPanel = () => {
                 value={ukuran}
                 onChange={setUkuran}
                 nama={dipilih.name}
+                intensitas={intensitas}
+                onIntensitas={pakaiIntensitas ? setIntensitas : undefined}
               />
-
-              {/*
-                Pilihan intensitas dicabut: tidak pernah dipakai menghitung apa
-                pun. Kalori datang dari MET jenis olahraganya, jadi intensitas
-                sudah terwakili oleh pilihannya (jalan santai lawan jalan cepat).
-              */}
 
               {/*
                 Satu kolom kalori, terisi taksiran dan bisa ditimpa: angka dari
@@ -197,7 +248,7 @@ export const WorkoutPanel = () => {
                 hint={
                   kaloriDiketik === null
                     ? dipilih.measure === 'TIME'
-                      ? 'Taksiran dari durasi dan berat badanmu. Ketik sendiri kalau jam tanganmu menunjukkan angka lain.'
+                      ? 'Taksiran dari durasi, intensitas, dan berat badanmu. Ketik sendiri kalau jam tanganmu menunjukkan angka lain.'
                       : 'Taksiran dari waktu gerak ulanganmu saja, jeda antar set tidak dihitung. Kecil itu wajar: nilai latihan ini di ototmu, bukan kalorinya.'
                     : 'Angka ini disimpan apa adanya dan tidak dihitung ulang.'
                 }

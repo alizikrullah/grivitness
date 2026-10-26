@@ -237,6 +237,32 @@ describe('hari yang ditandai belum lengkap', () => {
   });
 });
 
+describe('ringkasan harian: catatan mana yang ada', () => {
+  it('membedakan catatan yang ada dari angka nol', async () => {
+    const [ini, lalu] = await Promise.all([
+      request(app).get('/api/summary/daily').set(auth()).query({ date: hariIni }),
+      request(app).get('/api/summary/daily').set(auth()).query({ date: kemarin }),
+    ]);
+
+    // Hari ini: makan dan berat. Kemarin: makan, renang, dan angka jam tangan.
+    expect(ini.body.data.logged).toMatchObject({
+      food: true,
+      weight: true,
+      water: false,
+      sleep: false,
+      steps: false,
+      workout: false,
+    });
+    expect(lalu.body.data.logged).toMatchObject({
+      food: true,
+      workout: true,
+      device: true,
+      weight: false,
+      mood: false,
+    });
+  });
+});
+
 describe('ringkasan harian: gula dan pertanyaan hari makan', () => {
   it('menjumlahkan gula hari itu dan mengirim batasnya', async () => {
     const res = await request(app).get('/api/summary/daily').set(auth()).query({ date: kemarin });
@@ -244,6 +270,23 @@ describe('ringkasan harian: gula dan pertanyaan hari makan', () => {
     expect(res.body.data.sugar_g).toBe(14);
     expect(res.body.data.targets.sugar_max_g).toBeGreaterThan(0);
     expect(res.body.data.targets.sugar_max_g).toBeLessThanOrEqual(50);
+  });
+});
+
+describe('GET /api/summary/calendar?type=catat', () => {
+  it('menandai hari bercatatan, dan yang catatan hariannya belum lengkap', async () => {
+    const dari = new Date(new Date(`${hariIni}T00:00:00Z`).getTime() - 10 * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    const res = await request(app)
+      .get('/api/summary/calendar')
+      .set(auth())
+      .query({ type: 'catat', from: dari, to: hariIni });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.dates).toEqual([kemarin, hariIni]);
+    // Belum ada minum, tidur, langkah, maupun mood: dua-duanya belum lengkap.
+    expect(res.body.data.incomplete).toEqual([kemarin, hariIni]);
   });
 });
 

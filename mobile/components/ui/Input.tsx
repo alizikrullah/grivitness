@@ -1,5 +1,5 @@
 import { EyeIcon, EyeSlashIcon } from 'phosphor-react-native';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, type Ref, type RefObject, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -32,6 +32,17 @@ interface InputProps {
   style?: TextStyle;
   /** Dipanggil saat kolom mulai diketik. Dipakai editor makanan untuk tahu baris mana yang butuh saran. */
   onFocus?: () => void;
+  /** Rujukan ke kolomnya, supaya kolom sebelumnya bisa memindah fokus ke sini. */
+  ref?: Ref<TextInput>;
+  /**
+   * Kolom berikutnya. Diisi berarti tombol kanan bawah keyboard jadi
+   * "Berikutnya" dan menekannya memindah fokus ke sana tanpa menutup
+   * keyboard, jadi form diisi berurutan tanpa menyentuh kolomnya satu per
+   * satu. Kosong berarti tombol selesai bawaan.
+   */
+  next?: RefObject<TextInput | null>;
+  /** Dipanggil tombol selesai di kolom terakhir, misalnya untuk langsung masuk. */
+  onSubmit?: () => void;
 }
 
 export const Input = ({
@@ -51,6 +62,9 @@ export const Input = ({
   editable = true,
   style,
   onFocus,
+  ref,
+  next,
+  onSubmit,
 }: InputProps) => {
   const [fokus, setFokus] = useState(false);
   const [terlihat, setTerlihat] = useState(false);
@@ -75,6 +89,7 @@ export const Input = ({
         {icon ? <View style={styles.icon}>{icon}</View> : null}
 
         <TextInput
+          ref={ref}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
@@ -91,6 +106,10 @@ export const Input = ({
             onFocus?.();
           }}
           onBlur={() => setFokus(false)}
+          // Kolom banyak baris memakai Enter untuk baris baru, bukan pindah kolom.
+          returnKeyType={multiline ? undefined : next ? 'next' : 'done'}
+          submitBehavior={multiline ? undefined : next ? 'submit' : 'blurAndSubmit'}
+          onSubmitEditing={multiline ? undefined : next ? () => next.current?.focus() : onSubmit}
           style={[styles.input, multiline && styles.inputMultiline, style]}
         />
 

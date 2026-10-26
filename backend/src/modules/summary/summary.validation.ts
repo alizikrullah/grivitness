@@ -43,6 +43,8 @@ export const CALENDAR_SECTIONS = [
   'mood',
   'body-photo',
   'device-energy',
+  // Halaman Catat: semua jenis sekaligus, lihat getCalendar().
+  'catat',
 ] as const;
 export type CalendarSection = (typeof CALENDAR_SECTIONS)[number];
 

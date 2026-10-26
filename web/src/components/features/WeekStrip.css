@@ -1,0 +1,105 @@
+.pekan {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.pekan-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.pekan-panah {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-pill);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: var(--surface-high);
+  border: 1px solid var(--border-soft);
+  color: var(--text-primary);
+}
+
+.pekan-panah:hover:not(:disabled) {
+  background: var(--border);
+}
+
+.pekan-bulan {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border-radius: var(--radius-pill);
+  color: var(--text-primary);
+}
+
+.pekan-bulan svg {
+  color: var(--text-secondary);
+}
+
+.pekan-bulan:hover {
+  background: var(--surface-alt);
+}
+
+.pekan-hari {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-xs);
+}
+
+.pekan-tanggal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) 0;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  color: var(--text-primary);
+  transition: background 0.15s ease;
+}
+
+.pekan-tanggal:hover:not(:disabled):not(.pekan-dipilih) {
+  background: var(--surface-high);
+}
+
+.pekan-tanggal:disabled {
+  opacity: 0.3;
+}
+
+.pekan-nama {
+  color: var(--text-tertiary);
+}
+
+.pekan-hari-ini {
+  background: var(--surface-alt);
+  border-color: var(--border);
+}
+
+.pekan-dipilih {
+  background: var(--text-primary);
+  color: var(--bg);
+}
+
+.pekan-dipilih .pekan-nama {
+  color: var(--bg);
+}
+
+.pekan-titik {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+}
+
+.pekan-titik-hijau {
+  background: var(--success);
+}
+
+.pekan-titik-kuning {
+  background: var(--warning);
+}

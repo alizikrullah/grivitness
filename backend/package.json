@@ -1,6 +1,6 @@
 {
   "name": "grivitness-backend",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "private": true,
   "description": "Backend API GriviTness, Express + TypeScript + Directus",
   "type": "module",

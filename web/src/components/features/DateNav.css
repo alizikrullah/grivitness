@@ -48,30 +48,3 @@
 .datenav-tengah:hover {
   background: var(--surface-alt);
 }
-
-.datenav-legend {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--space-lg);
-}
-
-.datenav-legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-}
-
-.datenav-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: var(--radius-pill);
-}
-
-.datenav-dot-hijau {
-  background: var(--success);
-}
-
-.datenav-dot-kuning {
-  background: var(--warning);
-}

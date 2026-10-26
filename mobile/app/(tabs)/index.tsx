@@ -229,6 +229,23 @@ export default function HomeScreen() {
                     value={thousands(data.energy.workout_calories) + ' kkal'}
                     label={data.energy.device_active_kcal === null ? 'Olahraga' : 'Olahraga lain'}
                   />
+                  {/*
+                    Koreksi timbangan: rumus dan jam tangan dibandingkan dengan
+                    berat yang benar-benar turun, supaya defisit di layar sama
+                    dengan yang terjadi di badan. Pil lain tetap angka aslinya,
+                    jadi jumlahnya pas dan asal selisihnya kelihatan.
+                  */}
+                  {data.energy.scale_correction === null ? null : (
+                    <StatPill
+                      icon={<ScalesIcon size={16} color={metricColors.weight} weight="fill" />}
+                      value={
+                        (data.energy.scale_correction > 0 ? '+' : '') +
+                        thousands(data.energy.scale_correction) +
+                        ' kkal'
+                      }
+                      label="Koreksi timbangan"
+                    />
+                  )}
                 </View>
               ) : null}
             </View>

@@ -3,25 +3,12 @@ import { CalendarBlankIcon, CaretLeftIcon, CaretRightIcon } from 'phosphor-react
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Button, Calendar, IconCircle, Sheet, Text } from '@/components/ui';
+import { CalendarSheet } from '@/components/features/CalendarSheet';
+import { IconCircle, Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/theme';
-import { useCalendarDays } from '@/services/misc.service';
 import type { CalendarSection } from '@/types';
-import { monthEnd, monthStart, navDateLabel, shiftDays, todayWIB } from '@/utils/date';
-
-/** Apa yang ditandai titik hijau di tiap layar, untuk keterangan di bawah kalender. */
-const ISI: Record<CalendarSection, string> = {
-  food: 'catatan makan',
-  water: 'catatan minum',
-  workout: 'catatan olahraga',
-  steps: 'catatan langkah',
-  sleep: 'catatan tidur',
-  weight: 'catatan berat',
-  mood: 'catatan mood',
-  'body-photo': 'foto badan atau lingkar pinggang',
-  'device-energy': 'angka jam tangan',
-};
+import { navDateLabel, shiftDays, todayWIB } from '@/utils/date';
 
 interface DateNavProps {
   value: string;
@@ -41,25 +28,14 @@ interface DateNavProps {
  * ada. Strip lama cuma menjangkau dua minggu dan tidak menandai apa pun.
  */
 export const DateNav = ({ value, onChange, section, maxDate }: DateNavProps) => {
-  const hariIni = todayWIB();
-  const batas = maxDate ?? hariIni;
+  const batas = maxDate ?? todayWIB();
   const [buka, setBuka] = useState(false);
-  const [bulan, setBulan] = useState(monthStart(value));
-
-  const tanda = useCalendarDays(section, monthStart(bulan), monthEnd(bulan), buka);
-  const kuning = new Set(tanda.data?.incomplete ?? []);
-  const hijau = new Set((tanda.data?.dates ?? []).filter((t) => !kuning.has(t)));
 
   const bisaMaju = value < batas;
 
   const geser = (hari: number) => {
     void Haptics.selectionAsync();
     onChange(shiftDays(value, hari));
-  };
-
-  const pilih = (tanggal: string) => {
-    onChange(tanggal);
-    setBuka(false);
   };
 
   return (
@@ -70,10 +46,7 @@ export const DateNav = ({ value, onChange, section, maxDate }: DateNavProps) => 
         </IconCircle>
 
         <Pressable
-          onPress={() => {
-            setBulan(monthStart(value));
-            setBuka(true);
-          }}
+          onPress={() => setBuka(true)}
           style={({ pressed }) => [styles.center, pressed && styles.pressed]}
           accessibilityLabel="Pilih tanggal dari kalender"
         >
@@ -92,38 +65,17 @@ export const DateNav = ({ value, onChange, section, maxDate }: DateNavProps) => 
         </IconCircle>
       </View>
 
-      <Sheet visible={buka} onClose={() => setBuka(false)} title="Pilih tanggal">
-        <Calendar
-          month={bulan}
-          selected={value}
-          maxDate={batas}
-          marked={hijau}
-          warned={kuning}
-          onSelect={pilih}
-          onMonthChange={setBulan}
-        />
-
-        <View style={styles.legend}>
-          <View style={styles.legendItem}>
-            <View style={[styles.dot, { backgroundColor: colors.success }]} />
-            <Text variant="caption" tone="secondary">
-              Ada {ISI[section]}
-            </Text>
-          </View>
-          {section === 'food' ? (
-            <View style={styles.legendItem}>
-              <View style={[styles.dot, { backgroundColor: colors.warning }]} />
-              <Text variant="caption" tone="secondary">
-                Ditandai belum lengkap
-              </Text>
-            </View>
-          ) : null}
-        </View>
-
-        {value === hariIni ? null : (
-          <Button label="Kembali ke hari ini" variant="secondary" onPress={() => pilih(hariIni)} />
-        )}
-      </Sheet>
+      <CalendarSheet
+        visible={buka}
+        onClose={() => setBuka(false)}
+        value={value}
+        onSelect={(tanggal) => {
+          onChange(tanggal);
+          setBuka(false);
+        }}
+        section={section}
+        maxDate={batas}
+      />
     </>
   );
 };
@@ -149,7 +101,4 @@ const styles = StyleSheet.create({
   },
   pressed: { opacity: 0.7 },
   disabled: { opacity: 0.35 },
-  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.lg, justifyContent: 'center' },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  dot: { width: 8, height: 8, borderRadius: 4 },
 });

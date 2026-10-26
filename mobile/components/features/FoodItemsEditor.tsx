@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { CheckCircleIcon, ClockCounterClockwiseIcon, PlusIcon, XIcon } from 'phosphor-react-native';
-import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { createRef, type RefObject, useEffect, useMemo, useState } from 'react';
+import { Pressable, StyleSheet, type TextInput, View } from 'react-native';
 
 import { Chip, ConfirmDialog, Input, Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -35,9 +35,33 @@ export interface FoodItemDraft {
    * satuannya diubah: itu makanan lain. Berat dan porsi boleh diubah.
    */
   dariCatatan: boolean;
+  /**
+   * Nama dan satuan saran yang dipilih untuk baris ini. Kalau nama atau
+   * satuan sempat terubah lalu dikembalikan persis ke sini, tanda
+   * dariCatatan nyambung lagi: salah ketik sebentar tidak boleh membuat
+   * makanan yang sama ditaksir ulang dari nol dan angkanya bergeser.
+   */
+  asalCatatan?: { name: string; unit: FoodUnit } | null;
   /** Saat mengoreksi: urutan item ini di catatan yang tersimpan. */
   sourceIndex?: number;
 }
+
+/** Urutan kolom satu baris makanan untuk tombol Berikutnya di keyboard. */
+const NAMA_KOLOM = ['nama', 'porsi', 'berat', 'kkal', 'lemak', 'protein', 'karbo', 'gula'] as const;
+type NamaKolom = (typeof NAMA_KOLOM)[number];
+
+/**
+ * Nama yang dinormalisasi persis seperti backend mencocokkan ingatan
+ * (normalisasiNama di food-memory.ts): huruf kecil, tanda baca jadi spasi,
+ * spasi ganda dirapatkan. "Nasi  Kuning" dan "nasi kuning" makanan yang sama.
+ */
+const normalisasiNama = (nama: string): string =>
+  nama
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 /** Nilai yang tertunda sebentar, supaya tiap ketukan tidak jadi satu permintaan. */
 const useTertunda = (nilai: string, ms: number): string => {
@@ -69,6 +93,7 @@ export const dariSaran = (baris: FoodItemDraft, s: FoodSuggestion): FoodItemDraf
   labelFat: angkaLabel(s.label?.fat_g),
   labelSugar: s.label?.sugar_g === undefined ? '' : String(s.label.sugar_g),
   dariCatatan: true,
+  asalCatatan: { name: s.name, unit: s.unit },
 });
 
 export const barisKosong = (): FoodItemDraft => ({
@@ -83,6 +108,7 @@ export const barisKosong = (): FoodItemDraft => ({
   labelFat: '',
   labelSugar: '',
   dariCatatan: false,
+  asalCatatan: null,
 });
 
 /** "Nescafe Classic bubuk · 8 g · 28 kkal": yang dipilih kelihatan sebelum dipilih. */
@@ -131,9 +157,46 @@ export const FoodItemsEditor = ({
    * Nama atau satuan yang berubah mencabut tanda "dari catatan": itu makanan
    * lain. Klik "Nescafe Classic bubuk" lalu diubah jadi "Nescafe 2 sdm" tidak
    * boleh diam-diam memakai angka yang pertama.
+   *
+   * Tapi kalau nama dan satuannya kembali sama persis dengan saran yang
+   * dipilih (salah ketik lalu dihapus), tandanya nyambung lagi.
    */
-  const ubahIdentitas = (i: number, bagian: Pick<Partial<FoodItemDraft>, 'name' | 'unit'>) =>
-    ubah(i, { ...bagian, dariCatatan: false });
+  const ubahIdentitas = (i: number, bagian: Pick<Partial<FoodItemDraft>, 'name' | 'unit'>) => {
+    const baris = items[i];
+    if (!baris) return;
+    const nama = bagian.name ?? baris.name;
+    const unit = bagian.unit ?? baris.unit;
+    const asal = baris.asalCatatan;
+    ubah(i, {
+      ...bagian,
+      dariCatatan:
+        asal !== null &&
+        asal !== undefined &&
+        unit === asal.unit &&
+        normalisasiNama(nama) === normalisasiNama(asal.name),
+    });
+  };
+
+  /**
+   * Rujukan tiap kolom untuk tombol "Berikutnya" di keyboard, dibuat ulang
+   * hanya saat jumlah baris berubah. Urutannya: nama, porsi, berat, lalu
+   * isian kemasan kalau dibuka, lalu nama makanan berikutnya.
+   */
+  const jumlahBaris = items.length;
+  const kolom = useMemo(
+    () =>
+      Array.from(
+        { length: jumlahBaris },
+        () =>
+          Object.fromEntries(NAMA_KOLOM.map((n) => [n, createRef<TextInput>()])) as Record<
+            NamaKolom,
+            RefObject<TextInput | null>
+          >,
+      ),
+    [jumlahBaris],
+  );
+  const ref = (i: number, nama: NamaKolom) => kolom[i]?.[nama];
+  const setelahBaris = (i: number) => (i + 1 < items.length ? ref(i + 1, 'nama') : undefined);
 
   const hapus = (i: number) => {
     void Haptics.selectionAsync();
@@ -187,6 +250,8 @@ export const FoodItemsEditor = ({
           </View>
 
           <Input
+            ref={ref(i, 'nama')}
+            next={ref(i, 'porsi')}
             value={item.name}
             onChangeText={(v) => ubahIdentitas(i, { name: v })}
             onFocus={() => setAktif(i)}
@@ -236,6 +301,8 @@ export const FoodItemsEditor = ({
           <View style={styles.angka}>
             <View style={styles.porsi}>
               <Input
+                ref={ref(i, 'porsi')}
+                next={ref(i, 'berat')}
                 label="Porsi"
                 value={item.portions}
                 onChangeText={(v) => ubah(i, { portions: v })}
@@ -252,6 +319,8 @@ export const FoodItemsEditor = ({
                     ? 'Berat per porsi'
                     : 'Berat per porsi (opsional)'
                 }
+                ref={ref(i, 'berat')}
+                next={item.pakaiKemasan ? ref(i, 'kkal') : setelahBaris(i)}
                 value={item.weight}
                 onChangeText={(v) => ubah(i, { weight: v })}
                 placeholder={
@@ -305,6 +374,8 @@ export const FoodItemsEditor = ({
           {item.pakaiKemasan ? (
             <View style={styles.kemasan}>
               <Input
+                ref={ref(i, 'kkal')}
+                next={ref(i, 'lemak')}
                 label="Kalori per porsi (dari kemasan)"
                 value={item.labelKcal}
                 onChangeText={(v) => ubah(i, { labelKcal: v })}
@@ -317,6 +388,8 @@ export const FoodItemsEditor = ({
               <View style={styles.angka}>
                 <View style={styles.makro}>
                   <Input
+                    ref={ref(i, 'lemak')}
+                    next={ref(i, 'protein')}
                     label="Lemak"
                     value={item.labelFat}
                     onChangeText={(v) => ubah(i, { labelFat: v })}
@@ -328,6 +401,8 @@ export const FoodItemsEditor = ({
                 </View>
                 <View style={styles.makro}>
                   <Input
+                    ref={ref(i, 'protein')}
+                    next={ref(i, 'karbo')}
                     label="Protein"
                     value={item.labelProtein}
                     onChangeText={(v) => ubah(i, { labelProtein: v })}
@@ -341,6 +416,8 @@ export const FoodItemsEditor = ({
               <View style={styles.angka}>
                 <View style={styles.makro}>
                   <Input
+                    ref={ref(i, 'karbo')}
+                    next={ref(i, 'gula')}
                     label="Karbo"
                     value={item.labelCarbs}
                     onChangeText={(v) => ubah(i, { labelCarbs: v })}
@@ -352,6 +429,8 @@ export const FoodItemsEditor = ({
                 </View>
                 <View style={styles.makro}>
                   <Input
+                    ref={ref(i, 'gula')}
+                    next={setelahBaris(i)}
                     label="Gula"
                     value={item.labelSugar}
                     onChangeText={(v) => ubah(i, { labelSugar: v })}
@@ -397,7 +476,7 @@ export const FoodItemsEditor = ({
             onChange(
               items.map((it) =>
                 it.dariCatatan && it.name === akanDilupakan.name && it.unit === akanDilupakan.unit
-                  ? { ...it, dariCatatan: false }
+                  ? { ...it, dariCatatan: false, asalCatatan: null }
                   : it,
               ),
             );

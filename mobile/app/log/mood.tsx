@@ -21,6 +21,7 @@ import {
 } from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
 import { spacing } from '@/constants/theme';
+import { useTanggalAwal } from '@/hooks/useTanggalAwal';
 import { toApiError } from '@/lib/api';
 import { useDeleteMood, useMoodDate, useMoodRange, useSaveMood } from '@/services/mood.service';
 import { dateRange, dayLabel, dayPhrase, shiftDays, todayWIB } from '@/utils/date';
@@ -32,7 +33,7 @@ export default function MoodScreen() {
    * Tanggal yang sedang dilihat. Bawaannya hari ini, tapi user bisa mundur
    * untuk membaca dan melengkapi catatan hari-hari sebelumnya.
    */
-  const [dipilih, setDipilih] = useState(todayWIB());
+  const [dipilih, setDipilih] = useState(useTanggalAwal());
 
   // Chart tetap berlabuh pada hari ini apa pun tanggal yang sedang dibuka.
   const hariIni = todayWIB();

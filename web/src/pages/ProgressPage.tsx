@@ -30,20 +30,47 @@ export const ProgressPage = () => {
     value: toNum(berat.data?.find((l) => l.logged_at === tanggal)?.weight_kg),
   }));
 
-  // Chart langkah dibatasi 14 batang. Sembilan puluh batang di lebar layar
-  // desktop pun jadi garis-garis tipis yang tidak terbaca.
-  const awalLangkah = shiftDays(hariIni, -Math.min(hari, 14) + 1);
-  const batangLangkah = dateRange(awalLangkah, hariIni).map((tanggal) => ({
-    label: dayLabel(tanggal),
-    value: langkah.data?.find((l) => l.logged_at === tanggal)?.steps ?? null,
-  }));
+  const langkahPada = (tanggal: string): number | null =>
+    langkah.data?.find((l) => l.logged_at === tanggal)?.steps ?? null;
+
+  /**
+   * Batang langkah mengikuti rentang yang dipilih. Tujuh dan tiga puluh hari:
+   * satu batang per hari. Sembilan puluh hari: satu batang per pekan, karena
+   * sembilan puluh batang di lebar desktop pun jadi garis tipis yang tidak
+   * terbaca. Dulu selalu 14 hari terakhir, jadi memilih rentang lain cuma
+   * mengubah grafik berat.
+   *
+   * Batang pekanan adalah rata-rata hari yang TERCATAT di pekan itu, bukan
+   * dibagi tujuh: hari yang lupa dicatat bukan hari tanpa langkah. Pekan
+   * dihitung mundur dari hari ini, jadi pekan paling tua bisa lebih pendek.
+   */
+  const perPekan = hari > 30;
+  const batangLangkah = perPekan
+    ? Array.from({ length: Math.ceil(hari / 7) }, (_, i) => {
+        const akhir = shiftDays(hariIni, -7 * (Math.ceil(hari / 7) - 1 - i));
+        const mulai = shiftDays(akhir, -6) < awal ? awal : shiftDays(akhir, -6);
+        const tercatat = dateRange(mulai, akhir)
+          .map(langkahPada)
+          .filter((n): n is number => n !== null);
+        return {
+          label: shortDate(mulai),
+          value:
+            tercatat.length === 0
+              ? null
+              : Math.round(tercatat.reduce((a, b) => a + b, 0) / tercatat.length),
+        };
+      })
+    : dateRange(awal, hariIni).map((tanggal) => ({
+        label: hari === 7 ? dayLabel(tanggal) : shortDate(tanggal),
+        value: langkahPada(tanggal),
+      }));
 
   /**
    * Nilai hari ini dipisah supaya bisa ditampilkan tanpa interaksi apa pun.
    * Tooltip Recharts hanya muncul saat kursor masuk, dan di layar sentuh hover
    * tidak pernah terjadi -- tanpa ini, angka pastinya tidak pernah terbaca.
    */
-  const langkahHariIni = batangLangkah.at(-1)?.value ?? null;
+  const langkahHariIni = langkahPada(hariIni);
 
   const w = mingguan.data;
   const perubahan =
@@ -72,7 +99,7 @@ export const ProgressPage = () => {
         )}
       </Card>
 
-      <SectionHeader title="Langkah" />
+      <SectionHeader title={perPekan ? 'Langkah, rata-rata per pekan' : 'Langkah per hari'} />
 
       <Card>
         {langkah.isPending ? (

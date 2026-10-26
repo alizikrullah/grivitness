@@ -22,6 +22,7 @@ import {
 } from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
 import { spacing } from '@/constants/theme';
+import { useTanggalAwal } from '@/hooks/useTanggalAwal';
 import { toApiError } from '@/lib/api';
 import {
   useDeleteSteps,
@@ -83,7 +84,7 @@ export default function StepsScreen() {
    * Tanggal yang sedang dilihat. Bawaannya hari ini, tapi user bisa mundur
    * untuk membaca dan melengkapi catatan hari-hari sebelumnya.
    */
-  const [dipilih, setDipilih] = useState(todayWIB());
+  const [dipilih, setDipilih] = useState(useTanggalAwal());
 
   // Chart tetap berlabuh pada hari ini apa pun tanggal yang sedang dibuka,
   // supaya bentuk sepekannya tidak ikut bergeser setiap kali user menoleh ke

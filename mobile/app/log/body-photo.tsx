@@ -22,6 +22,7 @@ import {
 } from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/theme';
+import { useTanggalAwal } from '@/hooks/useTanggalAwal';
 import { toApiError } from '@/lib/api';
 import { usePhotoPicker } from '@/hooks/usePhotoPicker';
 import {
@@ -50,7 +51,7 @@ export default function BodyPhotoScreen() {
    * Tanggal yang sedang dilihat. Bawaannya hari ini, tapi user bisa mundur
    * untuk melengkapi hari yang terlewat.
    */
-  const [dipilih, setDipilih] = useState(todayWIB());
+  const [dipilih, setDipilih] = useState(useTanggalAwal());
 
   const hariIni = todayWIB();
 

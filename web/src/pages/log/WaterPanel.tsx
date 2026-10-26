@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { DateNav } from '@/components/features/DateNav';
 import { Card, EmptyState, ErrorNote, Loading, Ring, SectionHeader } from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
+import { useTanggalLog } from '@/hooks/useTanggalLog';
 import { toApiError } from '@/lib/api';
 import { useDailySummary } from '@/services/misc.service';
 import { useAddWater, useDeleteWater, useWaterDate } from '@/services/water.service';
@@ -19,7 +20,7 @@ export const WaterPanel = () => {
    * Tanggal yang sedang dilihat. Bawaannya hari ini, tapi user bisa mundur
    * untuk membaca dan melengkapi catatan hari-hari sebelumnya.
    */
-  const [tanggal, setTanggal] = useState(todayWIB());
+  const [tanggal, setTanggal] = useTanggalLog();
   const hariIni = tanggal === todayWIB();
 
   const today = useWaterDate(tanggal);

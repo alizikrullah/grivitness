@@ -259,14 +259,21 @@ export const susunFakta = (
   // Susunan kalori keluar ikut dikirim, supaya model tidak menebak dari mana
   // angkanya. Dengan angka jam: aktif jam DITAMBAHKAN ke metabolisme dan
   // pekerjaan, bukan menggantikannya.
+  //
+  // Koreksi timbangan disebut sebagai bagian tersendiri, supaya model tidak
+  // menjumlahkan bagian-bagiannya lalu mendapat angka lain dari layar.
   const e = harian.energy;
+  const koreksi =
+    e && e.scale_correction !== null
+      ? `, dikoreksi timbangan ${e.scale_correction < 0 ? 'minus ' : 'plus '}${angka(Math.abs(e.scale_correction))} supaya defisitnya sesuai berat yang benar-benar turun`
+      : '';
   if (e && harian.calories_out_source === 'device') {
     b.push(
-      `Kalori keluar ${angka(harian.calories_out)} kkal: metabolisme dan pekerjaan ${angka(e.baseline)}, ditambah kalori aktif dari jam tangannya ${angka(e.device_active_kcal ?? 0)}${e.workout_calories > 0 ? `, ditambah olahraga tercatat yang tidak terekam jam ${angka(e.workout_calories)}` : ''}.`,
+      `Kalori keluar ${angka(harian.calories_out)} kkal: metabolisme dan pekerjaan ${angka(e.baseline)}, ditambah kalori aktif dari jam tangannya ${angka(e.device_active_kcal ?? 0)}${e.workout_calories > 0 ? `, ditambah olahraga tercatat yang tidak terekam jam ${angka(e.workout_calories)}` : ''}${koreksi}.`,
     );
   } else if (e) {
     b.push(
-      `Kalori keluar ${angka(harian.calories_out)} kkal: metabolisme dan pekerjaan ${angka(e.baseline)}, olahraga ${angka(e.workout_calories)}.`,
+      `Kalori keluar ${angka(harian.calories_out)} kkal: metabolisme dan pekerjaan ${angka(e.baseline)}, olahraga ${angka(e.workout_calories)}${koreksi}.`,
     );
   } else {
     b.push(`Kalori keluar ${angka(harian.calories_out)} kkal.`);

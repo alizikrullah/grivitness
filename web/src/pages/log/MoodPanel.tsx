@@ -5,9 +5,10 @@ import { DateNav } from '@/components/features/DateNav';
 import { Button, Card, ErrorNote, Loading, SectionHeader } from '@/components/ui';
 import { metricColors } from '@/constants/colors';
 import { SCORE_LABEL } from '@/constants/labels';
+import { useTanggalLog } from '@/hooks/useTanggalLog';
 import { toApiError } from '@/lib/api';
 import { useDeleteMood, useMoodDate, useSaveMood } from '@/services/mood.service';
-import { dayPhrase, todayWIB } from '@/utils/date';
+import { dayPhrase } from '@/utils/date';
 import { LogActions } from './LogActions';
 
 const SkorPicker = ({
@@ -45,7 +46,7 @@ const SkorPicker = ({
 
 export const MoodPanel = () => {
   /** Tanggal yang sedang dilihat. Bawaannya hari ini. */
-  const [tanggal, setTanggal] = useState(todayWIB());
+  const [tanggal, setTanggal] = useTanggalLog();
 
   const today = useMoodDate(tanggal);
   const save = useSaveMood();

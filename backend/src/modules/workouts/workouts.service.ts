@@ -1,7 +1,7 @@
 import { readItems } from '@directus/sdk';
 
 import { directus } from '../../config/directus.js';
-import type { CalorieSource } from '../../constants/enums.js';
+import type { CalorieSource, WorkoutIntensity } from '../../constants/enums.js';
 import { withRetry } from '../../data/retry.js';
 import { forUser } from '../../data/scoped.js';
 import { loadUserMetrics } from '../../data/user-metrics.js';
@@ -16,6 +16,7 @@ import {
   activeMinutesFromHold,
   activeMinutesFromReps,
   caloriesFromWorkout,
+  kcalPerMinuteWithIntensity,
 } from '../../utils/calories.js';
 import { todayInJakarta } from '../../utils/daily-key.js';
 import { toNumber } from '../../utils/number.js';
@@ -117,8 +118,18 @@ const menitGerak = (data: UkuranSesi, secondsPerRep: number | null): number => {
  * daripada taksiran MET. Yang dijaga sekarang adalah ASALNYA tercatat, supaya
  * angka manual tidak pernah dihitung ulang diam-diam.
  */
+/**
+ * Intensitas cuma berarti untuk olahraga berukuran MENIT. Push up dan plank
+ * diukur set, dan jeda antar setnya memang sudah tidak dihitung.
+ */
+const intensitasBerlaku = (
+  data: UkuranSesi,
+  intensity: WorkoutIntensity | null | undefined,
+): WorkoutIntensity | null => (data.duration_minutes !== undefined ? (intensity ?? null) : null);
+
 const resolveSumber = async (userId: string, data: CreateWorkoutDto): Promise<SumberOlahraga> => {
   const manual = data.calories_burned;
+  const intensitas = intensitasBerlaku(data, data.intensity);
 
   // Kalorinya dari menit gerak yang PERSIS (bisa pecahan), yang disimpan
   // menitnya dibulatkan. 15 detik push up tersimpan 0 menit tapi kalorinya
@@ -131,7 +142,11 @@ const resolveSumber = async (userId: string, data: CreateWorkoutDto): Promise<Su
     const menit = menitGerak(data, secondsPerRep);
     return manual === undefined
       ? {
-          calories_burned: caloriesFromWorkout(toNumber(kkalPerMenit), menit, weightKg),
+          calories_burned: caloriesFromWorkout(
+            kcalPerMinuteWithIntensity(toNumber(kkalPerMenit), intensitas),
+            menit,
+            weightKg,
+          ),
           calories_source: 'MET',
           duration_minutes: Math.round(menit),
         }
@@ -213,7 +228,7 @@ export const create = async (userId: string, data: CreateWorkoutDto): Promise<Wo
     load_kg: data.load_kg === undefined ? null : data.load_kg.toFixed(2),
     calories_burned: sumber.calories_burned,
     calories_source: sumber.calories_source,
-    intensity: data.intensity ?? null,
+    intensity: intensitasBerlaku(data, data.intensity),
     tracked_by_device: data.tracked_by_device ?? false,
     notes: data.notes ?? null,
     logged_at: data.logged_at ?? todayInJakarta(),
@@ -320,7 +335,6 @@ export const update = async (
   const perubahan: Record<string, unknown> = {};
 
   if (data.workout_name !== undefined) perubahan.workout_name = data.workout_name;
-  if (data.intensity !== undefined) perubahan.intensity = data.intensity;
   if (data.notes !== undefined) perubahan.notes = data.notes;
   if (data.tracked_by_device !== undefined) perubahan.tracked_by_device = data.tracked_by_device;
 
@@ -334,12 +348,23 @@ export const update = async (
     data.reps !== undefined ||
     data.hold_seconds !== undefined;
 
-  if (ukuranBerubah) {
+  // Intensitas yang berubah juga mengubah kalori MET, walau ukurannya sama.
+  const intensitasBerubah = data.intensity !== undefined && data.intensity !== log.intensity;
+
+  if (ukuranBerubah || intensitasBerubah) {
     // Ukuran baru digabung dengan yang tersimpan: mengubah set saja tidak
     // boleh menghilangkan ulangannya. Menit yang dikirim user menang; kalau
-    // set/ulangan yang dikirim, menitnya diturunkan ulang.
-    const ukuran: UkuranSesi =
-      data.duration_minutes !== undefined
+    // set/ulangan yang dikirim, menitnya diturunkan ulang. Kalau yang berubah
+    // cuma intensitas, ukuran yang tersimpan dipakai apa adanya.
+    const ukuran: UkuranSesi = !ukuranBerubah
+      ? log.sets === null
+        ? { duration_minutes: log.duration_minutes }
+        : {
+            sets: log.sets,
+            reps: log.reps ?? undefined,
+            hold_seconds: log.hold_seconds ?? undefined,
+          }
+      : data.duration_minutes !== undefined
         ? { duration_minutes: data.duration_minutes }
         : {
             sets: data.sets ?? log.sets ?? 1,
@@ -349,6 +374,9 @@ export const update = async (
               data.hold_seconds ??
               (data.reps !== undefined ? undefined : (log.hold_seconds ?? undefined)),
           };
+
+    const intensitas = intensitasBerlaku(ukuran, data.intensity ?? log.intensity);
+    perubahan.intensity = intensitas;
 
     const secondsPerRep = await detikPerUlangan(log);
     const menit = menitGerak(ukuran, secondsPerRep);
@@ -366,11 +394,11 @@ export const update = async (
       const kkalPerMenit = await kkalPerMenitSumber(userId, log);
       if (kkalPerMenit !== null) {
         perubahan.calories_burned = caloriesFromWorkout(
-          kkalPerMenit,
+          kcalPerMinuteWithIntensity(kkalPerMenit, intensitas),
           menit,
           await beratUntukEstimasi(userId),
         );
-      } else if (log.duration_minutes > 0) {
+      } else if (ukuranBerubah && log.duration_minutes > 0) {
         // Sumbernya sudah tidak ada (library dihapus): skala dari yang tersimpan.
         perubahan.calories_burned = Math.round(
           (log.calories_burned / log.duration_minutes) * menit,

@@ -35,9 +35,29 @@ export interface FoodItemDraft {
    * satuannya diubah: itu makanan lain. Berat dan porsi boleh diubah.
    */
   dariCatatan: boolean;
+  /**
+   * Nama dan satuan saran yang dipilih untuk baris ini. Kalau nama atau
+   * satuan sempat terubah lalu dikembalikan persis ke sini, tanda
+   * dariCatatan nyambung lagi: salah ketik sebentar tidak boleh membuat
+   * makanan yang sama ditaksir ulang dari nol dan angkanya bergeser.
+   */
+  asalCatatan?: { name: string; unit: FoodUnit } | null;
   /** Saat mengoreksi: urutan item ini di catatan yang tersimpan. */
   sourceIndex?: number;
 }
+
+/**
+ * Nama yang dinormalisasi persis seperti backend mencocokkan ingatan
+ * (normalisasiNama di food-memory.ts): huruf kecil, tanda baca jadi spasi,
+ * spasi ganda dirapatkan. "Nasi  Kuning" dan "nasi kuning" makanan yang sama.
+ */
+const normalisasiNama = (nama: string): string =>
+  nama
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 /** Nilai yang tertunda sebentar, supaya tiap ketukan tidak jadi satu permintaan. */
 const useTertunda = (nilai: string, ms: number): string => {
@@ -68,6 +88,7 @@ export const dariSaran = (baris: FoodItemDraft, s: FoodSuggestion): FoodItemDraf
   labelFat: angkaLabel(s.label?.fat_g),
   labelSugar: s.label?.sugar_g === undefined ? '' : String(s.label.sugar_g),
   dariCatatan: true,
+  asalCatatan: { name: s.name, unit: s.unit },
 });
 
 export const barisKosong = (): FoodItemDraft => ({
@@ -82,6 +103,7 @@ export const barisKosong = (): FoodItemDraft => ({
   labelFat: '',
   labelSugar: '',
   dariCatatan: false,
+  asalCatatan: null,
 });
 
 /** "Nescafe Classic bubuk · 8 g · 28 kkal": yang dipilih kelihatan sebelum dipilih. */
@@ -122,9 +144,26 @@ export const FoodItemsEditor = ({
   const ubah = (i: number, bagian: Partial<FoodItemDraft>) =>
     onChange(items.map((item, j) => (j === i ? { ...item, ...bagian } : item)));
 
-  /** Nama atau satuan yang berubah mencabut tanda "dari catatan": itu makanan lain. */
-  const ubahIdentitas = (i: number, bagian: Pick<Partial<FoodItemDraft>, 'name' | 'unit'>) =>
-    ubah(i, { ...bagian, dariCatatan: false });
+  /**
+   * Nama atau satuan yang berubah mencabut tanda "dari catatan": itu makanan
+   * lain. Tapi kalau nama dan satuannya kembali sama persis dengan saran yang
+   * dipilih (salah ketik lalu dihapus), tandanya nyambung lagi.
+   */
+  const ubahIdentitas = (i: number, bagian: Pick<Partial<FoodItemDraft>, 'name' | 'unit'>) => {
+    const baris = items[i];
+    if (!baris) return;
+    const nama = bagian.name ?? baris.name;
+    const unit = bagian.unit ?? baris.unit;
+    const asal = baris.asalCatatan;
+    ubah(i, {
+      ...bagian,
+      dariCatatan:
+        asal !== null &&
+        asal !== undefined &&
+        unit === asal.unit &&
+        normalisasiNama(nama) === normalisasiNama(asal.name),
+    });
+  };
 
   /**
    * Baris yang sedang diketik namanya. Saran cuma tampil untuk baris itu dan
@@ -351,7 +390,7 @@ export const FoodItemsEditor = ({
             onChange(
               items.map((it) =>
                 it.dariCatatan && it.name === akanDilupakan.name && it.unit === akanDilupakan.unit
-                  ? { ...it, dariCatatan: false }
+                  ? { ...it, dariCatatan: false, asalCatatan: null }
                   : it,
               ),
             );

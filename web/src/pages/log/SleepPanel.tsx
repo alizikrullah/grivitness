@@ -12,6 +12,7 @@ import {
   SectionHeader,
 } from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
+import { useTanggalLog } from '@/hooks/useTanggalLog';
 import { toApiError } from '@/lib/api';
 import { useCreateSleep, useDeleteSleep, useSleepDate } from '@/services/sleep.service';
 import {
@@ -21,7 +22,6 @@ import {
   sleepDayNow,
   sleepRange,
   timeWIB,
-  todayWIB,
 } from '@/utils/date';
 import { duration } from '@/utils/format';
 import { LogActions } from './LogActions';
@@ -35,7 +35,7 @@ export const SleepPanel = () => {
    * (sleepRange di utils/date, sama dengan sleepDay() di backend). Satu malam
    * yang terpotong dicatat dua kali di tanggal yang SAMA.
    */
-  const [tanggal, setTanggal] = useState(todayWIB());
+  const [tanggal, setTanggal] = useTanggalLog(sleepDayNow());
 
   const today = useSleepDate(tanggal);
   const create = useCreateSleep();

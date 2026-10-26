@@ -1,6 +1,25 @@
+/* Header halaman Catat: keadaan tanggal terpilih di kiri, strip pekan di kanan. */
+.log-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 440px);
+  gap: var(--space-xl);
+  align-items: center;
+}
+
+.log-head-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.log-head-title {
+  margin: 0;
+}
+
 .log {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 248px minmax(0, 1fr);
   gap: var(--space-xl);
   align-items: start;
 }
@@ -13,38 +32,40 @@
   top: 96px;
 }
 
+.log-nav-title {
+  padding: var(--space-md) var(--space-md) var(--space-xs);
+}
+
+.log-nav-title:first-child {
+  padding-top: 0;
+}
+
 .log-nav-item {
   display: flex;
   align-items: center;
   gap: var(--space-md);
   padding: var(--space-sm) var(--space-md);
   border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
+  border: 1px solid transparent;
+  color: var(--text-primary);
+  transition: background 0.15s ease;
+}
+
+/* Nama di atas, keadaannya di tanggal terpilih di bawah. */
+.log-nav-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .log-nav-item:hover {
   background: var(--surface-alt);
-  color: var(--text-primary);
 }
 
 .log-nav-active,
 .log-nav-active:hover {
   background: var(--surface);
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-}
-
-.log-nav-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  flex-shrink: 0;
+  border-color: var(--border);
 }
 
 .log-panel {
@@ -127,6 +148,7 @@
 }
 
 @media (max-width: 900px) {
+  .log-head,
   .log {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -138,12 +160,22 @@
     padding-bottom: var(--space-sm);
   }
 
+  /* Judul kelompok tidak masuk akal di baris mendatar. */
+  .log-nav-title {
+    display: none;
+  }
+
   .log-nav-item {
     flex-direction: column;
     gap: var(--space-xs);
     flex-shrink: 0;
-    min-width: 76px;
+    width: 120px;
     text-align: center;
+  }
+
+  .log-nav-text {
+    align-items: center;
+    max-width: 100%;
   }
 }
 

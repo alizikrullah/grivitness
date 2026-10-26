@@ -1,8 +1,8 @@
 import { Image } from 'expo-image';
 import { Link } from 'expo-router';
 import { EnvelopeSimpleIcon, LockKeyIcon } from 'phosphor-react-native';
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { StyleSheet, type TextInput, View } from 'react-native';
 
 import { Button, ErrorNote, Input, Screen, Text } from '@/components/ui';
 import { HeroTitle } from '@/components/ui/HeroTitle';
@@ -22,6 +22,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
   const bisaKirim = email.trim().length > 0 && password.length > 0;
+  const kolomPassword = useRef<TextInput>(null);
 
   const kirim = async () => {
     if (!bisaKirim) return;
@@ -60,14 +61,17 @@ export default function LoginScreen() {
           placeholder="nama@email.com"
           keyboardType="email-address"
           icon={<EnvelopeSimpleIcon size={20} color={colors.textSecondary} weight="duotone" />}
+          next={kolomPassword}
         />
 
         <Input
+          ref={kolomPassword}
           label="Password"
           value={password}
           onChangeText={setPassword}
           placeholder="Password kamu"
           secure
+          onSubmit={bisaKirim ? () => void kirim() : undefined}
           icon={<LockKeyIcon size={20} color={colors.textSecondary} weight="duotone" />}
         />
 
