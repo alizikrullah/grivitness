@@ -30,6 +30,7 @@ import {
 import { colors } from '@/constants/colors';
 import { MEAL_LABEL, MEAL_OPTIONS } from '@/constants/labels';
 import { radius, spacing } from '@/constants/theme';
+import { useTanggalAwal } from '@/hooks/useTanggalAwal';
 import { toApiError } from '@/lib/api';
 import {
   type FoodItemInput,
@@ -64,7 +65,7 @@ export default function FoodScreen() {
    * Tanggal yang sedang dilihat. Bawaannya hari ini, tapi user bisa mundur
    * untuk membaca dan melengkapi catatan hari-hari sebelumnya.
    */
-  const [tanggal, setTanggal] = useState(todayWIB());
+  const [tanggal, setTanggal] = useState(useTanggalAwal());
   const hariIni = tanggal === todayWIB();
 
   const today = useFoodDate(tanggal);

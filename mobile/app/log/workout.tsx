@@ -4,12 +4,13 @@ import { WorkoutEditSheet } from '@/components/features/WorkoutEditSheet';
 import {
   UKURAN_BAWAAN,
   WorkoutMeasureFields,
+  kkalPerMenitIntensitas,
   menitGerak,
   ringkasSesi,
   ukuranKeBody,
 } from '@/components/features/WorkoutMeasureFields';
-import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Pressable, StyleSheet, type TextInput, View } from 'react-native';
 
 import { DateNav } from '@/components/features/DateNav';
 import {
@@ -20,6 +21,7 @@ import {
   EmptyState,
   ErrorNote,
   Header,
+  IconCircle,
   Input,
   Loading,
   Screen,
@@ -30,6 +32,7 @@ import {
 import { colors, metricColors } from '@/constants/colors';
 import { CATEGORY_LABEL, CATEGORY_OPTIONS } from '@/constants/labels';
 import { radius, spacing } from '@/constants/theme';
+import { useTanggalAwal } from '@/hooks/useTanggalAwal';
 import { toApiError } from '@/lib/api';
 import {
   useCreateWorkout,
@@ -37,11 +40,12 @@ import {
   useDeleteWorkout,
   useWorkoutLibrary,
   useWorkoutsDate,
+  useWorkoutsRange,
   type WorkoutInput,
 } from '@/services/workouts.service';
-import type { WorkoutCategory, WorkoutLog, WorkoutMeasure } from '@/types';
+import type { WorkoutCategory, WorkoutIntensity, WorkoutLog, WorkoutMeasure } from '@/types';
 import { useProfile } from '@/services/users.service';
-import { dayPhrase, todayWIB } from '@/utils/date';
+import { dayPhrase, shiftDays, todayWIB } from '@/utils/date';
 import { duration, thousands, toNum } from '@/utils/format';
 
 /** Olahraga yang dipilih user, apa pun sumbernya. */
@@ -63,7 +67,7 @@ export default function WorkoutScreen() {
    * Tanggal yang sedang dilihat. Bawaannya hari ini, tapi user bisa mundur
    * untuk membaca dan melengkapi catatan hari-hari sebelumnya.
    */
-  const [tanggal, setTanggal] = useState(todayWIB());
+  const [tanggal, setTanggal] = useState(useTanggalAwal());
   const hariIni = tanggal === todayWIB();
 
   const today = useWorkoutsDate(tanggal);
@@ -79,8 +83,14 @@ export default function WorkoutScreen() {
   const [ukuran, setUkuran] = useState(UKURAN_BAWAAN);
   const [catatan, setCatatan] = useState('');
   const [terekam, setTerekam] = useState(false);
+  const [intensitas, setIntensitas] = useState<WorkoutIntensity>('MEDIUM');
   const [error, setError] = useState<string | null>(null);
   const [diedit, setDiedit] = useState<WorkoutLog | null>(null);
+
+  // Urutan tombol "Berikutnya": nama tulis sendiri, ukuran, kalori, catatan.
+  const kolomUkuran = useRef<TextInput>(null);
+  const kolomKalori = useRef<TextInput>(null);
+  const kolomCatatan = useRef<TextInput>(null);
 
   /**
    * Kolom kalori punya dua keadaan: masih taksiran, atau sudah disentuh user.
@@ -103,9 +113,18 @@ export default function WorkoutScreen() {
   // Taksiran dari MENIT GERAK, cermin perhitungan backend: untuk repetisi
   // itu ulangan x detik per ulangan, jeda antar set tidak dihitung. Lima push
   // up memang cuma sekitar 2 kkal, dan angka kecil itu jujur.
+  /**
+   * Intensitas cuma berlaku untuk olahraga berukuran menit yang kalorinya
+   * ditaksir aplikasi. Sesi yang terekam jam tangan atau kalorinya diketik
+   * sendiri tidak memakainya, sama seperti backend.
+   */
+  const pakaiIntensitas = measure === 'TIME' && !pakaiManual && !terekam && kaloriDiketik === null;
+
   const taksiran = pilihan
     ? Math.round(
-        (pilihan.perMenit * menitGerak(measure, ukuran, pilihan.detikPerUlangan) * beratKg) /
+        (kkalPerMenitIntensitas(pilihan.perMenit, pakaiIntensitas ? intensitas : null) *
+          menitGerak(measure, ukuran, pilihan.detikPerUlangan) *
+          beratKg) /
           BERAT_ACUAN_KG,
       )
     : null;
@@ -119,6 +138,7 @@ export default function WorkoutScreen() {
       ...ukuranKeBody(measure, ukuran),
       notes: catatan.trim() === '' ? undefined : catatan.trim(),
       tracked_by_device: terekam,
+      ...(pakaiIntensitas ? { intensity: intensitas } : {}),
       // Saat menelusuri hari lampau, sesi dicatat ke tanggal ITU.
       logged_at: hariIni ? undefined : tanggal,
     };
@@ -157,6 +177,7 @@ export default function WorkoutScreen() {
         setKaloriDiketik(null);
         setCatatan('');
         setTerekam(false);
+        setIntensitas('MEDIUM');
       },
       onError: (e) => setError(toApiError(e).message),
     });
@@ -173,9 +194,10 @@ export default function WorkoutScreen() {
           onPress={() => setSheet(true)}
           style={({ pressed }) => [styles.picker, pressed && styles.pressed]}
         >
-          <View style={[styles.pickerIcon, { backgroundColor: metricColors.workout + '1F' }]}>
+          {/* Wadah gelap, bukan latar tembus warna metrik (section 11). */}
+          <IconCircle size={44} round={false}>
             <BarbellIcon size={22} color={metricColors.workout} weight="duotone" />
-          </View>
+          </IconCircle>
 
           <View style={styles.pickerText}>
             <Text variant="caption" tone="tertiary">
@@ -191,6 +213,7 @@ export default function WorkoutScreen() {
 
         {pakaiManual ? (
           <Input
+            next={kolomUkuran}
             label="Atau tulis sendiri"
             value={manual}
             onChangeText={setManual}
@@ -201,7 +224,15 @@ export default function WorkoutScreen() {
 
         {/* Bentuk isian mengikuti cara olahraganya diukur; push up tidak pernah ditanya menit. */}
         <Card>
-          <WorkoutMeasureFields measure={measure} value={ukuran} onChange={setUkuran} />
+          <WorkoutMeasureFields
+            measure={measure}
+            value={ukuran}
+            onChange={setUkuran}
+            awal={kolomUkuran}
+            next={kolomKalori}
+            intensitas={intensitas}
+            onIntensitas={pakaiIntensitas ? setIntensitas : undefined}
+          />
         </Card>
 
         {/*
@@ -211,6 +242,8 @@ export default function WorkoutScreen() {
           angka jam tangan tidak punya tempat.
         */}
         <Input
+          ref={kolomKalori}
+          next={kolomCatatan}
           label="Kalori terbakar"
           value={kaloriTampil}
           onChangeText={setKaloriDiketik}
@@ -222,17 +255,12 @@ export default function WorkoutScreen() {
               ? 'Wajib diisi untuk olahraga yang ditulis sendiri.'
               : kaloriDiketik === null
                 ? measure === 'TIME'
-                  ? 'Taksiran dari durasi dan berat badanmu. Ketik sendiri kalau jam tanganmu menunjukkan angka lain.'
+                  ? 'Taksiran dari durasi, intensitas, dan berat badanmu. Ketik sendiri kalau jam tanganmu menunjukkan angka lain.'
                   : 'Taksiran dari waktu gerak ulanganmu saja, jeda antar set tidak dihitung. Kecil itu wajar: nilai latihan ini di ototmu, bukan kalorinya.'
                 : 'Angka ini disimpan apa adanya dan tidak dihitung ulang.'
           }
         />
 
-        {/*
-          Pilihan intensitas dicabut: tidak pernah dipakai menghitung apa pun.
-          Kalori datang dari MET jenis olahraganya, jadi intensitas sudah
-          terwakili oleh pilihannya (jalan santai lawan jalan cepat).
-        */}
         {/*
           SELALU tampil, tidak lagi menunggu angka harian jam diisi.
 
@@ -253,6 +281,7 @@ export default function WorkoutScreen() {
         />
 
         <Input
+          ref={kolomCatatan}
           label="Catatan"
           value={catatan}
           onChangeText={setCatatan}
@@ -356,6 +385,10 @@ const WorkoutPicker = ({
   const library = useWorkoutLibrary(kategori ?? undefined, cari);
   const custom = useCustomWorkouts();
 
+  // Riwayat 60 hari, untuk "Terakhir kamu lakukan" di paling atas.
+  const hariIni = todayWIB();
+  const riwayat = useWorkoutsRange(shiftDays(hariIni, -59), hariIni);
+
   const daftar: Pilihan[] = [
     ...(custom.data ?? []).map((w) => ({
       id: w.id,
@@ -375,6 +408,52 @@ const WorkoutPicker = ({
     })),
   ];
 
+  /**
+   * Maksimal lima olahraga yang terakhir dicatat, terbaru dulu, supaya yang
+   * biasa dilakukan tidak perlu dicari dengan menggulir. Cuma tampil selama
+   * tidak sedang mencari atau menyaring kategori.
+   */
+  const terakhir: Pilihan[] = [];
+  if (cari.trim() === '' && kategori === null) {
+    const urut = [...(riwayat.data ?? [])].sort((a, b) =>
+      a.logged_at === b.logged_at
+        ? (b.created_at ?? '').localeCompare(a.created_at ?? '')
+        : b.logged_at.localeCompare(a.logged_at),
+    );
+    for (const log of urut) {
+      const cocok = daftar.find((p) =>
+        p.sumber === 'library' ? p.id === log.workout_library_id : p.id === log.custom_workout_id,
+      );
+      if (cocok && !terakhir.some((t) => t.sumber === cocok.sumber && t.id === cocok.id)) {
+        terakhir.push(cocok);
+      }
+      if (terakhir.length === 5) break;
+    }
+  }
+
+  const barisPilihan = (item: Pilihan, kunciTambahan = '') => (
+    <Pressable
+      key={kunciTambahan + item.sumber + item.id}
+      onPress={() => onPick(item)}
+      style={({ pressed }) => [styles.pickItem, pressed && styles.pressed]}
+    >
+      <View style={styles.pickText}>
+        <Text variant="bodyMedium" numberOfLines={1}>
+          {item.name}
+        </Text>
+        <Text variant="caption" tone="tertiary">
+          {item.measure === 'REPS'
+            ? 'set x ulangan'
+            : item.measure === 'HOLD'
+              ? 'set x detik tahan'
+              : item.perMenit.toFixed(1) + ' kkal/menit'}
+          {item.sumber === 'custom' ? ' · custom' : ''}
+        </Text>
+      </View>
+      <CaretRightIcon size={16} color={colors.textTertiary} weight="bold" />
+    </Pressable>
+  );
+
   return (
     <Sheet visible={visible} onClose={onClose} title="Pilih olahraga">
       <Input
@@ -391,33 +470,28 @@ const WorkoutPicker = ({
         labels={CATEGORY_LABEL}
       />
 
+      {terakhir.length > 0 ? (
+        <View style={styles.pickGroup}>
+          <Text variant="overline" tone="tertiary">
+            Terakhir kamu lakukan
+          </Text>
+          {terakhir.map((item) => barisPilihan(item, 'terakhir-'))}
+        </View>
+      ) : null}
+
       {library.isPending ? (
         <Loading />
       ) : daftar.length === 0 ? (
         <EmptyState title="Tidak ada yang cocok" message="Coba kata kunci lain." />
       ) : (
-        daftar.map((item) => (
-          <Pressable
-            key={item.sumber + item.id}
-            onPress={() => onPick(item)}
-            style={({ pressed }) => [styles.pickItem, pressed && styles.pressed]}
-          >
-            <View style={styles.pickText}>
-              <Text variant="bodyMedium" numberOfLines={1}>
-                {item.name}
-              </Text>
-              <Text variant="caption" tone="tertiary">
-                {item.measure === 'REPS'
-                  ? 'set x ulangan'
-                  : item.measure === 'HOLD'
-                    ? 'set x detik tahan'
-                    : item.perMenit.toFixed(1) + ' kkal/menit'}
-                {item.sumber === 'custom' ? ' · custom' : ''}
-              </Text>
-            </View>
-            <CaretRightIcon size={16} color={colors.textTertiary} weight="bold" />
-          </Pressable>
-        ))
+        <View style={styles.pickGroup}>
+          {terakhir.length > 0 ? (
+            <Text variant="overline" tone="tertiary">
+              Semua olahraga
+            </Text>
+          ) : null}
+          {daftar.map((item) => barisPilihan(item))}
+        </View>
       )}
     </Sheet>
   );
@@ -434,13 +508,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.borderSoft,
   },
-  pickerIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   pickerText: { flex: 1, gap: 2 },
   pressed: { opacity: 0.75 },
   logRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
@@ -455,4 +522,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceAlt,
   },
   pickText: { flex: 1, gap: 2 },
+  pickGroup: { gap: spacing.sm },
 });

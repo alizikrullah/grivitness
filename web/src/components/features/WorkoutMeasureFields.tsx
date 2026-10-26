@@ -1,5 +1,6 @@
-import { Input, Stepper } from '@/components/ui';
-import type { WorkoutLog, WorkoutMeasure } from '@/types';
+import { ChipGroup, Input, Stepper } from '@/components/ui';
+import { INTENSITY_HINT, INTENSITY_LABEL, INTENSITY_OPTIONS } from '@/constants/labels';
+import type { WorkoutIntensity, WorkoutLog, WorkoutMeasure } from '@/types';
 import { duration, toNum } from '@/utils/format';
 
 /**
@@ -31,6 +32,24 @@ export const menitGerak = (
     return (u.set * u.ulangan * (detikPerUlangan ?? DETIK_PER_ULANGAN_BAWAAN)) / 60;
   if (measure === 'HOLD') return (u.set * u.detik) / 60;
   return u.menit;
+};
+
+/**
+ * Porsi waktu bergerak per intensitas dan MET jeda (berdiri diam, Compendium
+ * 2024 kode 07040). Cermin kcalPerMinuteWithIntensity di backend
+ * (utils/calories.ts), supaya taksiran di layar sama dengan yang disimpan.
+ */
+const PORSI_GERAK: Record<WorkoutIntensity, number> = { LOW: 0.5, MEDIUM: 0.75, HIGH: 0.9 };
+const KKAL_JEDA_PER_MENIT_70KG = (1.3 - 1) * 3.5 * (70 / 200);
+
+/** kkal bersih per menit @70 kg setelah intensitas. Null = dianggap gerak terus. */
+export const kkalPerMenitIntensitas = (
+  kkalPerMenit: number,
+  intensitas: WorkoutIntensity | null,
+): number => {
+  if (intensitas === null) return kkalPerMenit;
+  const p = PORSI_GERAK[intensitas];
+  return Math.min(kkalPerMenit, p * kkalPerMenit + (1 - p) * KKAL_JEDA_PER_MENIT_70KG);
 };
 
 /** Bagian body permintaan yang menyatakan ukurannya. */
@@ -72,6 +91,12 @@ interface WorkoutMeasureFieldsProps {
   onChange: (value: UkuranSesi) => void;
   /** Nama olahraga, ditempel di label durasi. */
   nama: string;
+  /**
+   * Intensitas, hanya untuk olahraga berukuran menit. Diisi pemanggil kalau
+   * berlaku: tidak terekam jam dan kalorinya tidak diketik sendiri.
+   */
+  intensitas?: WorkoutIntensity;
+  onIntensitas?: (intensitas: WorkoutIntensity) => void;
 }
 
 export const WorkoutMeasureFields = ({
@@ -79,6 +104,8 @@ export const WorkoutMeasureFields = ({
   value,
   onChange,
   nama,
+  intensitas,
+  onIntensitas,
 }: WorkoutMeasureFieldsProps) => {
   const ubah = (sebagian: Partial<UkuranSesi>) => onChange({ ...value, ...sebagian });
 
@@ -140,14 +167,34 @@ export const WorkoutMeasureFields = ({
   }
 
   return (
-    <Stepper
-      value={value.menit}
-      onChange={(menit) => ubah({ menit })}
-      step={5}
-      min={1}
-      max={600}
-      suffix="menit"
-      label={'Durasi ' + nama}
-    />
+    <div className="stack-sm">
+      <Stepper
+        value={value.menit}
+        onChange={(menit) => ubah({ menit })}
+        step={5}
+        min={1}
+        max={600}
+        suffix="menit"
+        label={'Durasi ' + nama}
+      />
+
+      {/*
+        Intensitas = seberapa banyak waktu sesi dipakai bergerak. Renang 75
+        menit dengan banyak istirahat di tepi kolam bukan 75 menit gaya bebas
+        tanpa henti, dan taksiran kalorinya ikut turun.
+      */}
+      {onIntensitas && intensitas ? (
+        <div className="stack-xs">
+          <span className="t-label c-secondary">Intensitas</span>
+          <ChipGroup
+            options={INTENSITY_OPTIONS}
+            value={intensitas}
+            onChange={onIntensitas}
+            labels={INTENSITY_LABEL}
+          />
+          <span className="t-caption c-tertiary">{INTENSITY_HINT[intensitas]}</span>
+        </div>
+      ) : null}
+    </div>
   );
 };

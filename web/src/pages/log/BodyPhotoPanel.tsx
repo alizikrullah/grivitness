@@ -15,6 +15,7 @@ import {
   SectionHeader,
 } from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
+import { useTanggalLog } from '@/hooks/useTanggalLog';
 import { toApiError } from '@/lib/api';
 import {
   useBodyComparison,
@@ -40,7 +41,7 @@ const ARAH_LABEL: Record<BodyDirection, string> = {
 
 export const BodyPhotoPanel = () => {
   /** Tanggal yang sedang dilihat. Bawaannya hari ini. */
-  const [tanggal, setTanggal] = useState(todayWIB());
+  const [tanggal, setTanggal] = useTanggalLog();
 
   const hariIni = todayWIB();
 

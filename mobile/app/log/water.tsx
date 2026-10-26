@@ -19,6 +19,7 @@ import {
 } from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
 import { radius, spacing, typography } from '@/constants/theme';
+import { useTanggalAwal } from '@/hooks/useTanggalAwal';
 import { toApiError } from '@/lib/api';
 import { useDailySummary } from '@/services/misc.service';
 import { useAddWater, useDeleteWater, useWaterDate } from '@/services/water.service';
@@ -34,7 +35,7 @@ export default function WaterScreen() {
    * Tanggal yang sedang dilihat. Bawaannya hari ini, tapi user bisa mundur
    * untuk membaca dan melengkapi catatan hari-hari sebelumnya.
    */
-  const [tanggal, setTanggal] = useState(todayWIB());
+  const [tanggal, setTanggal] = useState(useTanggalAwal());
   const hariIni = tanggal === todayWIB();
 
   const today = useWaterDate(tanggal);

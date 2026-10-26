@@ -33,6 +33,17 @@ const harian = (ubah: Partial<DailySummary> = {}): DailySummary => ({
   mood_score: null,
   energy_score: null,
   has_body_photo: false,
+  logged: {
+    food: false,
+    water: false,
+    sleep: false,
+    steps: false,
+    mood: false,
+    device: false,
+    weight: true,
+    body_photo: false,
+    workout: false,
+  },
   targets: {
     water_ml: 3350,
     sleep: { min_minutes: 420, max_minutes: 540 },
@@ -324,6 +335,36 @@ describe('rapikanBalasan', () => {
   });
 });
 
+describe('susunFakta: koreksi timbangan', () => {
+  it('disebut sebagai bagian tersendiri dari kalori keluar', () => {
+    const fakta = susunFakta(
+      harian({
+        calories_out: 2254,
+        calories_out_source: 'device',
+        device_kcal: 2233,
+        energy: {
+          pal: 1.611,
+          baseline: 2807,
+          workout_calories: 0,
+          device_active_kcal: 367,
+          scale_correction: -920,
+        },
+      }),
+      pekan,
+      riwayat(),
+      null,
+      null,
+      null,
+      null,
+      '21.00',
+    );
+
+    expect(fakta).toContain(
+      'Kalori keluar 2.254 kkal: metabolisme dan pekerjaan 2.807, ditambah kalori aktif dari jam tangannya 367, dikoreksi timbangan minus 920',
+    );
+  });
+});
+
 describe('susunFakta: rilis 1.2.0', () => {
   it('menyebut susunan kalori keluar dengan jam tangan: aktif jam DITAMBAHKAN', () => {
     const fakta = susunFakta(
@@ -331,7 +372,13 @@ describe('susunFakta: rilis 1.2.0', () => {
         calories_out: 3006,
         calories_out_source: 'device',
         device_kcal: 2233,
-        energy: { pal: 1.611, baseline: 2639, workout_calories: 0, device_active_kcal: 367 },
+        energy: {
+          pal: 1.611,
+          baseline: 2639,
+          workout_calories: 0,
+          device_active_kcal: 367,
+          scale_correction: null,
+        },
       }),
       pekan,
       riwayat(),

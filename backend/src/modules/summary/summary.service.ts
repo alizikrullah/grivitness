@@ -3,7 +3,7 @@ import { forUser } from '../../data/scoped.js';
 import { loadEnergyProfile } from '../../data/energy-profile.js';
 import { hariBelumLengkap } from '../../data/food-day-status.js';
 import { AppError } from '../../utils/api-error.js';
-import { dailyCaloriesOut } from '../../utils/calories.js';
+import { applyOutCorrection, dailyCaloriesOut } from '../../utils/calories.js';
 import { jakartaDate, todayInJakarta } from '../../utils/daily-key.js';
 import { activePlan, effectiveBudget } from '../goals/goals.service.js';
 import type { CalendarSection } from './summary.validation.js';
@@ -35,6 +35,25 @@ export interface EnergyBreakdown {
   workout_calories: number;
   /** Kalori aktif jam tangan yang dijumlahkan. Null kalau hari itu tanpa angka jam. */
   device_active_kcal: number | null;
+  /**
+   * Koreksi timbangan dalam kkal, sudah termasuk di calories_out (negatif
+   * berarti dikurangi). Null selama pengukurannya belum layak. Lihat
+   * outCorrectionFactor() di utils/calories.ts.
+   */
+  scale_correction: number | null;
+}
+
+/** Jenis catatan yang ADA di satu tanggal, untuk halaman Catat per tanggal. */
+export interface LoggedFlags {
+  food: boolean;
+  water: boolean;
+  sleep: boolean;
+  steps: boolean;
+  mood: boolean;
+  device: boolean;
+  weight: boolean;
+  body_photo: boolean;
+  workout: boolean;
 }
 
 export interface DailySummary {
@@ -88,6 +107,11 @@ export interface DailySummary {
   energy_score: number | null;
   has_body_photo: boolean;
   /**
+   * Catatan mana yang ada di tanggal ini. Dibedakan dari angkanya sendiri:
+   * langkah 0 dan langkah yang tidak dicatat sama-sama 0 di kolom steps.
+   */
+  logged: LoggedFlags;
+  /**
    * Target harian yang diturunkan dari tubuh dan tujuan user.
    *
    * Dikirim dari sini supaya layar tidak perlu menghitung apa pun, dan supaya
@@ -124,6 +148,8 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
     workoutKaloriLuarDevice,
     gula,
     statusMakan,
+    jumlahMakan,
+    jumlahOlahraga,
   ] = await Promise.all([
     loadEnergyProfile(userId),
     repo.findOne('weight_logs', { filter: hari }),
@@ -149,6 +175,10 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
     }),
     repo.sum('food_logs', 'sugar_g', hariTimestamp),
     repo.findOne('food_day_status', { filter: hari }),
+    // Jumlah baris, bukan kalori: sesi makan 0 kkal (teh tawar) tetap catatan,
+    // dan sesi push up 15 detik tersimpan 0 menit tapi tetap olahraga.
+    repo.count('food_logs', hariTimestamp),
+    repo.count('workout_logs', hari),
   ]);
 
   const weightKg = weightLog ? toNumber(weightLog.weight_kg) : null;
@@ -189,6 +219,9 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
 
   const kaloriDevice = deviceLog?.total_kcal ?? null;
 
+  // Koreksi timbangan: defisit di layar mengikuti yang terbaca timbangan.
+  const terkoreksi = applyOutCorrection(keluar.calories_out, metrics.outFactor);
+
   // Pertanyaan "belum lengkap?" cuma masuk akal untuk hari yang sudah lewat:
   // jam sepuluh pagi, separuh jatah memang belum termakan.
   const makanRendah =
@@ -198,7 +231,7 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
     date,
     weight_kg: weightKg,
     calories_in: kaloriMasuk,
-    calories_out: keluar.calories_out,
+    calories_out: terkoreksi.calories_out,
     device_kcal: kaloriDevice,
     calories_out_source: keluar.source,
     calorie_budget: budget,
@@ -211,6 +244,7 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
             baseline: keluar.baseline,
             workout_calories: keluar.workout_calories,
             device_active_kcal: keluar.device_active_kcal,
+            scale_correction: terkoreksi.correction,
           },
     protein_g: protein,
     carbs_g: karbo,
@@ -226,6 +260,17 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
     mood_score: mood?.mood_score ?? null,
     energy_score: mood?.energy_score ?? null,
     has_body_photo: fotoBadan > 0,
+    logged: {
+      food: jumlahMakan > 0,
+      water: air > 0,
+      sleep: tidur > 0,
+      steps: stepLog !== null,
+      mood: mood !== null,
+      device: deviceLog !== null,
+      weight: weightLog !== null,
+      body_photo: fotoBadan > 0,
+      workout: jumlahOlahraga > 0,
+    },
     targets: dailyTargets({
       weightKg: beratHitung,
       age: metrics.age,
@@ -576,14 +621,17 @@ export const getHistory = async (userId: string, days: number): Promise<HistoryS
       untrackedWorkoutCalories: h.kaloriOlahragaTanpaJam,
       device: h.perangkat,
     });
+    // Koreksi timbangan yang sama dengan getDaily, supaya kedua layar tetap
+    // menyebut angka yang sama untuk hari yang sama.
+    const terkoreksi = applyOutCorrection(keluar.calories_out, metrics.outFactor);
 
     hasil.push({
       date: tanggal,
       calories_in: Math.round(h.masuk),
-      calories_out: Math.round(keluar.calories_out),
+      calories_out: terkoreksi.calories_out,
       calories_out_source: keluar.source,
       calorie_budget: budget,
-      balance: Math.round(keluar.calories_out - h.masuk),
+      balance: Math.round(terkoreksi.calories_out - h.masuk),
       logged: h.adaMakan,
       incomplete: h.adaMakan && belumLengkap.has(tanggal),
     });
@@ -772,7 +820,7 @@ export const getOverview = async (userId: string): Promise<DailyOverview> => {
       date: tanggal,
       calories_in: h.adaMakan ? Math.round(h.masuk) : null,
       incomplete: h.adaMakan && belumLengkap.has(tanggal),
-      calories_out: Math.round(keluar.calories_out),
+      calories_out: applyOutCorrection(keluar.calories_out, metrics.outFactor).calories_out,
       protein_g: Math.round(h.protein * 10) / 10,
       sugar_g: Math.round(h.gula * 10) / 10,
       water_ml: h.air,
@@ -861,6 +909,23 @@ const KOLEKSI_TANGGAL: Partial<Record<CalendarSection, KoleksiTanggal[]>> = {
  * sama seperti summary harian, supaya titik di kalender jatuh di hari yang
  * sama dengan angka di layarnya.
  */
+/**
+ * Catatan yang diharapkan terisi SETIAP hari, penentu titik kalender halaman
+ * Catat. Keputusan pemiliknya: berat (ditimbang 2-4 kali seminggu supaya
+ * tidak demotivasi), foto badan (bulanan), dan olahraga (ada hari istirahat)
+ * sengaja tidak ikut, supaya hari yang memang wajar tanpa itu tidak terbaca
+ * bolong.
+ */
+const CATAT_HARIAN: CalendarSection[] = [
+  'food',
+  'water',
+  'sleep',
+  'steps',
+  'mood',
+  'device-energy',
+];
+const CATAT_LAIN: CalendarSection[] = ['weight', 'body-photo', 'workout'];
+
 export const getCalendar = async (
   userId: string,
   type: CalendarSection,
@@ -869,6 +934,25 @@ export const getCalendar = async (
 ): Promise<CalendarDays> => {
   const repo = forUser(userId);
   const range = { from, to };
+
+  // Halaman Catat: "dates" = hari yang punya catatan apa pun, "incomplete" =
+  // hari yang catatan hariannya belum lengkap. Kalender klien menggambar
+  // dates tanpa incomplete sebagai hijau dan incomplete sebagai kuning.
+  if (type === 'catat') {
+    const [harian, lain] = await Promise.all([
+      Promise.all(CATAT_HARIAN.map((t) => getCalendar(userId, t, from, to))),
+      Promise.all(CATAT_LAIN.map((t) => getCalendar(userId, t, from, to))),
+    ]);
+    const adaApaPun = new Set([...harian, ...lain].flatMap((k) => k.dates));
+    const lengkap = (tanggal: string) => harian.every((k) => k.dates.includes(tanggal));
+
+    return {
+      from,
+      to,
+      dates: [...adaApaPun].sort(),
+      incomplete: [...adaApaPun].filter((t) => !lengkap(t)).sort(),
+    };
+  }
 
   if (type === 'food' || type === 'water') {
     const koleksi = type === 'food' ? 'food_logs' : 'water_logs';

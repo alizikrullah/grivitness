@@ -9,8 +9,8 @@ import {
   SignOutIcon,
   TargetIcon,
 } from 'phosphor-react-native';
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { StyleSheet, type TextInput, View } from 'react-native';
 
 import {
   Button,
@@ -326,6 +326,7 @@ const GoalSheet = ({ visible, onClose }: { visible: boolean; onClose: () => void
   const [berat, setBerat] = useState('');
   const [tanggal, setTanggal] = useState(shiftDays(todayWIB(), 90));
   const [budget, setBudget] = useState('');
+  const kolomJatah = useRef<TextInput>(null);
   const [error, setError] = useState<string | null>(null);
 
   const simpan = () => {
@@ -378,6 +379,7 @@ const GoalSheet = ({ visible, onClose }: { visible: boolean; onClose: () => void
         placeholder="70"
         keyboardType="decimal-pad"
         suffix="kg"
+        next={kolomJatah}
       />
 
       <DateField
@@ -389,6 +391,7 @@ const GoalSheet = ({ visible, onClose }: { visible: boolean; onClose: () => void
       />
 
       <Input
+        ref={kolomJatah}
         label="Jatah kalori harian"
         value={budget}
         onChangeText={setBudget}

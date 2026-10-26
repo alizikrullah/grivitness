@@ -14,6 +14,7 @@ import {
   Stepper,
 } from '@/components/ui';
 import { metricColors } from '@/constants/colors';
+import { useTanggalLog } from '@/hooks/useTanggalLog';
 import { toApiError } from '@/lib/api';
 import { useDailySummary } from '@/services/misc.service';
 import { useSaveProfile } from '@/services/users.service';
@@ -29,7 +30,7 @@ import { LogActions } from './LogActions';
 
 export const StepsPanel = () => {
   /** Tanggal yang sedang dilihat. Bawaannya hari ini. */
-  const [tanggal, setTanggal] = useState(todayWIB());
+  const [tanggal, setTanggal] = useTanggalLog();
   const [ubahTarget, setUbahTarget] = useState(false);
 
   // Chart tetap berlabuh pada hari ini apa pun tanggal yang sedang dibuka.

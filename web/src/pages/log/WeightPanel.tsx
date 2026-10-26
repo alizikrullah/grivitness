@@ -13,6 +13,7 @@ import {
   Stepper,
 } from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
+import { useTanggalLog } from '@/hooks/useTanggalLog';
 import { toApiError } from '@/lib/api';
 import {
   useCreateWeight,
@@ -25,7 +26,7 @@ import { kg, toNum } from '@/utils/format';
 
 export const WeightPanel = () => {
   /** Tanggal yang sedang dilihat. Bawaannya hari ini. */
-  const [tanggal, setTanggal] = useState(todayWIB());
+  const [tanggal, setTanggal] = useTanggalLog();
 
   // Chart tetap berlabuh pada hari ini apa pun tanggal yang dibuka, supaya
   // bentuk trennya tidak ikut bergeser setiap kali user menoleh ke belakang.

@@ -22,6 +22,7 @@ import {
 import { colors, metricColors } from '@/constants/colors';
 import { SCORE_LABEL } from '@/constants/labels';
 import { spacing, typography } from '@/constants/theme';
+import { useTanggalAwal } from '@/hooks/useTanggalAwal';
 import { toApiError } from '@/lib/api';
 import { useCreateSleep, useDeleteSleep, useSleepDate } from '@/services/sleep.service';
 import type { SleepLog } from '@/types';
@@ -32,7 +33,6 @@ import {
   sleepDayNow,
   sleepRange,
   timeWIB,
-  todayWIB,
 } from '@/utils/date';
 import { duration } from '@/utils/format';
 
@@ -46,7 +46,7 @@ export default function SleepScreen() {
    * yang terpotong, misalnya 21:00 sampai 23:00 lalu 02:00 sampai 04:20,
    * dicatat dua kali di tanggal yang SAMA.
    */
-  const [tanggal, setTanggal] = useState(todayWIB());
+  const [tanggal, setTanggal] = useState(useTanggalAwal());
 
   const today = useSleepDate(tanggal);
   const createSleep = useCreateSleep();

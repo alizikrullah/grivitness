@@ -1,8 +1,10 @@
-import { StyleSheet, View } from 'react-native';
+import { type RefObject, useRef } from 'react';
+import { StyleSheet, type TextInput, View } from 'react-native';
 
-import { Input, Stepper, Text } from '@/components/ui';
+import { ChipGroup, Input, Stepper, Text } from '@/components/ui';
+import { INTENSITY_HINT, INTENSITY_LABEL, INTENSITY_OPTIONS } from '@/constants/labels';
 import { spacing } from '@/constants/theme';
-import type { WorkoutLog, WorkoutMeasure } from '@/types';
+import type { WorkoutIntensity, WorkoutLog, WorkoutMeasure } from '@/types';
 import { duration, toNum } from '@/utils/format';
 
 /**
@@ -56,6 +58,24 @@ export const menitGerak = (
   return u.menit;
 };
 
+/**
+ * Porsi waktu bergerak per intensitas dan MET jeda (berdiri diam, Compendium
+ * 2024 kode 07040). Cermin kcalPerMinuteWithIntensity di backend
+ * (utils/calories.ts), supaya taksiran di layar sama dengan yang disimpan.
+ */
+const PORSI_GERAK: Record<WorkoutIntensity, number> = { LOW: 0.5, MEDIUM: 0.75, HIGH: 0.9 };
+const KKAL_JEDA_PER_MENIT_70KG = (1.3 - 1) * 3.5 * (70 / 200);
+
+/** kkal bersih per menit @70 kg setelah intensitas. Null = dianggap gerak terus. */
+export const kkalPerMenitIntensitas = (
+  kkalPerMenit: number,
+  intensitas: WorkoutIntensity | null,
+): number => {
+  if (intensitas === null) return kkalPerMenit;
+  const p = PORSI_GERAK[intensitas];
+  return Math.min(kkalPerMenit, p * kkalPerMenit + (1 - p) * KKAL_JEDA_PER_MENIT_70KG);
+};
+
 /** Bagian body permintaan yang menyatakan ukurannya. */
 export const ukuranKeBody = (
   measure: WorkoutMeasure,
@@ -93,10 +113,31 @@ interface WorkoutMeasureFieldsProps {
   measure: WorkoutMeasure;
   value: UkuranSesi;
   onChange: (value: UkuranSesi) => void;
+  /** Rujukan kolom pertama, supaya kolom sebelumnya bisa melompat ke sini. */
+  awal?: RefObject<TextInput | null>;
+  /** Kolom sesudah isian ukuran, untuk tombol "Berikutnya" di kolom terakhir. */
+  next?: RefObject<TextInput | null>;
+  /**
+   * Intensitas, hanya untuk olahraga berukuran menit. Diisi pemanggil kalau
+   * berlaku: tidak terekam jam dan kalorinya tidak diketik sendiri.
+   */
+  intensitas?: WorkoutIntensity | null;
+  onIntensitas?: (intensitas: WorkoutIntensity) => void;
 }
 
-export const WorkoutMeasureFields = ({ measure, value, onChange }: WorkoutMeasureFieldsProps) => {
+export const WorkoutMeasureFields = ({
+  measure,
+  value,
+  onChange,
+  awal,
+  next,
+  intensitas,
+  onIntensitas,
+}: WorkoutMeasureFieldsProps) => {
   const ubah = (sebagian: Partial<UkuranSesi>) => onChange({ ...value, ...sebagian });
+  const kolomUlangan = useRef<TextInput>(null);
+  const kolomBeban = useRef<TextInput>(null);
+  const kolomDetik = useRef<TextInput>(null);
 
   if (measure === 'REPS') {
     return (
@@ -106,13 +147,22 @@ export const WorkoutMeasureFields = ({ measure, value, onChange }: WorkoutMeasur
             <Text variant="overline" tone="tertiary" align="center">
               Set
             </Text>
-            <Stepper value={value.set} onChange={(set) => ubah({ set })} min={1} max={100} />
+            <Stepper
+              ref={awal}
+              next={kolomUlangan}
+              value={value.set}
+              onChange={(set) => ubah({ set })}
+              min={1}
+              max={100}
+            />
           </View>
           <View style={styles.kolom}>
             <Text variant="overline" tone="tertiary" align="center">
               Ulangan per set
             </Text>
             <Stepper
+              ref={kolomUlangan}
+              next={kolomBeban}
               value={value.ulangan}
               onChange={(ulangan) => ubah({ ulangan })}
               min={1}
@@ -121,6 +171,8 @@ export const WorkoutMeasureFields = ({ measure, value, onChange }: WorkoutMeasur
           </View>
         </View>
         <Input
+          ref={kolomBeban}
+          next={next}
           label="Beban"
           value={value.beban}
           onChangeText={(beban) => ubah({ beban })}
@@ -140,13 +192,22 @@ export const WorkoutMeasureFields = ({ measure, value, onChange }: WorkoutMeasur
           <Text variant="overline" tone="tertiary" align="center">
             Set
           </Text>
-          <Stepper value={value.set} onChange={(set) => ubah({ set })} min={1} max={100} />
+          <Stepper
+            ref={awal}
+            next={kolomDetik}
+            value={value.set}
+            onChange={(set) => ubah({ set })}
+            min={1}
+            max={100}
+          />
         </View>
         <View style={styles.kolom}>
           <Text variant="overline" tone="tertiary" align="center">
             Detik per set
           </Text>
           <Stepper
+            ref={kolomDetik}
+            next={next}
             value={value.detik}
             onChange={(detik) => ubah({ detik })}
             step={5}
@@ -165,6 +226,8 @@ export const WorkoutMeasureFields = ({ measure, value, onChange }: WorkoutMeasur
         Durasi
       </Text>
       <Stepper
+        ref={awal}
+        next={next}
         value={value.menit}
         onChange={(menit) => ubah({ menit })}
         step={5}
@@ -172,6 +235,31 @@ export const WorkoutMeasureFields = ({ measure, value, onChange }: WorkoutMeasur
         max={1440}
         suffix="menit"
       />
+
+      {/*
+        Intensitas = seberapa banyak waktu sesi dipakai bergerak. Renang 75
+        menit dengan banyak istirahat di tepi kolam bukan 75 menit gaya bebas
+        tanpa henti, dan taksiran kalorinya ikut turun.
+      */}
+      {onIntensitas ? (
+        <View style={styles.intensitas}>
+          <Text variant="overline" tone="tertiary" align="center">
+            Intensitas
+          </Text>
+          <ChipGroup
+            options={INTENSITY_OPTIONS}
+            value={intensitas ?? null}
+            onChange={onIntensitas}
+            labels={INTENSITY_LABEL}
+            wrap
+          />
+          {intensitas ? (
+            <Text variant="caption" tone="tertiary" align="center">
+              {INTENSITY_HINT[intensitas]}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 };
@@ -180,4 +268,5 @@ const styles = StyleSheet.create({
   group: { gap: spacing.lg },
   dua: { flexDirection: 'row', gap: spacing.md },
   kolom: { flex: 1, gap: spacing.md },
+  intensitas: { gap: spacing.sm, alignItems: 'center' },
 });

@@ -24,6 +24,7 @@ import {
 } from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
 import { MEAL_LABEL, MEAL_OPTIONS } from '@/constants/labels';
+import { useTanggalLog } from '@/hooks/useTanggalLog';
 import { toApiError } from '@/lib/api';
 import {
   type FoodItemEditInput,
@@ -47,7 +48,7 @@ const ringkasJumlah = (item: FoodItem): string =>
 
 export const FoodPanel = () => {
   /** Tanggal yang sedang dilihat. Bawaannya hari ini. */
-  const [tanggal, setTanggal] = useState(todayWIB());
+  const [tanggal, setTanggal] = useTanggalLog();
   const hariIni = tanggal === todayWIB();
 
   const today = useFoodDate(tanggal);

@@ -109,9 +109,10 @@ export const CreateWorkoutSchema = z
       .optional(),
 
     /**
-     * Tidak dipakai hitungan apa pun: kalori datang dari MET jenis olahraganya
-     * (jalan santai lawan jalan cepat sudah dua jenis berbeda). Form berhenti
-     * menanyakannya; tetap diterima supaya APK lama tidak ditolak.
+     * Porsi waktu bergerak untuk olahraga berukuran menit: rendah 50%, sedang
+     * 75%, tinggi 90% (kcalPerMinuteWithIntensity di utils/calories.ts).
+     * Kosong berarti dianggap bergerak terus, sama seperti catatan lama.
+     * Diabaikan untuk olahraga berukuran set dan untuk kalori MANUAL.
      */
     intensity: z.enum(WORKOUT_INTENSITY).optional(),
 

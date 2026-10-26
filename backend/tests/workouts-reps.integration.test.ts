@@ -117,8 +117,9 @@ describe('olahraga repetisi', () => {
     expect(res.status).toBe(201);
     expect(res.body.data.duration_minutes).toBe(30);
     expect(res.body.data.sets).toBeNull();
-    // 4,90 x 30 x 80/70 = 168
-    expect(res.body.data.calories_burned).toBe(168);
+    // Sedang = 75% waktu bergerak, sisanya jeda 1,3 MET (0,3675 kkal/menit @70 kg):
+    // (0,75 x 4,90 + 0,25 x 0,3675) x 30 x 80/70 = 129. Tanpa intensitas 168.
+    expect(res.body.data.calories_burned).toBe(129);
   });
 
   it('menolak ulangan dan detik tahan bersamaan, dan sesi tanpa ukuran sama sekali', async () => {

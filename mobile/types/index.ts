@@ -532,6 +532,24 @@ export interface EnergyBreakdown {
   workout_calories: number;
   /** Kalori aktif jam tangan yang DITAMBAHKAN. Null kalau hari itu tanpa angka jam. */
   device_active_kcal: number | null;
+  /**
+   * Koreksi timbangan dalam kkal, sudah termasuk di calories_out (negatif
+   * berarti dikurangi). Null selama pengukurannya belum layak.
+   */
+  scale_correction: number | null;
+}
+
+/** Catatan mana yang ADA di satu tanggal, untuk halaman Catat per tanggal. */
+export interface LoggedFlags {
+  food: boolean;
+  water: boolean;
+  sleep: boolean;
+  steps: boolean;
+  mood: boolean;
+  device: boolean;
+  weight: boolean;
+  body_photo: boolean;
+  workout: boolean;
 }
 
 export interface SleepTarget {
@@ -599,6 +617,8 @@ export interface DailySummary {
   mood_score: number | null;
   energy_score: number | null;
   has_body_photo: boolean;
+  /** Dibedakan dari angkanya: langkah 0 dan langkah yang tidak dicatat sama-sama 0. */
+  logged: LoggedFlags;
   targets: DailyTargets;
 }
 
@@ -712,7 +732,9 @@ export type CalendarSection =
   | 'weight'
   | 'mood'
   | 'body-photo'
-  | 'device-energy';
+  | 'device-energy'
+  /** Halaman Catat: semua jenis sekaligus; incomplete = catatan harian belum lengkap. */
+  | 'catat';
 
 /** Tanggal yang ada datanya untuk satu layar, untuk titik di kalender. */
 export interface CalendarDays {

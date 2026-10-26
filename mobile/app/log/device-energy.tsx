@@ -1,12 +1,13 @@
 import { InfoIcon, WatchIcon } from 'phosphor-react-native';
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { StyleSheet, type TextInput, View } from 'react-native';
 
 import { LogActions } from '@/components/features/LogActions';
 import { DateNav } from '@/components/features/DateNav';
 import {
   Button,
   Card,
+  Chip,
   ChipGroup,
   ErrorNote,
   Header,
@@ -18,15 +19,17 @@ import {
 } from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
 import { spacing } from '@/constants/theme';
+import { useTanggalAwal } from '@/hooks/useTanggalAwal';
 import { toApiError } from '@/lib/api';
 import {
   useDeleteDeviceEnergy,
   useDeviceEnergyDate,
+  useDeviceEnergyRange,
   useSaveDeviceEnergy,
 } from '@/services/device-energy.service';
 import { useDailySummary } from '@/services/misc.service';
 import { useProfile } from '@/services/users.service';
-import { dayPhrase, todayWIB } from '@/utils/date';
+import { dayPhrase, shiftDays, todayWIB } from '@/utils/date';
 import { thousands } from '@/utils/format';
 
 /**
@@ -50,7 +53,8 @@ type Jenis = (typeof JENIS)[number];
  * BMR. Angka total jam diubah jadi aktif di backend: total dikurangi BMR.
  */
 export default function DeviceEnergyScreen() {
-  const [tanggal, setTanggal] = useState(todayWIB());
+  const [tanggal, setTanggal] = useState(useTanggalAwal());
+  const kolomPerangkat = useRef<TextInput>(null);
 
   const hari = useDeviceEnergyDate(tanggal);
   const simpanKalori = useSaveDeviceEnergy();
@@ -65,6 +69,20 @@ export default function DeviceEnergyScreen() {
   const [error, setError] = useState<string | null>(null);
   const [pesan, setPesan] = useState<string | null>(null);
   const [terisi, setTerisi] = useState(false);
+  const [perangkatDitebak, setPerangkatDitebak] = useState(false);
+
+  /**
+   * Nama perangkat yang pernah dipakai 90 hari terakhir, terbaru dulu. Yang
+   * terakhir otomatis mengisi kolomnya untuk tanggal yang belum dicatat, jadi
+   * cukup diketik sekali; yang lain jadi pilihan sekali sentuh.
+   */
+  const hariIni = todayWIB();
+  const riwayatJam = useDeviceEnergyRange(shiftDays(hariIni, -89), hariIni);
+  const namaPerangkat = [...(riwayatJam.data ?? [])]
+    .sort((a, b) => b.logged_at.localeCompare(a.logged_at))
+    .map((r) => r.source?.trim() ?? '')
+    .filter((nama, i, semua) => nama !== '' && semua.indexOf(nama) === i)
+    .slice(0, 4);
 
   /**
    * Isian dikosongkan saat pindah tanggal, disetel ulang saat render dan bukan
@@ -79,6 +97,7 @@ export default function DeviceEnergyScreen() {
     setError(null);
     setPesan(null);
     setTerisi(false);
+    setPerangkatDitebak(false);
   }
 
   /*
@@ -94,6 +113,13 @@ export default function DeviceEnergyScreen() {
     setKalori(String(aktifTersimpan ?? hari.data.total_kcal));
     setPerangkat(hari.data.source ?? '');
     setTerisi(true);
+  }
+
+  // Tanggal yang belum dicatat: kolom perangkat diisi nama yang terakhir dipakai.
+  const namaTerakhir = namaPerangkat[0];
+  if (!perangkatDitebak && !hari.isPending && !hari.data && namaTerakhir !== undefined) {
+    setPerangkatDitebak(true);
+    if (perangkat === '') setPerangkat(namaTerakhir);
   }
 
   /** Susunan kalori keluar hari itu dari backend, untuk diperlihatkan apa adanya. */
@@ -216,6 +242,7 @@ export default function DeviceEnergyScreen() {
               </View>
 
               <Input
+                next={kolomPerangkat}
                 label={pakaiAktif ? 'Kalori aktif hari ini' : 'Kalori total hari ini'}
                 value={kalori}
                 onChangeText={setKalori}
@@ -259,6 +286,7 @@ export default function DeviceEnergyScreen() {
               ) : null}
 
               <Input
+                ref={kolomPerangkat}
                 label="Perangkat"
                 value={perangkat}
                 onChangeText={setPerangkat}
@@ -266,6 +294,19 @@ export default function DeviceEnergyScreen() {
                 autoCapitalize="words"
                 maxLength={64}
               />
+              {namaPerangkat.length > 1 ? (
+                <View style={styles.perangkat}>
+                  {namaPerangkat.map((nama) => (
+                    <Chip
+                      key={nama}
+                      size="sm"
+                      label={nama}
+                      active={perangkat.trim() === nama}
+                      onPress={() => setPerangkat(nama)}
+                    />
+                  ))}
+                </View>
+              ) : null}
             </View>
           </Card>
 
@@ -294,6 +335,16 @@ export default function DeviceEnergyScreen() {
                       value={thousands(energi.workout_calories) + ' kkal'}
                     />
                   </>
+                )}
+                {energi.scale_correction === null ? null : (
+                  <Row
+                    label="Koreksi timbangan"
+                    value={
+                      (energi.scale_correction > 0 ? '+' : '') +
+                      thousands(energi.scale_correction) +
+                      ' kkal'
+                    }
+                  />
                 )}
                 <Row
                   label={'Kalori keluar ' + dayPhrase(tanggal)}
@@ -346,6 +397,7 @@ export default function DeviceEnergyScreen() {
 }
 
 const styles = StyleSheet.create({
+  perangkat: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   card: { gap: spacing.lg },
   group: { gap: spacing.md },
   iconRow: { alignItems: 'center', gap: spacing.sm },

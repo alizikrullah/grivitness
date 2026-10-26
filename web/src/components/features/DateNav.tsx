@@ -1,24 +1,10 @@
 import { CalendarBlankIcon, CaretLeftIcon, CaretRightIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
 
-import { Button, Calendar, Modal } from '@/components/ui';
-import { useCalendarDays } from '@/services/misc.service';
+import { CalendarModal } from '@/components/features/CalendarModal';
 import type { CalendarSection } from '@/types';
-import { monthEnd, monthStart, navDateLabel, shiftDays, todayWIB } from '@/utils/date';
+import { navDateLabel, shiftDays, todayWIB } from '@/utils/date';
 import './DateNav.css';
-
-/** Apa yang ditandai titik hijau di tiap panel, untuk keterangan di bawah kalender. */
-const ISI: Record<CalendarSection, string> = {
-  food: 'catatan makan',
-  water: 'catatan minum',
-  workout: 'catatan olahraga',
-  steps: 'catatan langkah',
-  sleep: 'catatan tidur',
-  weight: 'catatan berat',
-  mood: 'catatan mood',
-  'body-photo': 'foto badan atau lingkar pinggang',
-  'device-energy': 'angka jam tangan',
-};
 
 interface DateNavProps {
   value: string;
@@ -40,19 +26,8 @@ interface DateNavProps {
  * dulu dipakai tidak bisa menandai apa pun.
  */
 export const DateNav = ({ value, onChange, section, label, maxDate }: DateNavProps) => {
-  const hariIni = todayWIB();
-  const batas = maxDate ?? hariIni;
+  const batas = maxDate ?? todayWIB();
   const [buka, setBuka] = useState(false);
-  const [bulan, setBulan] = useState(monthStart(value));
-
-  const tanda = useCalendarDays(section, monthStart(bulan), monthEnd(bulan), buka);
-  const kuning = new Set(tanda.data?.incomplete ?? []);
-  const hijau = new Set((tanda.data?.dates ?? []).filter((t) => !kuning.has(t)));
-
-  const pilih = (tanggal: string) => {
-    onChange(tanggal);
-    setBuka(false);
-  };
 
   return (
     <div className="datenav-wrap">
@@ -68,14 +43,7 @@ export const DateNav = ({ value, onChange, section, label, maxDate }: DateNavPro
           <CaretLeftIcon size={16} weight="bold" />
         </button>
 
-        <button
-          type="button"
-          className="datenav-tengah"
-          onClick={() => {
-            setBulan(monthStart(value));
-            setBuka(true);
-          }}
-        >
+        <button type="button" className="datenav-tengah" onClick={() => setBuka(true)}>
           <CalendarBlankIcon size={18} weight="duotone" />
           <span className="t-label">{navDateLabel(value)}</span>
         </button>
@@ -91,37 +59,17 @@ export const DateNav = ({ value, onChange, section, label, maxDate }: DateNavPro
         </button>
       </div>
 
-      <Modal open={buka} title="Pilih tanggal" onClose={() => setBuka(false)}>
-        <Calendar
-          month={bulan}
-          selected={value}
-          maxDate={batas}
-          marked={hijau}
-          warned={kuning}
-          onSelect={pilih}
-          onMonthChange={setBulan}
-        />
-
-        <div className="datenav-legend">
-          <span className="datenav-legend-item t-caption c-secondary">
-            <span className="datenav-dot datenav-dot-hijau" /> Ada {ISI[section]}
-          </span>
-          {section === 'food' ? (
-            <span className="datenav-legend-item t-caption c-secondary">
-              <span className="datenav-dot datenav-dot-kuning" /> Ditandai belum lengkap
-            </span>
-          ) : null}
-        </div>
-
-        {value === hariIni ? null : (
-          <Button
-            label="Kembali ke hari ini"
-            variant="secondary"
-            full
-            onClick={() => pilih(hariIni)}
-          />
-        )}
-      </Modal>
+      <CalendarModal
+        open={buka}
+        onClose={() => setBuka(false)}
+        value={value}
+        maxDate={batas}
+        section={section}
+        onSelect={(tanggal) => {
+          onChange(tanggal);
+          setBuka(false);
+        }}
+      />
     </div>
   );
 };

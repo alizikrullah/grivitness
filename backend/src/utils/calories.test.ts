@@ -5,6 +5,7 @@ import {
   activeKcalFromDevice,
   activeMinutesFromHold,
   activeMinutesFromReps,
+  applyOutCorrection,
   baselineTDEE,
   calculateAge,
   calculateBMR,
@@ -15,7 +16,9 @@ import {
   calorieFloor,
   daysBetween,
   distanceFromSteps,
+  kcalPerMinuteWithIntensity,
   netKcalPerMinuteAt70,
+  outCorrectionFactor,
   planWeightChange,
   restingPartitionPAL,
   safeWeeklyLossKg,
@@ -587,5 +590,53 @@ describe('dailyCaloriesOut', () => {
         .calories_out,
     ).toBe(2200);
     expect(dailyCaloriesOut({ ...tanpaProfil, device: null }).calories_out).toBe(250);
+  });
+});
+
+/**
+ * Intensitas = porsi waktu bergerak (rendah 50%, sedang 75%, tinggi 90%),
+ * jeda dihitung berdiri diam 1,3 MET. Angka acuannya renang pemilik app yang
+ * disetujui 26 Okt 2026: 75 menit, 95,3 kg, gaya bebas 5,8 MET.
+ */
+describe('kcalPerMinuteWithIntensity', () => {
+  const renang = netKcalPerMinuteAt70(5.8);
+  const sesi = (perMenit: number) => caloriesFromWorkout(perMenit, 75, 95.3);
+
+  it('tanpa intensitas sama persis dengan sebelumnya: dianggap gerak terus', () => {
+    expect(sesi(kcalPerMinuteWithIntensity(renang, null))).toBe(600);
+  });
+
+  it('rendah, sedang, tinggi sesuai tabel yang disetujui', () => {
+    expect(sesi(kcalPerMinuteWithIntensity(renang, 'LOW'))).toBe(319);
+    expect(sesi(kcalPerMinuteWithIntensity(renang, 'MEDIUM'))).toBe(460);
+    expect(sesi(kcalPerMinuteWithIntensity(renang, 'HIGH'))).toBe(544);
+  });
+
+  it('jeda tidak pernah membuat aktivitas ringan jadi lebih berat', () => {
+    const peregangan = 0.2;
+    expect(kcalPerMinuteWithIntensity(peregangan, 'LOW')).toBe(peregangan);
+  });
+});
+
+/**
+ * Koreksi timbangan, data pemilik 26 Okt 2026: rumus 3.174, timbangan 2.080,
+ * keyakinan 0,841.
+ */
+describe('outCorrectionFactor dan applyOutCorrection', () => {
+  it('mencampur hasil ukur dengan keyakinannya, sama seperti jatah', () => {
+    const k = outCorrectionFactor({ measured: 2080, confidence: 0.841, formulaAverage: 3174 });
+
+    expect(k).toBe(0.71);
+    expect(applyOutCorrection(3174, k)).toEqual({ calories_out: 2254, correction: -920 });
+  });
+
+  it('tidak mengoreksi apa pun selama pengukurannya belum layak', () => {
+    expect(outCorrectionFactor({ measured: null, confidence: 0, formulaAverage: 3174 })).toBe(1);
+    expect(applyOutCorrection(3174.4, 1)).toEqual({ calories_out: 3174, correction: null });
+  });
+
+  it('ditahan 0,5 sampai 1,5', () => {
+    expect(outCorrectionFactor({ measured: 500, confidence: 1, formulaAverage: 3000 })).toBe(0.5);
+    expect(outCorrectionFactor({ measured: 6000, confidence: 1, formulaAverage: 3000 })).toBe(1.5);
   });
 });

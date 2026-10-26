@@ -49,10 +49,18 @@ export const MEAL_LABEL: Record<MealType, string> = {
   SNACK: 'Camilan',
 };
 
+/** Intensitas = seberapa banyak waktu sesi dipakai bergerak, bukan berat bebannya. */
 export const INTENSITY_LABEL: Record<WorkoutIntensity, string> = {
-  LOW: 'Ringan',
+  LOW: 'Rendah',
   MEDIUM: 'Sedang',
-  HIGH: 'Berat',
+  HIGH: 'Tinggi',
+};
+
+/** Arti tiap intensitas, ditampilkan untuk pilihan yang aktif saja. */
+export const INTENSITY_HINT: Record<WorkoutIntensity, string> = {
+  LOW: 'Banyak istirahat, sekitar separuh waktu bergerak.',
+  MEDIUM: 'Istirahat sesekali, sekitar tiga perempat waktu bergerak.',
+  HIGH: 'Hampir terus bergerak, cuma jeda ambil napas.',
 };
 
 export const CATEGORY_LABEL: Record<WorkoutCategory, string> = {

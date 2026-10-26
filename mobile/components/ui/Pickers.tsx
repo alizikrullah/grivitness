@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { MinusIcon, PlusIcon } from 'phosphor-react-native';
-import { useState } from 'react';
+import { type Ref, type RefObject, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { colors } from '@/constants/colors';
@@ -16,6 +16,10 @@ interface StepperProps {
   max?: number;
   suffix?: string;
   decimals?: number;
+  /** Rujukan ke kolom angkanya, supaya kolom sebelumnya bisa memindah fokus ke sini. */
+  ref?: Ref<TextInput>;
+  /** Kolom berikutnya untuk tombol "Berikutnya" di keyboard. Lihat Input. */
+  next?: RefObject<TextInput | null>;
 }
 
 /**
@@ -34,6 +38,8 @@ export const Stepper = ({
   max = 999999,
   suffix,
   decimals = 0,
+  ref,
+  next,
 }: StepperProps) => {
   /**
    * Teks mentah selama user mengetik. Bernilai null berarti tidak sedang
@@ -112,15 +118,29 @@ export const Stepper = ({
       </Pressable>
 
       <View style={styles.stepValue}>
+        {/*
+          Kolom langsung KOSONG begitu disentuh, angka lamanya jadi petunjuk
+          samar. Dulu kolomnya memblok seluruh angka (selectTextOnFocus) dan
+          angkanya disimpan ulang tiap digit; di Android dua hal itu kadang
+          bentrok, digit pertama ikut terblok lagi dan digit kedua menimpanya,
+          jadi 30 yang mau diganti 90 malah jadi 0. Tanpa blok, bentrokan itu
+          tidak punya tempat terjadi. Ditinggal kosong, angka lama tetap.
+        */}
         <TextInput
+          ref={ref}
           value={teks ?? value.toFixed(decimals)}
           onChangeText={ketik}
-          onFocus={() => setTeks(value.toFixed(decimals))}
+          onFocus={() => setTeks('')}
           onBlur={selesai}
-          onSubmitEditing={selesai}
+          onSubmitEditing={() => {
+            selesai();
+            next?.current?.focus();
+          }}
+          placeholder={value.toFixed(decimals)}
+          placeholderTextColor={colors.textTertiary}
           keyboardType={decimals > 0 ? 'decimal-pad' : 'number-pad'}
-          returnKeyType="done"
-          selectTextOnFocus
+          returnKeyType={next ? 'next' : 'done'}
+          submitBehavior={next ? 'submit' : 'blurAndSubmit'}
           accessibilityLabel="Nilai"
           style={styles.stepInput}
         />

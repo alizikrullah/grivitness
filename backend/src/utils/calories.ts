@@ -1,4 +1,9 @@
-import { ACTIVITY_PAR, type ActivityLevel, type Gender } from '../constants/enums.js';
+import {
+  ACTIVITY_PAR,
+  type ActivityLevel,
+  type Gender,
+  type WorkoutIntensity,
+} from '../constants/enums.js';
 import { round } from './number.js';
 
 /**
@@ -154,6 +159,52 @@ export const caloriesFromWorkout = (
   durationMinutes: number,
   weightKg: number,
 ): number => round((netKcalPerMinute * durationMinutes * weightKg) / BERAT_ACUAN_KG, 0);
+
+/**
+ * Porsi waktu sesi yang dipakai BERGERAK, per intensitas.
+ *
+ * MET di Compendium mengukur gerak terus-menerus, padahal sesi nyata punya
+ * jeda: renang 75 menit dengan banyak istirahat di tepi kolam bukan 75 menit
+ * gaya bebas. Definisinya dari pemiliknya: rendah banyak istirahat, sedang
+ * lebih sedikit, tinggi hampir terus bergerak dengan jeda napas.
+ *
+ * Angka 0,5 / 0,75 / 0,9 (gerak:istirahat 1:1, 3:1, 9:1) adalah PERKIRAAN
+ * aplikasi ini, bukan penelitian. Yang dari Compendium cuma MET-nya.
+ */
+export const INTENSITY_ACTIVE_SHARE: Record<WorkoutIntensity, number> = {
+  LOW: 0.5,
+  MEDIUM: 0.75,
+  HIGH: 0.9,
+};
+
+/**
+ * MET saat jeda di sela sesi: berdiri diam. Herrmann SD dkk., 2024 Adult
+ * Compendium of Physical Activities, kode 07040 (1,3 MET).
+ */
+const MET_JEDA = 1.3;
+
+/**
+ * kkal BERSIH per menit @70 kg setelah intensitas diperhitungkan.
+ *
+ * MET efektif = p x MET + (1 - p) x 1,3. Karena kkal bersih per menit linear
+ * terhadap (MET - 1), bentuk yang sama berlaku langsung pada kkal per menit,
+ * jadi custom workout yang cuma punya kkal/menit (tanpa MET) ikut terhitung:
+ *
+ *   kkal efektif = p x kkal + (1 - p) x kkal jeda
+ *
+ * Intensitas null berarti catatan lama atau sesi tanpa pilihan: dianggap
+ * bergerak terus, persis seperti sebelum intensitas ada. Ditahan supaya jeda
+ * tidak pernah membuat sesi lebih "berat" dari aktivitasnya sendiri.
+ */
+export const kcalPerMinuteWithIntensity = (
+  netKcalPerMinute: number,
+  intensity: WorkoutIntensity | null,
+): number => {
+  if (intensity === null) return netKcalPerMinute;
+  const p = INTENSITY_ACTIVE_SHARE[intensity];
+  const jeda = netKcalPerMinuteAt70(MET_JEDA);
+  return Math.min(netKcalPerMinute, p * netKcalPerMinute + (1 - p) * jeda);
+};
 
 /**
  * Detik satu ulangan kalau library tidak menyebutkannya sendiri.
@@ -412,6 +463,54 @@ export const dailyCaloriesOut = (input: DailyOutInput): DailyOut => {
     workout_calories: olahraga,
     device_active_kcal: aktif,
   };
+};
+
+/**
+ * Faktor koreksi timbangan untuk kalori KELUAR.
+ *
+ * Rumus keluar (BMR x PAL, olahraga, kalori aktif jam) dibandingkan dengan yang
+ * terbaca timbangan lewat observeTDEE(). Data pemiliknya 26 Okt 2026: rumus
+ * rata-rata 3.174 kkal di hari makan lengkap, timbangan 2.080. Beranda
+ * menampilkan defisit 1.440 sehari padahal berat turun 0,31 kg per minggu
+ * (sekitar 345), selisih yang membuat semua angka defisit tidak bisa dipercaya.
+ *
+ * Sasarannya dicampur dengan keyakinan pengukuran, sama seperti jatah, bukan
+ * melompat penuh ke hasil ukur, supaya angka harian tidak berayun mengikuti
+ * fluktuasi air. Ditahan 0,5 sampai 1,5: di luar itu yang bermasalah datanya.
+ *
+ * observeTDEE() tidak diubah dan tetap murni makanan dan timbangan. Angka
+ * jam tangan cuma ikut di sisi RUMUS yang dibandingkan dengannya.
+ *
+ * Penyebab selisihnya tidak bisa dipisahkan: rumus atau jam yang kebesaran,
+ * atau makanan yang tidak tercatat. Koreksi ini membuat DEFISIT sesuai
+ * timbangan; kalau penyebabnya makanan yang terlewat, kalori keluarnya jadi
+ * lebih kecil dari yang sebenarnya dibakar.
+ */
+export const outCorrectionFactor = (input: {
+  /** Hasil ukur murni observeTDEE, null kalau belum layak. */
+  measured: number | null;
+  confidence: number;
+  /** Rata-rata kalori keluar versi rumus di hari makan lengkap jendela yang sama. */
+  formulaAverage: number;
+}): number => {
+  if (input.measured === null || input.confidence <= 0 || input.formulaAverage <= 0) return 1;
+
+  const sasaran = input.confidence * input.measured + (1 - input.confidence) * input.formulaAverage;
+  return round(Math.min(Math.max(sasaran / input.formulaAverage, 0.5), 1.5), 3);
+};
+
+export interface CorrectedOut {
+  calories_out: number;
+  /** Selisih koreksi dalam kkal (negatif berarti dikurangi). Null kalau tidak dikoreksi. */
+  correction: number | null;
+}
+
+export const applyOutCorrection = (rawOut: number, factor: number): CorrectedOut => {
+  const mentah = Math.round(rawOut);
+  if (factor === 1) return { calories_out: mentah, correction: null };
+
+  const hasil = Math.round(rawOut * factor);
+  return { calories_out: hasil, correction: hasil - mentah };
 };
 
 /**

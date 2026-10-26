@@ -5,6 +5,7 @@ import { DateNav } from '@/components/features/DateNav';
 import {
   Button,
   Card,
+  Chip,
   ChipGroup,
   ErrorNote,
   Input,
@@ -13,15 +14,17 @@ import {
   SectionHeader,
 } from '@/components/ui';
 import { metricColors } from '@/constants/colors';
+import { useTanggalLog } from '@/hooks/useTanggalLog';
 import { toApiError } from '@/lib/api';
 import {
   useDeleteDeviceEnergy,
   useDeviceEnergyDate,
+  useDeviceEnergyRange,
   useSaveDeviceEnergy,
 } from '@/services/device-energy.service';
 import { useDailySummary } from '@/services/misc.service';
 import { useProfile } from '@/services/users.service';
-import { dayPhrase, todayWIB } from '@/utils/date';
+import { dayPhrase, shiftDays, todayWIB } from '@/utils/date';
 import { thousands } from '@/utils/format';
 import { LogActions } from './LogActions';
 
@@ -47,7 +50,7 @@ type Jenis = (typeof JENIS)[number];
  */
 export const DeviceEnergyPanel = () => {
   /** Tanggal yang sedang dilihat. Bawaannya hari ini. */
-  const [tanggal, setTanggal] = useState(todayWIB());
+  const [tanggal, setTanggal] = useTanggalLog();
 
   const hari = useDeviceEnergyDate(tanggal);
   const simpanKalori = useSaveDeviceEnergy();
@@ -62,6 +65,20 @@ export const DeviceEnergyPanel = () => {
   const [error, setError] = useState<string | null>(null);
   const [pesan, setPesan] = useState<string | null>(null);
   const [terisi, setTerisi] = useState(false);
+  const [perangkatDitebak, setPerangkatDitebak] = useState(false);
+
+  /**
+   * Nama perangkat yang pernah dipakai 90 hari terakhir, terbaru dulu. Yang
+   * terakhir otomatis mengisi kolomnya untuk tanggal yang belum dicatat, jadi
+   * cukup diketik sekali; yang lain jadi pilihan sekali klik. Padanan mobile.
+   */
+  const hariIni = todayWIB();
+  const riwayatJam = useDeviceEnergyRange(shiftDays(hariIni, -89), hariIni);
+  const namaPerangkat = [...(riwayatJam.data ?? [])]
+    .sort((a, b) => b.logged_at.localeCompare(a.logged_at))
+    .map((r) => r.source?.trim() ?? '')
+    .filter((nama, i, semua) => nama !== '' && semua.indexOf(nama) === i)
+    .slice(0, 4);
 
   /**
    * Isian dikosongkan saat pindah tanggal, disesuaikan saat render dan bukan
@@ -76,6 +93,7 @@ export const DeviceEnergyPanel = () => {
     setError(null);
     setPesan(null);
     setTerisi(false);
+    setPerangkatDitebak(false);
   }
 
   // Kalau tanggal itu sudah dicatat, isian dibuka dengan nilai tersimpan supaya
@@ -89,6 +107,13 @@ export const DeviceEnergyPanel = () => {
     setKalori(String(aktifTersimpan ?? hari.data.total_kcal));
     setPerangkat(hari.data.source ?? '');
     setTerisi(true);
+  }
+
+  // Tanggal yang belum dicatat: kolom perangkat diisi nama yang terakhir dipakai.
+  const namaTerakhir = namaPerangkat[0];
+  if (!perangkatDitebak && !hari.isPending && !hari.data && namaTerakhir !== undefined) {
+    setPerangkatDitebak(true);
+    if (perangkat === '') setPerangkat(namaTerakhir);
   }
 
   /** Susunan kalori keluar hari itu dari backend, untuk diperlihatkan apa adanya. */
@@ -241,6 +266,18 @@ export const DeviceEnergyPanel = () => {
                 placeholder="Opsional. Misalnya: Galaxy Watch"
                 maxLength={64}
               />
+              {namaPerangkat.length > 1 ? (
+                <div className="chip-group">
+                  {namaPerangkat.map((nama) => (
+                    <Chip
+                      key={nama}
+                      label={nama}
+                      active={perangkat.trim() === nama}
+                      onClick={() => setPerangkat(nama)}
+                    />
+                  ))}
+                </div>
+              ) : null}
 
               {error ? <ErrorNote message={error} /> : null}
               {pesan ? <span className="t-caption c-success">{pesan}</span> : null}
@@ -280,6 +317,20 @@ export const DeviceEnergyPanel = () => {
                       value={thousands(energi.workout_calories) + ' kkal'}
                     />
                   </>
+                )}
+                {/*
+                  Selisih rumus dengan yang terukur dari timbangan (observeTDEE).
+                  Tampil hanya kalau datanya sudah layak dihitung.
+                */}
+                {energi.scale_correction === null ? null : (
+                  <Row
+                    label="Koreksi timbangan"
+                    value={
+                      (energi.scale_correction > 0 ? '+' : '') +
+                      thousands(energi.scale_correction) +
+                      ' kkal'
+                    }
+                  />
                 )}
                 <Row
                   label={'Kalori keluar ' + dayPhrase(tanggal)}

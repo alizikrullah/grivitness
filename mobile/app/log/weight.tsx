@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { StyleSheet, type TextInput, View } from 'react-native';
 
 import { DateNav } from '@/components/features/DateNav';
 import {
@@ -19,6 +19,7 @@ import {
 } from '@/components/ui';
 import { metricColors } from '@/constants/colors';
 import { spacing } from '@/constants/theme';
+import { useTanggalAwal } from '@/hooks/useTanggalAwal';
 import { toApiError } from '@/lib/api';
 import {
   useCreateWeight,
@@ -39,7 +40,8 @@ export default function WeightScreen() {
    * Tanggal yang sedang dilihat. Bawaannya hari ini, tapi user bisa mundur
    * untuk membaca dan membetulkan penimbangan hari-hari sebelumnya.
    */
-  const [tanggal, setTanggal] = useState(todayWIB());
+  const [tanggal, setTanggal] = useState(useTanggalAwal());
+  const kolomCatatan = useRef<TextInput>(null);
 
   // Chart tetap berlabuh pada hari ini apa pun tanggal yang sedang dibuka.
   // Kalau ikut bergeser, bentuk trennya berubah setiap kali user menoleh ke
@@ -140,6 +142,7 @@ export default function WeightScreen() {
               </Text>
 
               <Stepper
+                next={kolomCatatan}
                 value={nilai}
                 onChange={setBerat}
                 step={0.1}
@@ -162,6 +165,7 @@ export default function WeightScreen() {
           </Card>
 
           <Input
+            ref={kolomCatatan}
             label="Catatan"
             value={catatan}
             onChangeText={setCatatan}

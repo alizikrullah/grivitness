@@ -31,6 +31,9 @@ interface BarChartProps {
 /** Ruang di atas batang yang disediakan untuk gelembung nilai. */
 const RUANG_GELEMBUNG = 34;
 
+/** Lebar batang paling lebar, dipakai selama batangnya sedikit. */
+const LEBAR_BATANG = 26;
+
 /**
  * Diagram batang dengan satu batang tersorot dan gelembung nilai di atasnya.
  *
@@ -97,6 +100,14 @@ export const BarChart = ({
   const lebarKolom = data.length > 0 ? lebarPlot / data.length : 0;
   const titikTengah = lebarKolom * aktif + lebarKolom / 2;
 
+  /**
+   * Batang 26 px untuk tujuh hari, menyempit kalau batangnya banyak (sebulan
+   * penuh), supaya tidak saling menimpa. Sebelum lebar plot terukur dipakai
+   * lebar penuh, sama seperti dulu.
+   */
+  const lebarBatang =
+    lebarKolom > 0 ? Math.min(LEBAR_BATANG, Math.max(4, lebarKolom * 0.62)) : LEBAR_BATANG;
+
   // Ditahan di kedua tepi supaya gelembung pada batang paling pinggir tetap
   // utuh di dalam chart, bukan menggantung setengah di luar layar.
   const kiriGelembung = Math.min(
@@ -128,12 +139,13 @@ export const BarChart = ({
                   sebagai "ada, sedikit", padahal yang benar "tidak diketahui".
                 */}
                 {d.value === null ? (
-                  <View style={styles.barKosong} />
+                  <View style={[styles.barKosong, { width: lebarBatang }]} />
                 ) : (
                   <View
                     style={[
                       styles.bar,
                       {
+                        width: lebarBatang,
                         height: skala(d.value),
                         backgroundColor: terpilih ? color : colors.surfaceHigh,
                       },
@@ -194,8 +206,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   barSlot: { flex: 1, justifyContent: 'flex-end', paddingTop: RUANG_GELEMBUNG },
-  bar: { width: 26, borderRadius: radius.pill },
-  barKosong: { width: 26, height: 3, borderRadius: radius.pill, backgroundColor: colors.border },
+  bar: { borderRadius: radius.pill },
+  barKosong: { height: 3, borderRadius: radius.pill, backgroundColor: colors.border },
   labels: { flexDirection: 'row' },
   labelSlot: { flex: 1, alignItems: 'center' },
 });

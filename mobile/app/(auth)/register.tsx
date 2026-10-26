@@ -1,8 +1,8 @@
 import { Image } from 'expo-image';
 import { Link } from 'expo-router';
 import { EnvelopeSimpleIcon, LockKeyIcon, UserIcon } from 'phosphor-react-native';
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { StyleSheet, type TextInput, View } from 'react-native';
 
 import { Button, ErrorNote, Input, Screen, Text } from '@/components/ui';
 import { HeroTitle } from '@/components/ui/HeroTitle';
@@ -26,6 +26,8 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
 
   const passwordPendek = password.length > 0 && password.length < PANJANG_MIN;
+  const kolomEmail = useRef<TextInput>(null);
+  const kolomPassword = useRef<TextInput>(null);
   const bisaKirim =
     name.trim().length >= 2 && email.trim().length > 0 && password.length >= PANJANG_MIN;
 
@@ -65,18 +67,22 @@ export default function RegisterScreen() {
           placeholder="Nama kamu"
           autoCapitalize="words"
           icon={<UserIcon size={20} color={colors.textSecondary} weight="duotone" />}
+          next={kolomEmail}
         />
 
         <Input
+          ref={kolomEmail}
           label="Email"
           value={email}
           onChangeText={setEmail}
           placeholder="nama@email.com"
           keyboardType="email-address"
           icon={<EnvelopeSimpleIcon size={20} color={colors.textSecondary} weight="duotone" />}
+          next={kolomPassword}
         />
 
         <Input
+          ref={kolomPassword}
           label="Password"
           value={password}
           onChangeText={setPassword}
@@ -84,6 +90,7 @@ export default function RegisterScreen() {
           secure
           error={passwordPendek ? 'Password minimal 8 karakter' : null}
           hint="Minimal 8 karakter"
+          onSubmit={bisaKirim ? () => void kirim() : undefined}
           icon={<LockKeyIcon size={20} color={colors.textSecondary} weight="duotone" />}
         />
 

@@ -64,11 +64,25 @@ export default function ProgressScreen() {
     value: toNum(berat.data?.find((l) => l.logged_at === tanggal)?.weight_kg),
   }));
 
-  const langkahPerHari: BarDatum[] = hari.slice(-7).map((tanggal) => ({
-    label: dayLabel(tanggal),
-    value: langkah.data?.find((l) => l.logged_at === tanggal)?.steps ?? null,
-    caption: thousands(langkah.data?.find((l) => l.logged_at === tanggal)?.steps ?? 0),
-  }));
+  /**
+   * Batang langkah mengikuti periode yang dipilih: tujuh hari, atau setiap
+   * hari sejak tanggal 1 untuk bulan ini. Dulu selalu tujuh hari terakhir,
+   * jadi memilih "Bulan ini" cuma mengganti angka rata-ratanya dan grafiknya
+   * tetap sepekan.
+   *
+   * Untuk sebulan, label tanggal cuma tiap pekan (1, 8, 15, 22, 29) supaya
+   * tidak menumpuk, dan gelembungnya menyebut tanggalnya sendiri.
+   */
+  const sebulan = periode === 'bulan';
+  const langkahPerHari: BarDatum[] = hari.map((tanggal) => {
+    const nilai = langkah.data?.find((l) => l.logged_at === tanggal)?.steps ?? null;
+    const tgl = Number(tanggal.slice(8));
+    return {
+      label: sebulan ? ((tgl - 1) % 7 === 0 ? String(tgl) : '') : dayLabel(tanggal),
+      value: nilai,
+      caption: sebulan ? shortDate(tanggal) + ' · ' + thousands(nilai ?? 0) : thousands(nilai ?? 0),
+    };
+  });
 
   const perubahan = rekap.data?.weight_change_kg ?? null;
   const turun = perubahan !== null && perubahan < 0;
@@ -140,7 +154,7 @@ export default function ProgressScreen() {
           <Card>
             <View style={styles.weightCard}>
               <SectionHeader
-                title="Langkah 7 hari"
+                title={sebulan ? 'Langkah bulan ini' : 'Langkah pekan ini'}
                 action={
                   <Text variant="caption" tone="tertiary">
                     {/* Dibagi hari yang dicatat, bukan tujuh; jumlahnya disebut supaya jujur. */}
@@ -204,11 +218,11 @@ export default function ProgressScreen() {
                 terhitung khusus hari saat berat badan ditimbang, bukan hari
                 dengan pencatatan apa pun. Labelnya menyebutkan itu apa adanya. */}
             <MetricTile
-              icon={<ScalesIcon size={16} color={colors.textSecondary} weight="fill" />}
+              icon={<ScalesIcon size={16} color={metricColors.weight} weight="fill" />}
               label="Hari ditimbang"
               value={String(rekap.data?.days_logged ?? 0)}
               unit={'dari ' + (rekap.data?.days ?? 0) + ' hari'}
-              color={colors.textSecondary}
+              color={metricColors.weight}
             />
           </View>
         </>

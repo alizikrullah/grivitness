@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import type { TextInput } from 'react-native';
 
 import { Button, Checkbox, ErrorNote, Input, Sheet } from '@/components/ui';
 import { toApiError } from '@/lib/api';
 import { useUpdateWorkout } from '@/services/workouts.service';
-import type { WorkoutLog } from '@/types';
+import type { WorkoutIntensity, WorkoutLog } from '@/types';
 import {
   WorkoutMeasureFields,
   measureDariLog,
@@ -41,6 +42,16 @@ export const WorkoutEditSheet = ({ log, onClose }: WorkoutEditSheetProps) => {
 
   const manual = log.calories_source === 'MANUAL';
 
+  /**
+   * Catatan lama tanpa intensitas tidak otomatis jadi Sedang: kalorinya tetap
+   * seperti semula sampai user sendiri memilih intensitasnya.
+   */
+  const [intensitas, setIntensitas] = useState<WorkoutIntensity | null>(log.intensity);
+  const pakaiIntensitas = measure === 'TIME' && !manual && !terekam && kaloriDiketik === null;
+
+  const kolomKalori = useRef<TextInput>(null);
+  const kolomCatatan = useRef<TextInput>(null);
+
   const simpan = () => {
     let kalori: number | undefined;
 
@@ -65,6 +76,9 @@ export const WorkoutEditSheet = ({ log, onClose }: WorkoutEditSheetProps) => {
         ...(measure === 'REPS' && ukuran.beban.trim() === '' ? { load_kg: null } : {}),
         notes: catatan.trim() === '' ? null : catatan.trim(),
         tracked_by_device: terekam,
+        ...(pakaiIntensitas && intensitas !== null && intensitas !== log.intensity
+          ? { intensity: intensitas }
+          : {}),
         ...(kalori === undefined ? {} : { calories_burned: kalori }),
       },
       { onSuccess: onClose, onError: (e) => setError(toApiError(e).message) },
@@ -80,9 +94,18 @@ export const WorkoutEditSheet = ({ log, onClose }: WorkoutEditSheetProps) => {
         <Button label="Simpan perubahan" onPress={simpan} loading={update.isPending} size="lg" />
       }
     >
-      <WorkoutMeasureFields measure={measure} value={ukuran} onChange={setUkuran} />
+      <WorkoutMeasureFields
+        measure={measure}
+        value={ukuran}
+        onChange={setUkuran}
+        next={kolomKalori}
+        intensitas={intensitas}
+        onIntensitas={pakaiIntensitas ? setIntensitas : undefined}
+      />
 
       <Input
+        ref={kolomKalori}
+        next={kolomCatatan}
         label="Kalori terbakar"
         value={kaloriDiketik ?? String(log.calories_burned)}
         onChangeText={setKaloriDiketik}
@@ -93,7 +116,7 @@ export const WorkoutEditSheet = ({ log, onClose }: WorkoutEditSheetProps) => {
             ? 'Angka ini disimpan apa adanya dan tidak dihitung ulang.'
             : manual
               ? 'Angka yang kamu isi sendiri. Tidak ikut berubah kalau durasinya diubah.'
-              : 'Taksiran. Ikut menyesuaikan kalau ukurannya diubah, kecuali kamu ketik sendiri.'
+              : 'Taksiran. Ikut menyesuaikan kalau ukuran atau intensitasnya diubah, kecuali kamu ketik sendiri.'
         }
       />
 
@@ -105,6 +128,7 @@ export const WorkoutEditSheet = ({ log, onClose }: WorkoutEditSheetProps) => {
       />
 
       <Input
+        ref={kolomCatatan}
         label="Catatan"
         value={catatan}
         onChangeText={setCatatan}

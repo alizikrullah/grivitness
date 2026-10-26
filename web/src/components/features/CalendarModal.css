@@ -1,0 +1,26 @@
+.kalmodal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-lg);
+}
+
+.kalmodal-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.kalmodal-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+}
+
+.kalmodal-dot-hijau {
+  background: var(--success);
+}
+
+.kalmodal-dot-kuning {
+  background: var(--warning);
+}
