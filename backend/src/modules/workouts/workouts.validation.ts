@@ -36,6 +36,42 @@ const tegakkanUkuran = (data: UkuranSesi, ctx: z.RefinementCtx): void => {
 };
 
 /**
+ * Rincian sesi dari jam tangan atau aplikasi lari, biasanya terisi dari
+ * screenshot (POST /api/workouts/scan). Semuanya opsional.
+ *
+ * duration_seconds adalah durasi persis (44:45 = 2685); kalau diisi,
+ * duration_minutes diturunkan darinya. Pace disimpan apa adanya dari
+ * aplikasinya, karena banyak aplikasi menghitungnya dari waktu bergerak.
+ */
+const rincianSesi = {
+  duration_seconds: z
+    .number({ message: 'Durasi harus berupa angka' })
+    .int('Durasi detik harus bilangan bulat')
+    .min(1, 'Durasi minimal 1 detik')
+    .max(86_400, 'Durasi maksimal 24 jam'),
+  distance_km: z
+    .number({ message: 'Jarak harus berupa angka' })
+    .min(0.01, 'Jarak minimal 0,01 km')
+    .max(500, 'Jarak tidak masuk akal'),
+  pace_seconds_per_km: z
+    .number({ message: 'Pace harus berupa angka' })
+    .int('Pace harus bilangan bulat detik')
+    .min(60, 'Pace tidak masuk akal')
+    .max(3600, 'Pace tidak masuk akal'),
+  avg_hr: z.number().int().min(30, 'HR tidak masuk akal').max(250, 'HR tidak masuk akal'),
+  max_hr: z.number().int().min(30, 'HR tidak masuk akal').max(250, 'HR tidak masuk akal'),
+  avg_cadence: z
+    .number()
+    .int()
+    .min(10, 'Kadens tidak masuk akal')
+    .max(300, 'Kadens tidak masuk akal'),
+  step_count: z.number().int().min(0).max(200_000, 'Langkah tidak masuk akal'),
+  elevation_gain_m: z.number().int().min(0).max(10_000, 'Elevasi tidak masuk akal'),
+  training_effect: z.number().min(0).max(10, 'Training effect tidak masuk akal'),
+  started_at: z.iso.datetime({ offset: true, message: 'started_at harus timestamp ISO 8601' }),
+};
+
+/**
  * Sebuah log olahraga bisa bersumber dari tiga tempat, dan sumbernya menentukan
  * dari mana NAMANYA berasal:
  *
@@ -131,6 +167,17 @@ export const CreateWorkoutSchema = z
      */
     tracked_by_device: z.boolean().optional(),
 
+    duration_seconds: rincianSesi.duration_seconds.optional(),
+    distance_km: rincianSesi.distance_km.optional(),
+    pace_seconds_per_km: rincianSesi.pace_seconds_per_km.optional(),
+    avg_hr: rincianSesi.avg_hr.optional(),
+    max_hr: rincianSesi.max_hr.optional(),
+    avg_cadence: rincianSesi.avg_cadence.optional(),
+    step_count: rincianSesi.step_count.optional(),
+    elevation_gain_m: rincianSesi.elevation_gain_m.optional(),
+    training_effect: rincianSesi.training_effect.optional(),
+    started_at: rincianSesi.started_at.optional(),
+
     notes: z.string().trim().max(1000).optional(),
     logged_at: dateString.optional(),
   })
@@ -150,6 +197,7 @@ export const CreateWorkoutSchema = z
 
     if (
       data.duration_minutes === undefined &&
+      data.duration_seconds === undefined &&
       data.reps === undefined &&
       data.hold_seconds === undefined
     ) {
@@ -212,6 +260,18 @@ export const UpdateWorkoutSchema = z
     intensity: z.enum(WORKOUT_INTENSITY).optional(),
     tracked_by_device: z.boolean().optional(),
     notes: z.string().trim().max(1000).nullable().optional(),
+
+    // Null menghapus nilainya, mis. HR yang salah baca dari screenshot.
+    duration_seconds: rincianSesi.duration_seconds.optional(),
+    distance_km: rincianSesi.distance_km.nullable().optional(),
+    pace_seconds_per_km: rincianSesi.pace_seconds_per_km.nullable().optional(),
+    avg_hr: rincianSesi.avg_hr.nullable().optional(),
+    max_hr: rincianSesi.max_hr.nullable().optional(),
+    avg_cadence: rincianSesi.avg_cadence.nullable().optional(),
+    step_count: rincianSesi.step_count.nullable().optional(),
+    elevation_gain_m: rincianSesi.elevation_gain_m.nullable().optional(),
+    training_effect: rincianSesi.training_effect.nullable().optional(),
+    started_at: rincianSesi.started_at.nullable().optional(),
   })
   .superRefine((data, ctx) => {
     tegakkanUkuran(data, ctx);

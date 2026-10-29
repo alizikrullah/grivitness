@@ -42,7 +42,8 @@ beforeAll(async () => {
 
   const pushUp = cari('Push Up');
   const plank = cari('Plank');
-  const jalan = cari('Jalan Cepat');
+  // Jalan (dulu Jalan Santai) tanpa jarak: menit x kkal/menit library.
+  const jalan = cari('Jalan');
   if (!pushUp || !plank || !jalan) throw new Error('library belum di-seed');
 
   expect(pushUp.measure).toBe('REPS');
@@ -117,9 +118,9 @@ describe('olahraga repetisi', () => {
     expect(res.status).toBe(201);
     expect(res.body.data.duration_minutes).toBe(30);
     expect(res.body.data.sets).toBeNull();
-    // Sedang = 75% waktu bergerak, sisanya jeda 1,3 MET (0,3675 kkal/menit @70 kg):
-    // (0,75 x 4,90 + 0,25 x 0,3675) x 30 x 80/70 = 129. Tanpa intensitas 168.
-    expect(res.body.data.calories_burned).toBe(129);
+    // Sedang = 75% waktu bergerak, sisanya jeda 1,3 MET (0,37 kkal/menit @70 kg):
+    // (0,75 x 2,45 + 0,25 x 0,37) x 30 x 80/70 = 66. Tanpa intensitas 84.
+    expect(res.body.data.calories_burned).toBe(66);
   });
 
   it('menolak ulangan dan detik tahan bersamaan, dan sesi tanpa ukuran sama sekali', async () => {

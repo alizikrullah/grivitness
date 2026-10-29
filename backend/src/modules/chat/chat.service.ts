@@ -11,8 +11,10 @@ import type { FoodAnalysis } from '../../utils/food-math.js';
 import { toNumber } from '../../utils/number.js';
 import * as foodService from '../food/food.service.js';
 import * as goalsService from '../goals/goals.service.js';
+import * as sickService from '../sick-periods/sick-periods.service.js';
 import * as summaryService from '../summary/summary.service.js';
 import * as usersService from '../users/users.service.js';
+import * as workoutsService from '../workouts/workouts.service.js';
 
 /**
  * Aturan yang diberikan ke model.
@@ -77,14 +79,16 @@ MAKANAN:
 8. Bawaan: bahan Indonesia sehari-hari dan murah (telur, tempe, tahu, ayam, ikan kembung, tongkol, sarden kaleng, nasi, sayur pasar, buah lokal). Salmon, whey, almond, yoghurt Yunani, oatmeal hanya kalau dia menyebutnya duluan.
 9. Kalau dia menolak satu item, ganti item ITU saja, jangan cetak ulang seluruh hari.
 10. Makro per item hanya kalau dia minta rinci. Bawaannya nama, porsi, perkiraan kalori dan protein.
+11. Hari SAKIT di DATA ditandai dia sendiri. Olahraga, langkah, dan kalori keluar yang turun di hari itu wajar, jangan dibahas sebagai kekurangan. Berat yang naik waktu sakit biasanya air. Selama masih sakit, utamakan pemulihan (minum, protein, tidur), jangan menyuruh mengejar defisit.
+12. LARI DAN JALAN di DATA dari jam tangannya. Kalau dia tanya perkembangan, bandingkan pace, jarak, dan HR antarsesi apa adanya; pace lebih cepat di HR yang sama atau lebih rendah berarti kebugarannya naik. Jangan menghitung pace sendiri.
 
 GAYA:
 
-11. Ikuti bahasa dia. Gua/lu dibalas gua/lu, konsisten (bukan "gue"). Aku/kamu dibalas aku/kamu. Tidak pernah "saya" atau "Anda".
-12. Langsung ke isi. Tanpa "Maaf,", "Tentu!", "Baik,". Tanpa penutup "Semangat!", "Semoga membantu", atau ajakan bertanya lagi.
-13. Jawab yang ditanya saja.
-14. Kalimat pendek seperti chat ke teman yang paham gizi. Sekitar 60 sampai 120 kata, lebih panjang hanya kalau diminta rinci.
-15. Teks biasa: tanpa em dash (pakai koma atau titik), tanpa markdown (tanpa bintang, tanpa pagar; daftar pakai tanda hubung), satuan "kkal", tulis "sekitar" bukan simbol, tanpa panah, ribuan pakai titik (1.695), desimal pakai koma (0,6).
+13. Ikuti bahasa dia. Gua/lu dibalas gua/lu, konsisten (bukan "gue"). Aku/kamu dibalas aku/kamu. Tidak pernah "saya" atau "Anda".
+14. Langsung ke isi. Tanpa "Maaf,", "Tentu!", "Baik,". Tanpa penutup "Semangat!", "Semoga membantu", atau ajakan bertanya lagi.
+15. Jawab yang ditanya saja.
+16. Kalimat pendek seperti chat ke teman yang paham gizi. Sekitar 60 sampai 120 kata, lebih panjang hanya kalau diminta rinci.
+17. Teks biasa: tanpa em dash (pakai koma atau titik), tanpa markdown (tanpa bintang, tanpa pagar; daftar pakai tanda hubung), satuan "kkal", tulis "sekitar" bukan simbol, tanpa panah, ribuan pakai titik (1.695), desimal pakai koma (0,6).
 
 CONTOH GAYA YANG BENAR:
 
@@ -106,6 +110,33 @@ const angka = (n: number): string => n.toLocaleString('id-ID');
 const LANGKAH_TAMBAHAN_MAKS = 6000;
 
 const menit = (m: number): string => `${Math.floor(m / 60)} jam ${m % 60} menit`;
+
+/** 684 detik per km jadi "11:24". */
+const pace = (detik: number): string =>
+  `${String(Math.floor(detik / 60))}:${String(detik % 60).padStart(2, '0')}`;
+
+/** 2685 detik jadi "44:45", 3723 jadi "1:02:03". */
+const durasiSesi = (detik: number): string => {
+  const j = Math.floor(detik / 3600);
+  const m = Math.floor((detik % 3600) / 60);
+  const d = String(detik % 60).padStart(2, '0');
+  return j > 0 ? `${String(j)}:${String(m).padStart(2, '0')}:${d}` : `${String(m)}:${d}`;
+};
+
+/** Bahan lembar fakta di luar ringkasan harian dan mingguan. */
+export interface FaktaTambahan {
+  /** Rentang sakit yang ditandai user, 30 hari terakhir. */
+  sakit?: { start_date: string; end_date: string | null }[];
+  /** Lari dan jalan berjarak 60 hari terakhir, terbaru dulu. */
+  jarak?: {
+    logged_at: string;
+    distance_kind: 'RUN' | 'WALK';
+    distance_km: number;
+    duration_seconds: number;
+    pace_seconds_per_km: number | null;
+    avg_hr: number | null;
+  }[];
+}
 
 const MEAL_LABEL: Record<FoodLogRecord['meal_type'], string> = {
   BREAKFAST: 'Sarapan',
@@ -151,6 +182,7 @@ export const susunFakta = (
   makanan: foodService.FoodDay | null,
   badan: BodyComparisonRecord | null,
   jam: string = jamWIB(),
+  tambahan: FaktaTambahan = {},
 ): string => {
   const b: string[] = [];
 
@@ -378,6 +410,29 @@ export const susunFakta = (
     );
   }
 
+  // Tanda sakit dari user sendiri. Tanpa ini model membaca olahraga yang
+  // berhenti dan berat yang naik sebagai kemunduran, lalu menceramahinya.
+  if (tambahan.sakit && tambahan.sakit.length > 0) {
+    const daftar = tambahan.sakit.map((p) =>
+      p.end_date === null
+        ? `sejak ${p.start_date} dan masih sakit`
+        : p.end_date === p.start_date
+          ? p.start_date
+          : `${p.start_date} sampai ${p.end_date}`,
+    );
+    b.push(`Hari sakit yang dia tandai: ${daftar.join('; ')}.`);
+  }
+
+  if (tambahan.jarak && tambahan.jarak.length > 0) {
+    const sesi = tambahan.jarak.map((o) => {
+      const jenis = o.distance_kind === 'RUN' ? 'lari' : 'jalan';
+      const pc = o.pace_seconds_per_km === null ? '' : `, pace ${pace(o.pace_seconds_per_km)}/km`;
+      const hr = o.avg_hr === null ? '' : `, HR ${String(o.avg_hr)}`;
+      return `${o.logged_at} ${jenis} ${String(o.distance_km).replace('.', ',')} km, ${durasiSesi(o.duration_seconds)}${pc}${hr}`;
+    });
+    b.push(`Lari dan jalan terakhir (dari jam tangan): ${sesi.join('; ')}.`);
+  }
+
   return b.join('\n');
 };
 
@@ -417,7 +472,8 @@ const ambilProfil = async (userId: string): Promise<usersService.ProfileWithDeri
  *
  * Simbol kira-kira jadi kata "sekitar", panah jadi titik dua, "kcal" jadi
  * "kkal", dan ribuan yang dipisah spasi (1 695) jadi titik. Semuanya terlihat
- * di smoke:chat setelah aturan 12 ditulis, jadi aturannya jelas tidak cukup.
+ * di smoke:chat setelah aturan gaya "teks biasa" ditulis, jadi aturannya jelas
+ * tidak cukup.
  */
 export const rapikanBalasan = (teks: string): string =>
   teks
@@ -493,18 +549,44 @@ export const clearHistory = async (userId: string): Promise<{ deleted: number }>
 export const kumpulkanFakta = async (userId: string): Promise<string> => {
   const hariIni = todayInJakarta();
 
-  const [harian, pekan, riwayat, profil, goal, makanan, badan] = await Promise.all([
-    summaryService.getDaily(userId, hariIni),
-    // Tanpa argumen, getWeekly memakai tujuh hari terakhir sampai hari ini.
-    summaryService.getWeekly(userId),
-    summaryService.getHistory(userId, 7),
-    ambilProfil(userId),
-    goalsService.getActive(userId),
-    foodService.getToday(userId),
-    forUser(userId).findOne('body_comparisons', { sort: ['-to_date', '-created_at'] }),
-  ]);
+  const geser = (hari: number): string =>
+    new Date(new Date(`${hariIni}T00:00:00Z`).getTime() + hari * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
 
-  return susunFakta(harian, pekan, riwayat, profil, goal, makanan, badan);
+  const [harian, pekan, riwayat, profil, goal, makanan, badan, sakit, olahraga] = await Promise.all(
+    [
+      summaryService.getDaily(userId, hariIni),
+      // Tanpa argumen, getWeekly memakai tujuh hari terakhir sampai hari ini.
+      summaryService.getWeekly(userId),
+      summaryService.getHistory(userId, 7),
+      ambilProfil(userId),
+      goalsService.getActive(userId),
+      foodService.getToday(userId),
+      forUser(userId).findOne('body_comparisons', { sort: ['-to_date', '-created_at'] }),
+      sickService.getRange(userId, { from: geser(-29), to: hariIni }),
+      workoutsService.getRange(userId, { from: geser(-59), to: hariIni }),
+    ],
+  );
+
+  // Lima sesi lari atau jalan terakhir yang jaraknya tercatat.
+  const jarak = olahraga
+    .filter((o) => o.distance_kind !== null && o.distance_km !== null)
+    .sort((a, b) => b.logged_at.localeCompare(a.logged_at))
+    .slice(0, 5)
+    .map((o) => ({
+      logged_at: o.logged_at,
+      distance_kind: o.distance_kind ?? 'RUN',
+      distance_km: toNumber(o.distance_km ?? '0'),
+      duration_seconds: o.duration_seconds ?? o.duration_minutes * 60,
+      pace_seconds_per_km: o.pace_seconds_per_km,
+      avg_hr: o.avg_hr,
+    }));
+
+  return susunFakta(harian, pekan, riwayat, profil, goal, makanan, badan, jamWIB(), {
+    sakit,
+    jarak,
+  });
 };
 
 export const reply = async (userId: string, pesanBaru: string): Promise<{ reply: string }> => {

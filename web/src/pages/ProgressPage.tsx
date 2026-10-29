@@ -6,8 +6,15 @@ import { metricColors } from '@/constants/colors';
 import { useWeeklySummary } from '@/services/misc.service';
 import { useStepsRange } from '@/services/steps.service';
 import { useWeightRange } from '@/services/weight.service';
+import { useWorkoutsRange } from '@/services/workouts.service';
+import type { DistanceKind } from '@/types';
 import { dateRange, dayLabel, shiftDays, shortDate, todayWIB } from '@/utils/date';
-import { duration, kg, signed, thousands, toNum } from '@/utils/format';
+import { duration, kg, km, pace, signed, thousands, toNum } from '@/utils/format';
+
+/** Sesi yang digambar di grafik lari dan jalan, terbaru di kanan. */
+const SESI_DIGAMBAR = 12;
+/** Pace terbaik cuma dari sesi minimal sejauh ini: lari 300 m bukan rekor. */
+const JARAK_MIN_REKOR_KM = 1;
 
 const RENTANG = [
   { hari: 7, label: '7 hari' },
@@ -24,6 +31,39 @@ export const ProgressPage = () => {
   const berat = useWeightRange(awal, hariIni);
   const langkah = useStepsRange(awal, hariIni);
   const mingguan = useWeeklySummary(shiftDays(hariIni, -6));
+
+  /**
+   * Lari dan jalan: setengah tahun terakhir, supaya grafik perkembangan dan
+   * rekornya tidak ikut terpotong pilihan rentang. Yang mengikuti rentang
+   * cuma total jarak dan jumlah sesinya. Padanan mobile.
+   */
+  const olahraga = useWorkoutsRange(shiftDays(hariIni, -179), hariIni);
+  const [jenisPilihan, setJenisPilihan] = useState<DistanceKind>('RUN');
+  const sesiJarak = (olahraga.data ?? [])
+    .filter((o) => o.distance_kind !== null && o.distance_km !== null)
+    .sort((a, b) =>
+      a.logged_at === b.logged_at
+        ? (a.started_at ?? a.created_at ?? '').localeCompare(b.started_at ?? b.created_at ?? '')
+        : a.logged_at.localeCompare(b.logged_at),
+    );
+  const adaLari = sesiJarak.some((o) => o.distance_kind === 'RUN');
+  const adaJalan = sesiJarak.some((o) => o.distance_kind === 'WALK');
+  const jenisTampil: DistanceKind = adaLari && adaJalan ? jenisPilihan : adaLari ? 'RUN' : 'WALK';
+  const sesiJenis = sesiJarak.filter((o) => o.distance_kind === jenisTampil);
+  const sesiTerakhir = sesiJenis.slice(-SESI_DIGAMBAR);
+  const sesiRentang = sesiJenis.filter((o) => o.logged_at >= awal);
+  const jarakSesi = (o: (typeof sesiJenis)[number]) => toNum(o.distance_km) ?? 0;
+  const totalKm = sesiRentang.reduce((s, o) => s + jarakSesi(o), 0);
+  const paceRekor = sesiJenis
+    .filter((o) => o.pace_seconds_per_km !== null && jarakSesi(o) >= JARAK_MIN_REKOR_KM)
+    .reduce<number | null>(
+      (terbaik, o) =>
+        terbaik === null || (o.pace_seconds_per_km ?? Infinity) < terbaik
+          ? o.pace_seconds_per_km
+          : terbaik,
+      null,
+    );
+  const terjauh = sesiJenis.reduce((m, o) => Math.max(m, jarakSesi(o)), 0);
 
   const titikBerat = dateRange(awal, hariIni).map((tanggal) => ({
     label: shortDate(tanggal),
@@ -115,6 +155,74 @@ export const ProgressPage = () => {
           </div>
         )}
       </Card>
+
+      {/* Lari dan jalan dari jam tangan: pace, jarak, dan rekornya. */}
+      {sesiJarak.length > 0 ? (
+        <>
+          <SectionHeader
+            title={jenisTampil === 'RUN' ? 'Lari' : 'Jalan'}
+            action={
+              adaLari && adaJalan ? (
+                <div className="chip-group">
+                  <Chip
+                    label="Lari"
+                    active={jenisTampil === 'RUN'}
+                    onClick={() => setJenisPilihan('RUN')}
+                  />
+                  <Chip
+                    label="Jalan"
+                    active={jenisTampil === 'WALK'}
+                    onClick={() => setJenisPilihan('WALK')}
+                  />
+                </div>
+              ) : null
+            }
+          />
+
+          <Card>
+            <div className="stack">
+              <div className="row">
+                <StatPill
+                  label={String(hari) + ' hari, ' + String(sesiRentang.length) + ' sesi'}
+                  value={km(totalKm) + ' km'}
+                />
+                {paceRekor !== null ? (
+                  <StatPill label="Pace terbaik" value={pace(paceRekor) + '/km'} />
+                ) : null}
+                <StatPill label="Terjauh" value={km(terjauh) + ' km'} />
+              </div>
+
+              {sesiTerakhir.some((o) => o.pace_seconds_per_km !== null) ? (
+                <div className="stack-xs">
+                  <span className="t-overline c-tertiary">Pace per sesi</span>
+                  <TrendChart
+                    data={sesiTerakhir.map((o) => ({
+                      label: shortDate(o.logged_at),
+                      value: o.pace_seconds_per_km,
+                    }))}
+                    color={metricColors.workout}
+                    unit="/km"
+                    reversed
+                    padding={15}
+                    formatValue={pace}
+                  />
+                </div>
+              ) : null}
+
+              <div className="stack-xs">
+                <span className="t-overline c-tertiary">Jarak per sesi, km</span>
+                <HighlightBarChart
+                  data={sesiTerakhir.map((o) => ({
+                    label: shortDate(o.logged_at),
+                    value: Math.round(jarakSesi(o) * 100) / 100,
+                  }))}
+                  color={metricColors.workout}
+                />
+              </div>
+            </div>
+          </Card>
+        </>
+      ) : null}
 
       <SectionHeader title="Rekap tujuh hari terakhir" />
 

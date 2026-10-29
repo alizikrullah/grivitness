@@ -3,7 +3,12 @@ import { forUser } from '../../data/scoped.js';
 import { loadEnergyProfile } from '../../data/energy-profile.js';
 import { hariBelumLengkap } from '../../data/food-day-status.js';
 import { AppError } from '../../utils/api-error.js';
-import { applyOutCorrection, dailyCaloriesOut } from '../../utils/calories.js';
+import {
+  applyOutCorrection,
+  dailyCaloriesOut,
+  type WorkoutForOut,
+  workoutDayTotals,
+} from '../../utils/calories.js';
 import { jakartaDate, todayInJakarta } from '../../utils/daily-key.js';
 import { activePlan, effectiveBudget } from '../goals/goals.service.js';
 import type { CalendarSection } from './summary.validation.js';
@@ -11,6 +16,7 @@ import { toNumber } from '../../utils/number.js';
 import { dateRangeFilter, timestampDayFilter, timestampRangeFilter } from '../../utils/query.js';
 import { type DailyTargets, dailyTargets, waterTargetMl } from '../../utils/targets.js';
 import { type DailyOverview, type OverviewDay, susunOverview } from './overview.js';
+import { tanggalSakit } from '../sick-periods/sick-days.js';
 
 /**
  * Rincian dari mana pengeluaran energi hari itu datang.
@@ -54,6 +60,13 @@ export interface LoggedFlags {
   weight: boolean;
   body_photo: boolean;
   workout: boolean;
+}
+
+/** Rentang sakit, end_date null berarti masih sakit. */
+export interface SickMark {
+  id: string;
+  start_date: string;
+  end_date: string | null;
 }
 
 export interface DailySummary {
@@ -112,6 +125,11 @@ export interface DailySummary {
    */
   logged: LoggedFlags;
   /**
+   * Rentang sakit yang memuat tanggal ini, ditandai user dari halaman Catat.
+   * Cuma TANDA untuk chat dan overview; tidak ada hitungan yang berubah.
+   */
+  sick: SickMark | null;
+  /**
    * Target harian yang diturunkan dari tubuh dan tujuan user.
    *
    * Dikirim dari sini supaya layar tidak perlu menghitung apa pun, dan supaya
@@ -140,16 +158,14 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
     stepLog,
     air,
     tidur,
-    workoutMenit,
-    workoutKalori,
+    olahragaHari,
     mood,
     fotoBadan,
     deviceLog,
-    workoutKaloriLuarDevice,
     gula,
     statusMakan,
     jumlahMakan,
-    jumlahOlahraga,
+    sakit,
   ] = await Promise.all([
     loadEnergyProfile(userId),
     repo.findOne('weight_logs', { filter: hari }),
@@ -161,25 +177,32 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
     repo.findOne('step_logs', { filter: hari }),
     repo.sum('water_logs', 'amount_ml', hariTimestamp),
     repo.sum('sleep_logs', 'duration_minutes', hari),
-    repo.sum('workout_logs', 'duration_minutes', hari),
-    repo.sum('workout_logs', 'calories_burned', hari),
+    // Sesinya diambil, bukan dijumlah Directus: kalori MANUAL (angka total
+    // jam) dan kalori MET (bersih) diperlakukan beda oleh dailyCaloriesOut.
+    // Beberapa sesi sehari, murah.
+    repo.list('workout_logs', {
+      filter: hari,
+      fields: ['duration_minutes', 'calories_burned', 'calories_source', 'tracked_by_device'],
+      limit: -1,
+    }),
     repo.findOne('mood_logs', { filter: hari }),
     repo.count('body_photos', hari),
     repo.findOne('device_energy_logs', { filter: hari }),
-    // Baris lama dibuat sebelum kolom penandanya ada, jadi nilainya null, bukan
-    // false. Memakai _eq: false saja akan melewatkan semuanya dan olahraga yang
-    // seharusnya ditambahkan justru hilang dari hitungan.
-    repo.sum('workout_logs', 'calories_burned', {
-      logged_at: { _eq: date },
-      _or: [{ tracked_by_device: { _eq: false } }, { tracked_by_device: { _null: true } }],
-    }),
     repo.sum('food_logs', 'sugar_g', hariTimestamp),
     repo.findOne('food_day_status', { filter: hari }),
-    // Jumlah baris, bukan kalori: sesi makan 0 kkal (teh tawar) tetap catatan,
-    // dan sesi push up 15 detik tersimpan 0 menit tapi tetap olahraga.
+    // Jumlah baris, bukan kalori: sesi makan 0 kkal (teh tawar) tetap catatan.
     repo.count('food_logs', hariTimestamp),
-    repo.count('workout_logs', hari),
+    // Rentang sakit yang memuat tanggal ini. Cuma tanda, tidak mengubah hitungan.
+    repo.findOne('sick_periods', {
+      filter: {
+        start_date: { _lte: date },
+        _or: [{ end_date: { _null: true } }, { end_date: { _gte: date } }],
+      },
+    }),
   ]);
+
+  // Sesi push up 15 detik tersimpan 0 menit, tapi tetap olahraga.
+  const olahraga = workoutDayTotals(olahragaHari);
 
   const weightKg = weightLog ? toNumber(weightLog.weight_kg) : null;
   const langkah = stepLog?.steps ?? 0;
@@ -211,9 +234,7 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
     bmr: metrics.bmr,
     activityLevel: metrics.activityLevel,
     sleepMinutes: tidur > 0 ? tidur : null,
-    workoutMinutes: workoutMenit,
-    workoutCalories: workoutKalori,
-    untrackedWorkoutCalories: workoutKaloriLuarDevice,
+    ...olahraga,
     device: deviceLog,
   });
 
@@ -255,8 +276,8 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
     steps: langkah,
     water_ml: air,
     sleep_minutes: tidur,
-    workout_minutes: workoutMenit,
-    workout_calories: workoutKalori,
+    workout_minutes: olahraga.workoutMinutes,
+    workout_calories: olahraga.workoutCalories,
     mood_score: mood?.mood_score ?? null,
     energy_score: mood?.energy_score ?? null,
     has_body_photo: fotoBadan > 0,
@@ -269,8 +290,12 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
       device: deviceLog !== null,
       weight: weightLog !== null,
       body_photo: fotoBadan > 0,
-      workout: jumlahOlahraga > 0,
+      workout: olahragaHari.length > 0,
     },
+    sick:
+      sakit === null
+        ? null
+        : { id: sakit.id, start_date: sakit.start_date, end_date: sakit.end_date },
     targets: dailyTargets({
       weightKg: beratHitung,
       age: metrics.age,
@@ -279,7 +304,7 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
       // Defisit dibandingkan dengan TDEE hari biasa, bukan keluar hari ini:
       // target protein tidak boleh berayun mengikuti olahraga hari itu.
       isDeficit: budget !== null && metrics.baselineTdee !== null && budget < metrics.baselineTdee,
-      workoutMinutes: workoutMenit,
+      workoutMinutes: olahraga.workoutMinutes,
       customStepTarget: metrics.stepTarget,
     }),
   };
@@ -542,7 +567,13 @@ export const getHistory = async (userId: string, days: number): Promise<HistoryS
     }),
     repo.list('workout_logs', {
       filter: dateRangeFilter(range),
-      fields: ['logged_at', 'duration_minutes', 'calories_burned', 'tracked_by_device'],
+      fields: [
+        'logged_at',
+        'duration_minutes',
+        'calories_burned',
+        'calories_source',
+        'tracked_by_device',
+      ],
       limit: -1,
     }),
     repo.list('sleep_logs', {
@@ -562,9 +593,7 @@ export const getHistory = async (userId: string, days: number): Promise<HistoryS
     masuk: number;
     adaMakan: boolean;
     tidur: number;
-    menitOlahraga: number;
-    kaloriOlahraga: number;
-    kaloriOlahragaTanpaJam: number;
+    olahraga: WorkoutForOut[];
     perangkat: { total_kcal: number; active_kcal: number | null } | null;
   }
 
@@ -572,15 +601,7 @@ export const getHistory = async (userId: string, days: number): Promise<HistoryS
   const ambil = (tanggal: string): Harian => {
     let h = perHari.get(tanggal);
     if (!h) {
-      h = {
-        masuk: 0,
-        adaMakan: false,
-        tidur: 0,
-        menitOlahraga: 0,
-        kaloriOlahraga: 0,
-        kaloriOlahragaTanpaJam: 0,
-        perangkat: null,
-      };
+      h = { masuk: 0, adaMakan: false, tidur: 0, olahraga: [], perangkat: null };
       perHari.set(tanggal, h);
     }
     return h;
@@ -593,13 +614,7 @@ export const getHistory = async (userId: string, days: number): Promise<HistoryS
     h.masuk += m.total_calories;
     h.adaMakan = true;
   }
-  for (const o of olahraga) {
-    const h = ambil(o.logged_at);
-    h.menitOlahraga += o.duration_minutes;
-    h.kaloriOlahraga += o.calories_burned;
-    // Baris lama punya null, artinya tidak terekam jam, sama seperti di getDaily.
-    if (o.tracked_by_device !== true) h.kaloriOlahragaTanpaJam += o.calories_burned;
-  }
+  for (const o of olahraga) ambil(o.logged_at).olahraga.push(o);
   for (const t of tidur) ambil(t.logged_at).tidur += t.duration_minutes;
   for (const p of perangkat) {
     ambil(p.logged_at).perangkat = { total_kcal: p.total_kcal, active_kcal: p.active_kcal };
@@ -616,9 +631,7 @@ export const getHistory = async (userId: string, days: number): Promise<HistoryS
       bmr: metrics.bmr,
       activityLevel: metrics.activityLevel,
       sleepMinutes: h.tidur > 0 ? h.tidur : null,
-      workoutMinutes: h.menitOlahraga,
-      workoutCalories: h.kaloriOlahraga,
-      untrackedWorkoutCalories: h.kaloriOlahragaTanpaJam,
+      ...workoutDayTotals(h.olahraga),
       device: h.perangkat,
     });
     // Koreksi timbangan yang sama dengan getDaily, supaya kedua layar tetap
@@ -693,6 +706,7 @@ export const getOverview = async (userId: string): Promise<DailyOverview> => {
     perangkat,
     timbang,
     belumLengkap,
+    periodeSakit,
   ] = await Promise.all([
     loadEnergyProfile(userId),
     repo.findOne('goals', { filter: { is_active: { _eq: true } } }),
@@ -713,7 +727,13 @@ export const getOverview = async (userId: string): Promise<DailyOverview> => {
     }),
     repo.list('workout_logs', {
       filter: dateRangeFilter(pekan),
-      fields: ['logged_at', 'duration_minutes', 'calories_burned', 'tracked_by_device'],
+      fields: [
+        'logged_at',
+        'duration_minutes',
+        'calories_burned',
+        'calories_source',
+        'tracked_by_device',
+      ],
       limit: -1,
     }),
     repo.list('sleep_logs', {
@@ -732,7 +752,19 @@ export const getOverview = async (userId: string): Promise<DailyOverview> => {
       limit: -1,
     }),
     hariBelumLengkap(userId, pekan),
+    repo.list('sick_periods', {
+      filter: {
+        start_date: { _lte: hariIni },
+        _or: [{ end_date: { _null: true } }, { end_date: { _gte: awal } }],
+      },
+      fields: ['id', 'start_date', 'end_date'],
+      limit: -1,
+    }),
   ]);
+
+  // Hari yang ditandai sakit: olahraga dan langkahnya tidak dinilai, kalimat
+  // berat menyebutnya. Tidak ada angka yang dikeluarkan dari hitungan.
+  const hariSakit = tanggalSakit(periodeSakit, awal, hariIni, hariIni);
 
   interface Harian {
     masuk: number;
@@ -742,9 +774,7 @@ export const getOverview = async (userId: string): Promise<DailyOverview> => {
     air: number;
     langkah: number | null;
     tidur: number;
-    menitOlahraga: number;
-    kaloriOlahraga: number;
-    kaloriOlahragaTanpaJam: number;
+    olahraga: WorkoutForOut[];
     perangkat: { total_kcal: number; active_kcal: number | null } | null;
   }
 
@@ -760,9 +790,7 @@ export const getOverview = async (userId: string): Promise<DailyOverview> => {
         air: 0,
         langkah: null,
         tidur: 0,
-        menitOlahraga: 0,
-        kaloriOlahraga: 0,
-        kaloriOlahragaTanpaJam: 0,
+        olahraga: [],
         perangkat: null,
       };
       perHari.set(tanggal, h);
@@ -790,13 +818,7 @@ export const getOverview = async (userId: string): Promise<DailyOverview> => {
     ambil(jakartaDate(a.logged_at)).air += a.amount_ml;
   }
   for (const l of langkah) ambil(l.logged_at).langkah = l.steps;
-  for (const o of olahraga) {
-    const h = ambil(o.logged_at);
-    h.menitOlahraga += o.duration_minutes;
-    h.kaloriOlahraga += o.calories_burned;
-    // Baris lama punya null, artinya tidak terekam jam, sama seperti di getDaily.
-    if (o.tracked_by_device !== true) h.kaloriOlahragaTanpaJam += o.calories_burned;
-  }
+  for (const o of olahraga) ambil(o.logged_at).olahraga.push(o);
   for (const t of tidur) ambil(t.logged_at).tidur += t.duration_minutes;
   for (const p of perangkat) {
     ambil(p.logged_at).perangkat = { total_kcal: p.total_kcal, active_kcal: p.active_kcal };
@@ -806,13 +828,12 @@ export const getOverview = async (userId: string): Promise<DailyOverview> => {
   for (let i = 0; i < 7; i++) {
     const tanggal = geserHari(awal, i);
     const h = ambil(tanggal);
+    const olahragaHari = workoutDayTotals(h.olahraga);
     const keluar = dailyCaloriesOut({
       bmr: metrics.bmr,
       activityLevel: metrics.activityLevel,
       sleepMinutes: h.tidur > 0 ? h.tidur : null,
-      workoutMinutes: h.menitOlahraga,
-      workoutCalories: h.kaloriOlahraga,
-      untrackedWorkoutCalories: h.kaloriOlahragaTanpaJam,
+      ...olahragaHari,
       device: h.perangkat,
     });
 
@@ -824,9 +845,10 @@ export const getOverview = async (userId: string): Promise<DailyOverview> => {
       protein_g: Math.round(h.protein * 10) / 10,
       sugar_g: Math.round(h.gula * 10) / 10,
       water_ml: h.air,
-      water_target_ml: waterTargetMl(metrics.weightKg, metrics.age, h.menitOlahraga),
+      water_target_ml: waterTargetMl(metrics.weightKg, metrics.age, olahragaHari.workoutMinutes),
       steps: h.langkah,
-      workout_minutes: h.menitOlahraga,
+      workout_minutes: olahragaHari.workoutMinutes,
+      sick: hariSakit.has(tanggal),
     });
   }
 
@@ -858,6 +880,7 @@ export const getOverview = async (userId: string): Promise<DailyOverview> => {
     proteinTarget: targets.macros?.protein_g ?? null,
     sugarMax: targets.sugar_max_g,
     budget,
+    sickDays: [...hariSakit],
     weights: timbang.map((w) => ({ date: w.logged_at, kg: toNumber(w.weight_kg) })),
     plannedWeeklyRate: goal ? (activePlan(goal, metrics)?.weekly_rate_kg ?? null) : null,
     losing: goal ? toNumber(goal.target_weight_kg) < metrics.weightKg : null,

@@ -5,7 +5,7 @@ import { ChipGroup, Input, Stepper, Text } from '@/components/ui';
 import { INTENSITY_HINT, INTENSITY_LABEL, INTENSITY_OPTIONS } from '@/constants/labels';
 import { spacing } from '@/constants/theme';
 import type { WorkoutIntensity, WorkoutLog, WorkoutMeasure } from '@/types';
-import { duration, toNum } from '@/utils/format';
+import { clock, duration, km, pace, toNum } from '@/utils/format';
 
 /**
  * Isian ukuran satu sesi olahraga, mengikuti cara olahraganya diukur.
@@ -101,6 +101,15 @@ export const ukuranKeBody = (
 
 /** "3 x 12", "3 x 12 @ 40 kg", "3 x 45 dtk", atau "30m". Bukan "0 menit". */
 export const ringkasSesi = (log: WorkoutLog): string => {
+  // Lari dan jalan: jarak, durasi persis, dan pace, cara jam tangan menulisnya.
+  if (log.distance_km !== null) {
+    const bagian = [
+      km(toNum(log.distance_km) ?? 0) + ' km',
+      clock(log.duration_seconds ?? log.duration_minutes * 60),
+    ];
+    if (log.pace_seconds_per_km !== null) bagian.push(pace(log.pace_seconds_per_km) + '/km');
+    return bagian.join(' · ');
+  }
   if (log.reps !== null) {
     const beban = toNum(log.load_kg);
     return `${log.sets ?? 1} x ${log.reps}${beban ? ` @ ${beban} kg` : ''}`;

@@ -16,6 +16,9 @@ export type ActivityLevel =
 
 export type MealType = 'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACK';
 export type WorkoutIntensity = 'LOW' | 'MEDIUM' | 'HIGH';
+
+/** Olahraga berjarak di library: Lari atau Jalan. */
+export type DistanceKind = 'RUN' | 'WALK';
 export type WorkoutCategory = 'CARDIO' | 'STRENGTH' | 'FLEXIBILITY' | 'SPORTS' | 'OTHER';
 
 export interface ApiSuccess<T> {
@@ -434,13 +437,56 @@ export interface WorkoutLog {
    * Null cuma pada baris lama dari sebelum kolom ini ada, artinya MET.
    */
   calories_source: 'MET' | 'MANUAL' | null;
-  /** Tidak lagi ditanyakan form; terisi hanya di catatan lama. */
+  /**
+   * Porsi waktu bergerak untuk olahraga berukuran menit (Rendah 50%, Sedang
+   * 75%, Tinggi 90%). Null berarti dianggap bergerak terus.
+   */
   intensity: WorkoutIntensity | null;
   /** true kalau sesi ini sudah ikut terhitung di angka smartwatch hari itu. */
   tracked_by_device: boolean;
+  /** Durasi persis, detik. Null kalau cuma menitnya yang diketahui. */
+  duration_seconds: number | null;
+  distance_km: DecimalString | null;
+  /** Pace rata-rata, detik per km, apa adanya dari aplikasi lari. */
+  pace_seconds_per_km: number | null;
+  avg_hr: number | null;
+  max_hr: number | null;
+  avg_cadence: number | null;
+  step_count: number | null;
+  elevation_gain_m: number | null;
+  training_effect: DecimalString | null;
+  started_at: string | null;
+  /** RUN atau WALK kalau olahraganya Lari atau Jalan dari library. */
+  distance_kind: DistanceKind | null;
   notes: string | null;
   logged_at: DateString;
   created_at: string | null;
+}
+
+/**
+ * Hasil membaca screenshot aplikasi jam atau aplikasi lari. Cuma isian form,
+ * belum tersimpan apa pun.
+ */
+export interface WorkoutScanResult {
+  workout_library_id: string | null;
+  workout_name: string | null;
+  activity_label: string | null;
+  distance_kind: DistanceKind | null;
+  measure: WorkoutMeasure | null;
+  logged_at: DateString | null;
+  started_at: string | null;
+  duration_seconds: number | null;
+  distance_km: number | null;
+  pace_seconds_per_km: number | null;
+  avg_hr: number | null;
+  max_hr: number | null;
+  avg_cadence: number | null;
+  step_count: number | null;
+  elevation_gain_m: number | null;
+  training_effect: number | null;
+  /** Kalori TOTAL sesi, termasuk istirahatnya, seperti angka di jam. */
+  calories_total: number | null;
+  warnings: string[];
 }
 
 export interface DeviceEnergyLog {
@@ -483,10 +529,15 @@ export interface WorkoutLibraryItem {
   measure: WorkoutMeasure;
   /** Perkiraan detik satu ulangan untuk REPS. Null berarti bawaan 3 detik. */
   seconds_per_rep: number | null;
+  /** RUN/WALK: form menanyakan jarak, pace, dan HR, kalori dari kecepatannya. */
+  distance_kind: DistanceKind | null;
   description: string | null;
 }
 
-export interface CustomWorkout extends Omit<WorkoutLibraryItem, 'met' | 'seconds_per_rep'> {
+export interface CustomWorkout extends Omit<
+  WorkoutLibraryItem,
+  'met' | 'seconds_per_rep' | 'distance_kind'
+> {
   user_id: string;
 }
 
@@ -537,6 +588,13 @@ export interface EnergyBreakdown {
    * berarti dikurangi). Null selama pengukurannya belum layak.
    */
   scale_correction: number | null;
+}
+
+/** Rentang sakit. end_date null berarti masih sakit. */
+export interface SickMark {
+  id: string;
+  start_date: DateString;
+  end_date: DateString | null;
 }
 
 /** Catatan mana yang ADA di satu tanggal, untuk halaman Catat per tanggal. */
@@ -619,6 +677,11 @@ export interface DailySummary {
   has_body_photo: boolean;
   /** Dibedakan dari angkanya: langkah 0 dan langkah yang tidak dicatat sama-sama 0. */
   logged: LoggedFlags;
+  /**
+   * Rentang sakit yang memuat tanggal ini, ditandai sendiri dari halaman
+   * Catat. Cuma tanda untuk chat dan overview, tidak mengubah hitungan.
+   */
+  sick: SickMark | null;
   targets: DailyTargets;
 }
 

@@ -66,5 +66,36 @@ export const usePhotoPicker = () => {
     [jalankan],
   );
 
-  return { dariKamera, dariGaleri, sibuk };
+  /**
+   * Beberapa gambar sekaligus dari galeri, mis. tiga tab screenshot satu sesi
+   * lari. Mengembalikan daftar kosong kalau dibatalkan.
+   */
+  const dariGaleriBanyak = useCallback(async (maks: number): Promise<string[]> => {
+    setSibuk(true);
+
+    try {
+      const izin = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!izin.granted) {
+        Alert.alert(
+          'Izin diperlukan',
+          'GriviTness butuh izin galeri untuk memilih screenshot. Aktifkan di pengaturan perangkat.',
+        );
+        return [];
+      }
+
+      const hasil = await ImagePicker.launchImageLibraryAsync({
+        ...OPSI,
+        allowsMultipleSelection: true,
+        selectionLimit: maks,
+      });
+      if (hasil.canceled) return [];
+
+      return hasil.assets.slice(0, maks).map((a) => a.uri);
+    } finally {
+      setSibuk(false);
+    }
+  }, []);
+
+  return { dariKamera, dariGaleri, dariGaleriBanyak, sibuk };
 };

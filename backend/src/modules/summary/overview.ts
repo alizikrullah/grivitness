@@ -68,6 +68,8 @@ export interface OverviewDay {
   /** Null kalau langkah hari itu tidak dicatat. */
   steps: number | null;
   workout_minutes: number;
+  /** Ditandai sakit oleh user: olahraga dan langkahnya tidak dinilai. */
+  sick: boolean;
 }
 
 export interface OverviewInput {
@@ -86,6 +88,8 @@ export interface OverviewInput {
   proteinTarget: number | null;
   sugarMax: number;
   budget: number | null;
+  /** Tanggal bertanda sakit dari tujuh hari lalu sampai hari ini. */
+  sickDays: string[];
   /** Penimbangan dari tujuh hari lalu sampai hari ini. */
   weights: { date: string; kg: number }[];
   /** Laju rencana, kg per minggu, positif. Null tanpa rencana otomatis. */
@@ -371,18 +375,33 @@ const gula = (input: OverviewInput): OverviewItem | null => {
   };
 };
 
-const olahraga = (input: OverviewInput): OverviewItem => {
+/** " 2 hari sakit tidak dinilai." atau kosong. */
+const catatanSakit = (jumlah: number): string =>
+  jumlah > 0 ? ` ${String(jumlah)} hari sakit tidak dinilai.` : '';
+
+const olahraga = (input: OverviewInput): OverviewItem | null => {
+  // Hari sakit tidak dinilai: anjuran WHO dipotong sebanding dengan hari
+  // sehatnya. Sesi yang tetap dilakukan saat sakit tetap dihitung.
+  const sakit = input.days.filter((d) => d.sick).length;
+  const sehat = input.days.length - sakit;
+  if (sehat <= 0) return null;
+
+  const anjuran = Math.round((OLAHRAGA_ANJURAN_MENIT * sehat) / 7);
   const total = input.days.reduce((s, d) => s + d.workout_minutes, 0);
   const hari = input.days.filter((d) => d.workout_minutes > 0).length;
+  const sumber =
+    sakit > 0
+      ? `Anjuran WHO 150 menit per minggu, jadi ${durasi(anjuran)} untuk ${String(sehat)} hari sehat`
+      : 'Anjuran WHO minimal 150 menit per minggu';
 
-  if (total >= OLAHRAGA_ANJURAN_MENIT) {
+  if (total >= anjuran) {
     return {
       key: 'workout',
       tone: 'good',
       title: 'Olahraga cukup',
       value: durasi(total),
-      detail: `${String(hari)} hari dalam 7 hari terakhir. Anjuran WHO minimal 150 menit per minggu.`,
-      progress: progres(total, OLAHRAGA_ANJURAN_MENIT),
+      detail: `${String(hari)} hari dalam 7 hari terakhir. ${sumber}.${catatanSakit(sakit)}`,
+      progress: progres(total, anjuran),
     };
   }
 
@@ -392,10 +411,10 @@ const olahraga = (input: OverviewInput): OverviewItem => {
     title: total === 0 ? 'Belum ada olahraga' : 'Olahraga kurang',
     value: durasi(total),
     detail:
-      total === 0
+      total === 0 && sakit === 0
         ? 'Dalam 7 hari terakhir. Anjuran WHO minimal 150 menit per minggu, misalnya jalan cepat 30 menit lima kali.'
-        : `Dalam 7 hari terakhir. Anjuran WHO minimal 150 menit per minggu, kurang ${durasi(OLAHRAGA_ANJURAN_MENIT - total)}.`,
-    progress: progres(total, OLAHRAGA_ANJURAN_MENIT),
+        : `Dalam 7 hari terakhir. ${sumber}, kurang ${durasi(anjuran - total)}.${catatanSakit(sakit)}`,
+    progress: progres(total, anjuran),
   };
 };
 
@@ -417,6 +436,7 @@ const berat = (input: OverviewInput): OverviewItem | null => {
   if (laju === null) return null;
 
   const perMinggu = laju * 7;
+  const adaSakit = input.sickDays.length > 0;
   // Positif berarti bergerak ke arah target.
   const maju = input.losing ? -perMinggu : perMinggu;
   const besar = `${koma(Math.abs(perMinggu))} kg/minggu`;
@@ -442,8 +462,9 @@ const berat = (input: OverviewInput): OverviewItem | null => {
       tone: 'warn',
       title: 'Berat datar',
       value: 'Datar',
-      detail:
-        'Tren 7 hari terakhir hampir datar. Kalau berlanjut dua minggu, cek lagi catatan makan.',
+      detail: adaSakit
+        ? 'Tren 7 hari terakhir hampir datar, dan minggu ini ada hari sakit. Lihat lagi sesudah sembuh.'
+        : 'Tren 7 hari terakhir hampir datar. Kalau berlanjut dua minggu, cek lagi catatan makan.',
       progress: null,
     };
   }
@@ -453,8 +474,9 @@ const berat = (input: OverviewInput): OverviewItem | null => {
     tone: 'warn',
     title: input.losing ? 'Berat naik' : 'Berat turun',
     value: besar,
-    detail:
-      'Tren 7 hari terakhir menjauhi target. Naik turun 1 sampai 2 kg karena air itu biasa, lihat lagi minggu depan.',
+    detail: adaSakit
+      ? 'Tren 7 hari terakhir menjauhi target, dan minggu ini ada hari sakit. Berat yang naik waktu sakit biasanya air, lihat lagi sesudah sembuh.'
+      : 'Tren 7 hari terakhir menjauhi target. Naik turun 1 sampai 2 kg karena air itu biasa, lihat lagi minggu depan.',
     progress: null,
   };
 };
@@ -476,8 +498,10 @@ const catatanMakan = (input: OverviewInput): OverviewItem | null => {
 
 const langkah = (input: OverviewInput): OverviewItem | null => {
   // Langkah cuma pantauan, jadi tidak pernah merah, dan tidak dibahas kalau
-  // memang tidak pernah dicatat.
-  const hari = input.days.filter((d): d is OverviewDay & { steps: number } => (d.steps ?? 0) > 0);
+  // memang tidak pernah dicatat. Hari sakit tidak ikut rata-rata.
+  const hari = input.days.filter(
+    (d): d is OverviewDay & { steps: number } => !d.sick && (d.steps ?? 0) > 0,
+  );
   if (hari.length === 0 || input.stepTarget <= 0) return null;
 
   const rataLangkah = rata(hari.map((d) => d.steps));
@@ -493,7 +517,7 @@ const langkah = (input: OverviewInput): OverviewItem | null => {
     tone,
     title: tone === 'good' ? 'Langkah tercapai' : 'Langkah kurang',
     value: ribuan(rataLangkah),
-    detail: `Rata-rata per hari dari target ${ribuan(input.stepTarget)} (${String(hari.length)} hari tercatat).${catatanKemarin}`,
+    detail: `Rata-rata per hari dari target ${ribuan(input.stepTarget)} (${String(hari.length)} hari tercatat).${catatanKemarin}${catatanSakit(input.days.filter((d) => d.sick).length)}`,
     progress: progres(rataLangkah, input.stepTarget),
   };
 };

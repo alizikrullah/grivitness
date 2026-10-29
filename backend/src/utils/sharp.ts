@@ -92,6 +92,41 @@ export const toAnalysisBuffer = async (webp: Buffer): Promise<Buffer> =>
     .toBuffer();
 
 /**
+ * Sisi terpanjang salinan screenshot yang dikirim ke AI.
+ *
+ * Screenshot HP tinggi dan sempit (mis. 886 x 2000). Dikecilkan ke 1024 px
+ * seperti foto, lebarnya tinggal 450 px dan label kecil seperti "Avg heart
+ * rate" jadi sekitar 11 px, terlalu kecil untuk dibaca dengan yakin. 1600 px
+ * menjaga teksnya terbaca dengan biaya sekitar 1.500 token per gambar, masih
+ * jauh di bawah batas 8.000 token per menit untuk tiga gambar.
+ */
+const MAX_DIMENSI_SCREENSHOT_PX = 1600;
+
+/**
+ * Salinan screenshot untuk dibaca model. Tidak pernah disimpan: yang dipakai
+ * dari screenshot cuma angkanya.
+ */
+export const toScreenshotBuffer = async (input: Buffer): Promise<Buffer> => {
+  try {
+    return await sharp(input)
+      .rotate()
+      .resize({
+        width: MAX_DIMENSI_SCREENSHOT_PX,
+        height: MAX_DIMENSI_SCREENSHOT_PX,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .webp({ quality: 85 })
+      .toBuffer();
+  } catch (error) {
+    throw AppError.badRequest(
+      'File tidak bisa dibaca sebagai gambar. Pastikan formatnya JPG, PNG, HEIC, atau WebP.',
+      error instanceof Error ? { reason: error.message } : undefined,
+    );
+  }
+};
+
+/**
  * Menggabungkan dua foto jadi satu gambar berdampingan: kiri "sebelum", kanan
  * "sesudah", dipisah garis tipis.
  *

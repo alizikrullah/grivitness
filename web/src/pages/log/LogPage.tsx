@@ -14,12 +14,19 @@ import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 
 import { CalendarModal } from '@/components/features/CalendarModal';
 import { WeekStrip } from '@/components/features/WeekStrip';
-import { Card, IconCircle } from '@/components/ui';
+import { Card, Checkbox, IconCircle } from '@/components/ui';
 import { metricColors } from '@/constants/colors';
 import { useTanggalLog } from '@/hooks/useTanggalLog';
-import { useCalendarDays, useDailySummary } from '@/services/misc.service';
+import { useCalendarDays, useDailySummary, useSetSickDay } from '@/services/misc.service';
 import type { DailySummary, LoggedFlags } from '@/types';
-import { dayPhrase, navDateLabel, shiftDays, sleepDayNow, weekdayMon } from '@/utils/date';
+import {
+  dayPhrase,
+  navDateLabel,
+  shiftDays,
+  shortDate,
+  sleepDayNow,
+  weekdayMon,
+} from '@/utils/date';
 import { duration, kg, thousands, volume } from '@/utils/format';
 import { BodyPhotoPanel } from './BodyPhotoPanel';
 import { DeviceEnergyPanel } from './DeviceEnergyPanel';
@@ -187,6 +194,9 @@ export const LogPage = () => {
   const hijau = new Set((pekan.data?.dates ?? []).filter((t) => !kuning.has(t)));
 
   const d = summary.data;
+  const setSakit = useSetSickDay();
+  // Selama permintaan berjalan, tampilkan yang baru dipilih, bukan yang lama.
+  const sakit = setSakit.isPending ? (setSakit.variables?.sick ?? false) : d?.sick != null;
   const terisi = d ? HARIAN.filter((j) => d.logged[j.kunci]).length : 0;
   const lengkap = d !== undefined && terisi === HARIAN.length;
 
@@ -227,6 +237,25 @@ export const LogPage = () => {
               ? `${String(terisi)} dari ${String(HARIAN.length)} catatan harian terisi.`
               : 'Memuat catatan ' + dayPhrase(tanggal) + '…'}
           </span>
+
+          {/*
+            Tanda sakit, cuma konteks untuk chat dan overview: tidak ada hitungan
+            yang berubah. Dicentang di hari pertama, berlaku terus sampai
+            centangnya dihilangkan di hari sembuh. Padanan mobile.
+          */}
+          <Checkbox
+            label="Lagi sakit"
+            checked={sakit}
+            onChange={(nilai) => setSakit.mutate({ date: tanggal, sick: nilai })}
+            hint={
+              d?.sick
+                ? 'Sakit sejak ' +
+                  shortDate(d.sick.start_date) +
+                  (d.sick.end_date ? ' sampai ' + shortDate(d.sick.end_date) : '') +
+                  '. Hilangkan centang di hari kamu sembuh.'
+                : undefined
+            }
+          />
         </div>
 
         <WeekStrip

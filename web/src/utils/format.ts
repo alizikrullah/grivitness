@@ -48,6 +48,25 @@ export const duration = (minutes: number): string => {
 };
 
 /** 2400 ml menjadi "2,4 L" begitu lewat satu liter. */
+/** Pace dari detik per km: 684 jadi 11'24". */
+export const pace = (detikPerKm: number): string =>
+  String(Math.floor(detikPerKm / 60)) +
+  "'" +
+  String(Math.round(detikPerKm % 60)).padStart(2, '0') +
+  '"';
+
+/** Durasi sesi dari detik: 2685 jadi "44:45", 3723 jadi "1:02:03". */
+export const clock = (detik: number): string => {
+  const j = Math.floor(detik / 3600);
+  const m = Math.floor((detik % 3600) / 60);
+  const d = String(Math.round(detik % 60)).padStart(2, '0');
+  return j > 0 ? String(j) + ':' + String(m).padStart(2, '0') + ':' + d : String(m) + ':' + d;
+};
+
+/** Jarak km dengan koma desimal: 3.92 jadi "3,92". */
+export const km = (nilai: number): string =>
+  (Math.round(nilai * 100) / 100).toString().replace('.', ',');
+
 export const volume = (ml: number): string =>
   ml >= 1000 ? (ml / 1000).toFixed(1).replace('.', ',') + ' L' : ml + ' ml';
 

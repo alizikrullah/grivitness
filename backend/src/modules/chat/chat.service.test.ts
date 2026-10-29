@@ -44,6 +44,7 @@ const harian = (ubah: Partial<DailySummary> = {}): DailySummary => ({
     body_photo: false,
     workout: false,
   },
+  sick: null,
   targets: {
     water_ml: 3350,
     sleep: { min_minutes: 420, max_minutes: 540 },
@@ -422,5 +423,39 @@ describe('susunFakta: rilis 1.2.0', () => {
     );
 
     expect(fakta).toContain('2 hari lain ditandai sendiri olehnya belum lengkap');
+  });
+});
+
+describe('susunFakta: sakit dan lari', () => {
+  it('hari sakit dan lima lari terakhir masuk lembar fakta', () => {
+    const fakta = susunFakta(harian(), pekan, riwayat(), null, null, null, null, '06.12', {
+      sakit: [
+        { start_date: '2026-10-22', end_date: '2026-10-24' },
+        { start_date: '2026-10-27', end_date: null },
+      ],
+      jarak: [
+        {
+          logged_at: '2026-10-28',
+          distance_kind: 'RUN',
+          distance_km: 3.92,
+          duration_seconds: 2685,
+          pace_seconds_per_km: 684,
+          avg_hr: 156,
+        },
+      ],
+    });
+
+    expect(fakta).toContain(
+      'Hari sakit yang dia tandai: 2026-10-22 sampai 2026-10-24; sejak 2026-10-27 dan masih sakit.',
+    );
+    expect(fakta).toContain(
+      'Lari dan jalan terakhir (dari jam tangan): 2026-10-28 lari 3,92 km, 44:45, pace 11:24/km, HR 156.',
+    );
+  });
+
+  it('tanpa sakit dan tanpa lari, tidak ada baris kosong yang ikut', () => {
+    const fakta = susunFakta(harian(), pekan, riwayat(), null, null, null, null, '06.12');
+    expect(fakta).not.toContain('Hari sakit');
+    expect(fakta).not.toContain('Lari dan jalan');
   });
 });

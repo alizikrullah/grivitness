@@ -14,6 +14,7 @@ const hari = (date: string, ubah: Partial<OverviewDay> = {}): OverviewDay => ({
   water_target_ml: 3800,
   steps: null,
   workout_minutes: 30,
+  sick: false,
   ...ubah,
 });
 
@@ -42,6 +43,7 @@ const input = (ubah: Partial<OverviewInput> = {}): OverviewInput => ({
   proteinTarget: 171,
   sugarMax: 49,
   budget: 1958,
+  sickDays: [],
   weights: [],
   plannedWeeklyRate: 0.95,
   losing: true,
@@ -254,6 +256,51 @@ describe('susunOverview', () => {
         { date: '2026-10-04', kg: 95.4 },
       ];
       expect(cari(susunOverview(input({ weights: rapat })), 'weight')).toBeUndefined();
+    });
+  });
+
+  describe('hari sakit', () => {
+    const sakitDua = (ubah: Partial<OverviewDay> = {}) =>
+      TANGGAL.map((t, i) =>
+        i >= 5
+          ? hari(t, { sick: true, workout_minutes: 0, steps: 300, ...ubah })
+          : hari(t, { steps: 7000 }),
+      );
+
+    it('olahraga: anjuran WHO dipotong untuk hari sehat saja', () => {
+      // 5 hari sehat x 30 menit = 150, anjuran 150 x 5 / 7 = 107 menit.
+      const item = cari(susunOverview(input({ days: sakitDua() })), 'workout');
+
+      expect(item?.tone).toBe('good');
+      expect(item?.detail).toContain('2 hari sakit tidak dinilai');
+    });
+
+    it('seminggu penuh sakit: olahraga tidak dinilai sama sekali', () => {
+      const semua = TANGGAL.map((t) => hari(t, { sick: true, workout_minutes: 0 }));
+      expect(cari(susunOverview(input({ days: semua })), 'workout')).toBeUndefined();
+    });
+
+    it('langkah hari sakit tidak ikut rata-rata', () => {
+      const item = cari(susunOverview(input({ days: sakitDua() })), 'steps');
+
+      expect(item?.value).toBe('7.000');
+      expect(item?.tone).toBe('good');
+    });
+
+    it('berat yang naik di minggu sakit diberi kalimat yang menyebutnya', () => {
+      const naik = [
+        { date: '2026-09-27', kg: 95.0 },
+        { date: '2026-09-29', kg: 95.3 },
+        { date: '2026-10-01', kg: 95.6 },
+        { date: '2026-10-04', kg: 96.1 },
+      ];
+      const item = cari(
+        susunOverview(input({ weights: naik, sickDays: ['2026-10-02', '2026-10-03'] })),
+        'weight',
+      );
+
+      expect(item?.title).toBe('Berat naik');
+      expect(item?.detail).toContain('ada hari sakit');
     });
   });
 

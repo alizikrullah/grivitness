@@ -7,10 +7,27 @@ import type {
   CustomWorkout,
   WorkoutCategory,
   WorkoutDay,
+  WorkoutIntensity,
   WorkoutLibraryItem,
   WorkoutLog,
   WorkoutMeasure,
 } from '@/types';
+
+/** Rincian sesi dari jam atau aplikasi lari, biasanya terisi dari screenshot. */
+export interface RincianSesiInput {
+  /** Durasi persis. Kalau diisi, backend menurunkan menitnya dari sini. */
+  duration_seconds?: number;
+  distance_km?: number;
+  /** Detik per km. Kosong: backend menghitungnya dari durasi dan jarak. */
+  pace_seconds_per_km?: number;
+  avg_hr?: number;
+  max_hr?: number;
+  avg_cadence?: number;
+  step_count?: number;
+  elevation_gain_m?: number;
+  training_effect?: number;
+  started_at?: string;
+}
 
 /**
  * Sumber olahraga menentukan siapa yang menghitung kalorinya.
@@ -19,7 +36,7 @@ import type {
  * durasi dan berat badan user, nilai calories_burned yang dikirim client akan
  * diabaikan. Hanya input manual yang wajib menyertakan nama dan kalorinya.
  */
-export interface WorkoutInput {
+export interface WorkoutInput extends RincianSesiInput {
   workout_library_id?: string;
   custom_workout_id?: string;
   workout_name?: string;
@@ -37,6 +54,8 @@ export interface WorkoutInput {
    * Jalan santai sambil memakai jam sudah masuk di sana; berenang belum.
    */
   tracked_by_device?: boolean;
+  /** Porsi waktu bergerak, hanya untuk olahraga menit yang kalorinya ditaksir. */
+  intensity?: WorkoutIntensity;
   notes?: string;
   logged_at?: string;
 }
@@ -143,7 +162,16 @@ export interface WorkoutEditInput {
   load_kg?: number | null;
   calories_burned?: number;
   tracked_by_device?: boolean;
+  intensity?: WorkoutIntensity;
   notes?: string | null;
+  /** Null menghapus nilainya. */
+  duration_seconds?: number;
+  distance_km?: number | null;
+  pace_seconds_per_km?: number | null;
+  avg_hr?: number | null;
+  max_hr?: number | null;
+  avg_cadence?: number | null;
+  step_count?: number | null;
 }
 
 export const useUpdateWorkout = () => {

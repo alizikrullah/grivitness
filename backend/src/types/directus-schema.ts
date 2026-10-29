@@ -228,15 +228,45 @@ export interface WorkoutLogRecord {
    */
   calories_source: 'MET' | 'MANUAL';
   /**
-   * Tidak dipakai hitungan apa pun dan tidak lagi ditanyakan form. Terisi hanya di baris
-   * lama.
+   * Porsi waktu bergerak: LOW 50%, MEDIUM 75%, HIGH 90%, sisanya jeda 1,3 MET. Null =
+   * bergerak terus. Diabaikan untuk kalori MANUAL dan olahraga berukuran set.
    */
   intensity: WorkoutIntensity | null;
   /**
-   * true kalau sesi ini SUDAH ikut terhitung di angka device_energy_logs hari itu. Dipakai
-   * supaya kalorinya tidak dihitung dua kali.
+   * true kalau sesi ini terekam jam tangan, jadi kalorinya SUDAH ada di kalori aktif
+   * device_energy_logs hari itu dan tidak ditambahkan lagi. Berpengaruh hanya di hari yang
+   * punya angka jam.
    */
   tracked_by_device: boolean;
+  /** Jarak sesi, km. Untuk lari dan jalan. */
+  distance_km: DecimalString | null;
+  /**
+   * Durasi persis dalam detik, mis. 44:45 = 2685. duration_minutes tetap diisi (dibulatkan)
+   * untuk hitungan energi.
+   */
+  duration_seconds: number | null;
+  /**
+   * Pace rata-rata, detik per km, apa adanya dari aplikasi lari (bisa dari waktu bergerak).
+   * Diisi manual: durasi dibagi jarak.
+   */
+  pace_seconds_per_km: number | null;
+  /** Detak jantung rata-rata, bpm. */
+  avg_hr: number | null;
+  /** Detak jantung maksimal, bpm. */
+  max_hr: number | null;
+  /** Kadens rata-rata, langkah per menit. */
+  avg_cadence: number | null;
+  /** Langkah selama sesi. Catatan saja: langkah harian tetap dari step_logs. */
+  step_count: number | null;
+  /** Total tanjakan, meter. */
+  elevation_gain_m: number | null;
+  /**
+   * Efek latihan aerobik dari jam (Huawei: aerobic training stress, Garmin: aerobic TE),
+   * skala sekitar 0-5. Catatan, tidak masuk hitungan.
+   */
+  training_effect: DecimalString | null;
+  /** Jam mulai sesi, kalau diketahui (mis. dari screenshot). */
+  started_at: TimestampString | null;
   /** Catatan bebas dari user */
   notes: string | null;
   /** Tanggal log dalam format YYYY-MM-DD */
@@ -265,16 +295,18 @@ export interface StepLogRecord {
 }
 
 /**
- * Kalori keluar seharian menurut smartwatch user. Satu baris per user per hari. Angka ini
- * MENGGANTIKAN hitungan TDEE hari itu, bukan ditambahkan ke atasnya.
+ * Kalori smartwatch user, satu baris per user per hari. Kalori AKTIF-nya DITAMBAHKAN ke
+ * BMR x PAL hari itu, bersama olahraga yang tidak terekam jam. Angka total diubah dulu
+ * jadi aktif (total dikurangi BMR).
  */
 export interface DeviceEnergyLogRecord {
   id: string;
   /** Pemilik data ini */
   user_id: string;
   /**
-   * Kalori TOTAL sehari, sudah termasuk metabolisme istirahat. Inilah yang dipakai summary.
-   * Kalau user memasukkan kalori aktif, kolom ini HASIL TURUNAN dari active_kcal + bmr_kcal.
+   * Kalori TOTAL sehari, sudah termasuk metabolisme istirahat versi jam. Kalau user
+   * memasukkan kalori aktif, kolom ini HASIL TURUNAN dari active_kcal + bmr_kcal. Summary
+   * memakai bagian aktifnya saja.
    */
   total_kcal: number;
   /**
@@ -434,6 +466,24 @@ export interface FoodDayStatusRecord {
 }
 
 /**
+ * Rentang hari sakit yang ditandai user. Cuma TANDA untuk chat dan overview: tidak
+ * mengeluarkan hari mana pun dari hitungan.
+ */
+export interface SickPeriodRecord {
+  id: string;
+  /** Pemilik data ini */
+  user_id: string;
+  /** Hari pertama sakit, YYYY-MM-DD. */
+  start_date: DateString;
+  /** Hari terakhir sakit. Kosong berarti masih sakit sampai hari ini. */
+  end_date: DateString | null;
+  /** Diisi otomatis oleh Directus saat item dibuat */
+  created_at: TimestampString | null;
+  /** Diisi otomatis oleh Directus setiap item diubah */
+  updated_at: TimestampString | null;
+}
+
+/**
  * Nama makanan yang diminta user dilupakan dari ingatan makanan. Catatan yang dibuat
  * sebelum forgotten_at tidak lagi jadi sumber saran.
  */
@@ -539,6 +589,16 @@ export interface WorkoutLibraryRecord {
    * berarti bawaan 3 detik.
    */
   seconds_per_rep: number | null;
+  /**
+   * RUN atau WALK untuk olahraga berjarak: form menanyakan jarak, pace, dan HR, dan MET
+   * diturunkan dari kecepatannya. Kosong untuk yang lain.
+   */
+  distance_kind: 'RUN' | 'WALK' | null;
+  /**
+   * true = tidak ditawarkan lagi di pilihan (mis. Lari Cepat setelah digabung jadi Lari).
+   * Barisnya tetap ada supaya catatan lama bisa dihitung ulang.
+   */
+  hidden: boolean;
   description: string | null;
   /** Diisi otomatis oleh Directus saat item dibuat */
   created_at: TimestampString | null;
@@ -583,6 +643,7 @@ export type UserOwnedCollection =
   | 'body_comparisons'
   | 'mood_logs'
   | 'food_day_status'
+  | 'sick_periods'
   | 'food_memory_forgets'
   | 'chat_messages'
   | 'streaks'
@@ -607,6 +668,7 @@ export interface DirectusSchema {
   body_comparisons: BodyComparisonRecord[];
   mood_logs: MoodLogRecord[];
   food_day_status: FoodDayStatusRecord[];
+  sick_periods: SickPeriodRecord[];
   food_memory_forgets: FoodMemoryForgetRecord[];
   chat_messages: ChatMessageRecord[];
   streaks: StreakRecord[];
