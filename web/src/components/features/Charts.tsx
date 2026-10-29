@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import {
   Area,
   AreaChart,
@@ -59,47 +60,70 @@ export const TrendChart = ({
   color = colors.primary,
   unit = '',
   height = 220,
+  reversed = false,
+  padding = 1,
+  formatValue = (v: number) => String(v),
 }: {
   data: LinePoint[];
   color?: string;
   unit?: string;
   height?: number;
-}) => (
-  <ResponsiveContainer width="100%" height={height}>
-    <AreaChart data={data} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-      <defs>
-        <linearGradient id="trend-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity={0.32} />
-          <stop offset="100%" stopColor={color} stopOpacity={0} />
-        </linearGradient>
-      </defs>
+  /** Nilai kecil di atas. Untuk pace: makin cepat, garisnya makin naik. */
+  reversed?: boolean;
+  /** Ruang di atas dan bawah garis, dalam satuan datanya. */
+  padding?: number;
+  /** Format angka sumbu dan tooltip, mis. pace 11'24". */
+  formatValue?: (value: number) => string;
+}) => {
+  // Dua grafik di satu halaman tidak boleh berbagi id gradien: yang kedua
+  // akan memakai warna yang pertama.
+  const idIsi = 'trend-fill-' + useId().replace(/:/g, '');
 
-      <CartesianGrid stroke={colors.border} vertical={false} />
-      <XAxis dataKey="label" {...AXIS} />
-      <YAxis {...AXIS} width={52} domain={['dataMin - 1', 'dataMax + 1']} />
-      <Tooltip
-        contentStyle={TOOLTIP_STYLE}
-        labelStyle={{ color: colors.textSecondary }}
-        // Recharts memberi nilai bertipe lebar, bisa undefined, bahkan array
-        // untuk chart bertumpuk. Hari tanpa penimbangan memang tidak punya
-        // angka, jadi ditangani di sini alih-alih dipaksa dengan cast yang akan
-        // menampilkan "undefined kg" di layar.
-        formatter={(v) => [typeof v === 'number' ? v + unit : '-', '']}
-      />
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <AreaChart data={data} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+        <defs>
+          <linearGradient id={idIsi} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity={0.32} />
+            <stop offset="100%" stopColor={color} stopOpacity={0} />
+          </linearGradient>
+        </defs>
 
-      <Area
-        type="monotone"
-        dataKey="value"
-        stroke={color}
-        strokeWidth={2.5}
-        fill="url(#trend-fill)"
-        connectNulls
-        dot={{ r: 3, fill: color, strokeWidth: 0 }}
-        activeDot={{ r: 5 }}
-      />
-    </AreaChart>
-  </ResponsiveContainer>
-);
+        <CartesianGrid stroke={colors.border} vertical={false} />
+        <XAxis dataKey="label" {...AXIS} />
+        <YAxis
+          {...AXIS}
+          width={52}
+          reversed={reversed}
+          domain={[`dataMin - ${String(padding)}`, `dataMax + ${String(padding)}`]}
+          tickFormatter={(v: number) => formatValue(v)}
+        />
+        <Tooltip
+          contentStyle={TOOLTIP_STYLE}
+          labelStyle={{ color: colors.textSecondary }}
+          // Recharts memberi nilai bertipe lebar, bisa undefined, bahkan array
+          // untuk chart bertumpuk. Hari tanpa penimbangan memang tidak punya
+          // angka, jadi ditangani di sini alih-alih dipaksa dengan cast yang akan
+          // menampilkan "undefined kg" di layar.
+          formatter={(v) => [typeof v === 'number' ? formatValue(v) + unit : '-', '']}
+        />
+
+        <Area
+          type="monotone"
+          dataKey="value"
+          stroke={color}
+          strokeWidth={2.5}
+          // Sumbu dibalik: isinya ke arah bawah layar, bukan ke atas.
+          baseValue={reversed ? 'dataMax' : 'dataMin'}
+          fill={`url(#${idIsi})`}
+          connectNulls
+          dot={{ r: 3, fill: color, strokeWidth: 0 }}
+          activeDot={{ r: 5 }}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+};
 
 export interface BarDatum {
   label: string;

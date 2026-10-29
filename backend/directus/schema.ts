@@ -23,6 +23,7 @@ import {
   ACTIVITY_LEVEL,
   BODY_DIRECTION,
   CALORIE_SOURCE,
+  DISTANCE_KIND,
   CHAT_ROLE,
   FOOD_DAY_STATUS,
   GENDER,
@@ -499,16 +500,65 @@ export const collections: CollectionDef[] = [
         note: 'Asal angka calories_burned. MANUAL tidak boleh dihitung ulang diam-diam saat durasi atau berat berubah.',
       }),
       enumField('intensity', WORKOUT_INTENSITY, {
-        // Tidak dipakai hitungan apa pun: kalori datang dari MET jenis
-        // olahraganya. Form berhenti menanyakannya, baris lama tetap menyimpan.
+        // Porsi waktu bergerak untuk olahraga berukuran menit (CLAUDE.md
+        // section 8). Null berarti dianggap bergerak terus, seperti dulu.
         nullable: true,
-        note: 'Tidak dipakai hitungan apa pun dan tidak lagi ditanyakan form. Terisi hanya di baris lama.',
+        note: 'Porsi waktu bergerak: LOW 50%, MEDIUM 75%, HIGH 90%, sisanya jeda 1,3 MET. Null = bergerak terus. Diabaikan untuk kalori MANUAL dan olahraga berukuran set.',
       }),
       {
         field: 'tracked_by_device',
         type: 'boolean',
         defaultValue: false,
         note: 'true kalau sesi ini terekam jam tangan, jadi kalorinya SUDAH ada di kalori aktif device_energy_logs hari itu dan tidak ditambahkan lagi. Berpengaruh hanya di hari yang punya angka jam.',
+      },
+      // Rincian sesi dari jam atau aplikasi lari, biasanya lewat screenshot
+      // (POST /api/workouts/scan). Semuanya opsional: olahraga lain cukup
+      // durasi, kalori, dan HR. Kecepatan sengaja tidak disimpan: turunan pace.
+      decimalField('distance_km', 6, 2, {
+        nullable: true,
+        note: 'Jarak sesi, km. Untuk lari dan jalan.',
+      }),
+      {
+        field: 'duration_seconds',
+        type: 'integer',
+        nullable: true,
+        note: 'Durasi persis dalam detik, mis. 44:45 = 2685. duration_minutes tetap diisi (dibulatkan) untuk hitungan energi.',
+      },
+      {
+        field: 'pace_seconds_per_km',
+        type: 'integer',
+        nullable: true,
+        note: 'Pace rata-rata, detik per km, apa adanya dari aplikasi lari (bisa dari waktu bergerak). Diisi manual: durasi dibagi jarak.',
+      },
+      { field: 'avg_hr', type: 'integer', nullable: true, note: 'Detak jantung rata-rata, bpm.' },
+      { field: 'max_hr', type: 'integer', nullable: true, note: 'Detak jantung maksimal, bpm.' },
+      {
+        field: 'avg_cadence',
+        type: 'integer',
+        nullable: true,
+        note: 'Kadens rata-rata, langkah per menit.',
+      },
+      {
+        field: 'step_count',
+        type: 'integer',
+        nullable: true,
+        note: 'Langkah selama sesi. Catatan saja: langkah harian tetap dari step_logs.',
+      },
+      {
+        field: 'elevation_gain_m',
+        type: 'integer',
+        nullable: true,
+        note: 'Total tanjakan, meter.',
+      },
+      decimalField('training_effect', 3, 1, {
+        nullable: true,
+        note: 'Efek latihan aerobik dari jam (Huawei: aerobic training stress, Garmin: aerobic TE), skala sekitar 0-5. Catatan, tidak masuk hitungan.',
+      }),
+      {
+        field: 'started_at',
+        type: 'timestamp',
+        nullable: true,
+        note: 'Jam mulai sesi, kalau diketahui (mis. dari screenshot).',
       },
       notes(),
       loggedAtDate(),
@@ -727,6 +777,26 @@ export const collections: CollectionDef[] = [
   },
 
   {
+    collection: 'sick_periods',
+    typeName: 'SickPeriodRecord',
+    icon: 'sick',
+    note: 'Rentang hari sakit yang ditandai user. Cuma TANDA untuk chat dan overview: tidak mengeluarkan hari mana pun dari hitungan.',
+    fields: [
+      pk(),
+      userFk('sick_periods'),
+      { field: 'start_date', type: 'date', note: 'Hari pertama sakit, YYYY-MM-DD.' },
+      {
+        field: 'end_date',
+        type: 'date',
+        nullable: true,
+        note: 'Hari terakhir sakit. Kosong berarti masih sakit sampai hari ini.',
+      },
+      createdAt(),
+      updatedAt(),
+    ],
+  },
+
+  {
     collection: 'food_memory_forgets',
     typeName: 'FoodMemoryForgetRecord',
     icon: 'history_toggle_off',
@@ -893,6 +963,16 @@ export const collections: CollectionDef[] = [
         type: 'integer',
         nullable: true,
         note: 'Perkiraan detik satu ulangan untuk olahraga REPS, dipakai menurunkan menit gerak. Kosong berarti bawaan 3 detik.',
+      },
+      enumField('distance_kind', DISTANCE_KIND, {
+        nullable: true,
+        note: 'RUN atau WALK untuk olahraga berjarak: form menanyakan jarak, pace, dan HR, dan MET diturunkan dari kecepatannya. Kosong untuk yang lain.',
+      }),
+      {
+        field: 'hidden',
+        type: 'boolean',
+        defaultValue: false,
+        note: 'true = tidak ditawarkan lagi di pilihan (mis. Lari Cepat setelah digabung jadi Lari). Barisnya tetap ada supaya catatan lama bisa dihitung ulang.',
       },
       { field: 'description', type: 'text', nullable: true },
       createdAt(),

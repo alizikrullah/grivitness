@@ -1,6 +1,7 @@
 import { Router } from 'express';
 
 import { authMiddleware } from '../../middlewares/auth.middleware.js';
+import { upload } from '../../middlewares/upload.middleware.js';
 import {
   validateBody,
   validateParams,
@@ -32,6 +33,10 @@ router.get('/day', validateQuery(SingleDateSchema), workoutsController.getDay);
 
 router.get('/', validateQuery(DateRangeSchema), workoutsController.getRange);
 router.post('/', validateBody(CreateWorkoutSchema), workoutsController.create);
+
+// Screenshot aplikasi jam atau lari jadi isian form. Tidak menyimpan apa pun;
+// hasilnya disimpan lewat POST / biasa setelah user memeriksanya.
+router.post('/scan', upload.array('images', 3), workoutsController.scan);
 
 router.patch(
   '/:id',

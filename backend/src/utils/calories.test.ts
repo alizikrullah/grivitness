@@ -17,11 +17,14 @@ import {
   daysBetween,
   distanceFromSteps,
   kcalPerMinuteWithIntensity,
+  metFromSpeed,
   netKcalPerMinuteAt70,
   outCorrectionFactor,
   planWeightChange,
   restingPartitionPAL,
   safeWeeklyLossKg,
+  speedFromPace,
+  workoutDayTotals,
 } from './calories.js';
 
 describe('calculateAge', () => {
@@ -638,5 +641,104 @@ describe('outCorrectionFactor dan applyOutCorrection', () => {
   it('ditahan 0,5 sampai 1,5', () => {
     expect(outCorrectionFactor({ measured: 500, confidence: 1, formulaAverage: 3000 })).toBe(0.5);
     expect(outCorrectionFactor({ measured: 6000, confidence: 1, formulaAverage: 3000 })).toBe(1.5);
+  });
+});
+
+/**
+ * Kalori MANUAL adalah angka TOTAL dari jam, termasuk istirahat selama sesi.
+ * Lari pemilik 28 Okt 2026: 45 menit, total 360 kkal, BMR 1.876, tidur 7 jam.
+ */
+describe('kalori total dari jam (MANUAL)', () => {
+  const lari = {
+    duration_minutes: 45,
+    calories_burned: 360,
+    calories_source: 'MANUAL' as const,
+    tracked_by_device: true,
+  };
+  const dasar = { bmr: 1876, activityLevel: 'SEDENTARY' as const, sleepMinutes: 420 };
+
+  it('workoutDayTotals memisahkan menit sesi berangka total', () => {
+    const jalan = {
+      duration_minutes: 30,
+      calories_burned: 120,
+      calories_source: 'MET' as const,
+      tracked_by_device: null,
+    };
+    expect(workoutDayTotals([lari, jalan])).toEqual({
+      workoutMinutes: 75,
+      workoutCalories: 480,
+      untrackedWorkoutCalories: 120,
+      grossWorkoutMinutes: 45,
+      untrackedGrossWorkoutMinutes: 0,
+    });
+  });
+
+  it('tanpa angka jam: menit sesi keluar dari partisi, olahraga tetap 360', () => {
+    const hasil = dailyCaloriesOut({ ...dasar, ...workoutDayTotals([lari]), device: null });
+
+    // PAL (420 + 975 x 1,6) / 1.440 = 1,375. Dengan menit sesi ikut PAR 1,0
+    // dulu 1,4063 (2.638): istirahat 45 menit itu dibayar dua kali, 58 kkal.
+    expect(hasil.baseline).toBe(2580);
+    expect(hasil.workout_calories).toBe(360);
+    expect(hasil.calories_out).toBe(2940);
+  });
+
+  it('hari berangka jam: sesi terekam jam tidak dijumlah, istirahatnya tetap di BMR', () => {
+    const hasil = dailyCaloriesOut({
+      ...dasar,
+      ...workoutDayTotals([lari]),
+      device: { total_kcal: 2300, active_kcal: 400 },
+    });
+
+    expect(hasil.baseline).toBe(2638);
+    expect(hasil.calories_out).toBe(2638 + 400);
+  });
+
+  it('hari berangka jam: sesi TANPA jam dijumlah dan menitnya keluar dari partisi', () => {
+    const renang = { ...lari, tracked_by_device: false };
+    const hasil = dailyCaloriesOut({
+      ...dasar,
+      ...workoutDayTotals([renang]),
+      device: { total_kcal: 2300, active_kcal: 400 },
+    });
+
+    expect(hasil.baseline).toBe(2580);
+    expect(hasil.calories_out).toBe(2580 + 400 + 360);
+  });
+
+  it('menit yang ditanggung tidak pernah melebihi menit olahraga', () => {
+    expect(
+      restingPartitionPAL({
+        activityLevel: 'SEDENTARY',
+        sleepMinutes: 420,
+        workoutMinutes: 45,
+        coveredMinutes: 999,
+      }),
+    ).toBe(1.375);
+  });
+});
+
+/** Tabel kecepatan Compendium 2011, lari kode 12xxx, jalan kode 17xxx. */
+describe('metFromSpeed', () => {
+  it('tepat di titik tabel', () => {
+    expect(metFromSpeed('RUN', 8.0)).toBe(8.3);
+    expect(metFromSpeed('WALK', 4.8)).toBe(3.5);
+  });
+
+  it('di antara dua titik diinterpolasi', () => {
+    // 9,05 km/jam ada di tengah 8,4 (9,0) dan 9,7 (9,8).
+    expect(metFromSpeed('RUN', 9.05)).toBe(9.4);
+    expect(metFromSpeed('WALK', 5.2)).toBe(3.9);
+  });
+
+  it('di luar tabel ditahan di ujung: lari-jalan 5,3 km/jam tetap titik lari terendah', () => {
+    expect(metFromSpeed('RUN', 5.26)).toBe(6.0);
+    expect(metFromSpeed('RUN', 30)).toBe(23.0);
+    expect(metFromSpeed('WALK', 2.0)).toBe(2.8);
+  });
+
+  it('kecepatan dari pace', () => {
+    expect(speedFromPace(684)).toBeCloseTo(5.263, 3);
+    expect(speedFromPace(0)).toBeNull();
   });
 });

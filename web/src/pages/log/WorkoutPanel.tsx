@@ -1,5 +1,5 @@
-import { BarbellIcon, MagnifyingGlassIcon } from '@phosphor-icons/react';
-import { useState } from 'react';
+import { BarbellIcon, ImagesIcon, MagnifyingGlassIcon } from '@phosphor-icons/react';
+import { useRef, useState } from 'react';
 
 import {
   Button,
@@ -12,6 +12,15 @@ import {
   Loading,
   SectionHeader,
 } from '@/components/ui';
+import {
+  DistanceFields,
+  RINCIAN_KOSONG,
+  type RincianLari,
+  detikDurasi,
+  kkalLariJalan,
+  rincianDariScan,
+  rincianKeBody,
+} from '@/components/features/DistanceFields';
 import {
   UKURAN_BAWAAN,
   WorkoutMeasureFields,
@@ -33,7 +42,13 @@ import {
 import { DateNav } from '@/components/features/DateNav';
 import { useTanggalLog } from '@/hooks/useTanggalLog';
 import { useProfile } from '@/services/users.service';
-import type { WorkoutCategory, WorkoutIntensity, WorkoutLibraryItem } from '@/types';
+import { useScanWorkout } from '@/services/workout-scan.service';
+import type {
+  WorkoutCategory,
+  WorkoutIntensity,
+  WorkoutLibraryItem,
+  WorkoutScanResult,
+} from '@/types';
 import { dayPhrase, shiftDays, todayWIB } from '@/utils/date';
 import { duration, thousands, toNum } from '@/utils/format';
 import { LogActions } from './LogActions';
@@ -64,6 +79,11 @@ export const WorkoutPanel = () => {
   const [intensitas, setIntensitas] = useState<WorkoutIntensity>('MEDIUM');
   const [terekam, setTerekam] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rincian, setRincian] = useState<RincianLari>(RINCIAN_KOSONG);
+  /** Hasil cek silang screenshot yang perlu dilihat sebelum menyimpan. */
+  const [peringatan, setPeringatan] = useState<string[]>([]);
+  const scan = useScanWorkout();
+  const pemilihBerkas = useRef<HTMLInputElement>(null);
 
   /**
    * Maksimal lima olahraga yang terakhir dicatat dalam 60 hari, terbaru dulu,
@@ -102,21 +122,63 @@ export const WorkoutPanel = () => {
    * ditaksir aplikasi. Sesi yang terekam jam tangan atau kalorinya diketik
    * sendiri tidak memakainya, sama seperti backend.
    */
-  const pakaiIntensitas = dipilih?.measure === 'TIME' && !terekam && kaloriDiketik === null;
+  /** Lari dan jalan: jarak, durasi, pace, HR menggantikan isian menit. */
+  const jenis = dipilih?.measure === 'TIME' ? (dipilih.distance_kind ?? null) : null;
+
+  const pakaiIntensitas =
+    dipilih?.measure === 'TIME' && !terekam && kaloriDiketik === null && jenis === null;
+
+  const perMenit = toNum(dipilih?.calories_burned_per_minute) ?? 0;
 
   // Taksiran dari MENIT GERAK, cermin perhitungan backend: untuk repetisi
-  // itu ulangan x detik per ulangan, jeda antar set tidak dihitung.
-  const taksiran = dipilih
-    ? Math.round(
-        (kkalPerMenitIntensitas(
-          toNum(dipilih.calories_burned_per_minute) ?? 0,
-          pakaiIntensitas ? intensitas : null,
-        ) *
-          menitGerak(dipilih.measure, ukuran, dipilih.seconds_per_rep) *
-          beratKg) /
-          BERAT_ACUAN_KG,
-      )
-    : null;
+  // itu ulangan x detik per ulangan, jeda antar set tidak dihitung. Lari dan
+  // jalan berjarak dari kecepatannya; tanpa jarak, kkal/menit x durasi.
+  const taksiran = ((): number | null => {
+    if (!dipilih) return null;
+    if (jenis !== null) {
+      const dariKecepatan = kkalLariJalan(rincian, jenis, beratKg);
+      if (dariKecepatan !== null) return dariKecepatan;
+      const detik = detikDurasi(rincian);
+      return detik === null
+        ? null
+        : Math.round((perMenit * (detik / 60) * beratKg) / BERAT_ACUAN_KG);
+    }
+    return Math.round(
+      (kkalPerMenitIntensitas(perMenit, pakaiIntensitas ? intensitas : null) *
+        menitGerak(dipilih.measure, ukuran, dipilih.seconds_per_rep) *
+        beratKg) /
+        BERAT_ACUAN_KG,
+    );
+  })();
+
+  /**
+   * Screenshot jadi isian, padanan mobile. Jenis olahraga, tanggal, durasi,
+   * jarak, pace, HR, dan kalori TOTAL terisi; sesinya dianggap terekam jam.
+   * Belum ada yang tersimpan sampai Simpan ditekan.
+   */
+  const terapkanScan = (hasil: WorkoutScanResult) => {
+    const lib = semuaLibrary.data?.find((w) => w.id === hasil.workout_library_id);
+    setDipilih(lib ?? null);
+    if (hasil.logged_at) setTanggal(hasil.logged_at);
+    setRincian(rincianDariScan(hasil));
+    if (hasil.duration_seconds !== null) {
+      const menit = Math.max(1, Math.round(hasil.duration_seconds / 60));
+      setUkuran((u) => ({ ...u, menit }));
+    }
+    if (hasil.calories_total !== null) setKaloriDiketik(String(hasil.calories_total));
+    setTerekam(true);
+    setPeringatan(hasil.warnings);
+  };
+
+  const isiDariScreenshot = (daftar: FileList | null) => {
+    const berkas = Array.from(daftar ?? []).slice(0, 3);
+    if (berkas.length === 0) return;
+    setError(null);
+    scan.mutate(berkas, {
+      onSuccess: terapkanScan,
+      onError: (e) => setError(toApiError(e).message),
+    });
+  };
 
   const kaloriTampil = kaloriDiketik ?? (taksiran === null ? '' : String(taksiran));
 
@@ -141,10 +203,17 @@ export const WorkoutPanel = () => {
       kalori = Math.round(angka);
     }
 
+    if (jenis !== null && detikDurasi(rincian) === null) {
+      setError('Isi durasinya dulu');
+      return;
+    }
+
     create.mutate(
       {
         workout_library_id: dipilih.id,
-        ...ukuranKeBody(dipilih.measure, ukuran),
+        // Lari dan jalan mengirim durasi dalam detik; backend menurunkan menitnya.
+        ...(jenis !== null ? {} : ukuranKeBody(dipilih.measure, ukuran)),
+        ...rincianKeBody(rincian, jenis !== null),
         tracked_by_device: terekam,
         ...(pakaiIntensitas ? { intensity: intensitas } : {}),
         ...(kalori === undefined ? {} : { calories_burned: kalori }),
@@ -158,6 +227,8 @@ export const WorkoutPanel = () => {
           setKaloriDiketik(null);
           setTerekam(false);
           setIntensitas('MEDIUM');
+          setRincian(RINCIAN_KOSONG);
+          setPeringatan([]);
         },
       },
     );
@@ -171,6 +242,27 @@ export const WorkoutPanel = () => {
 
       <Card>
         <div className="stack">
+          {/* Satu sampai tiga screenshot satu sesi dari aplikasi jam atau lari. */}
+          <input
+            ref={pemilihBerkas}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={(e) => {
+              isiDariScreenshot(e.target.files);
+              e.target.value = '';
+            }}
+          />
+          <Button
+            label={scan.isPending ? 'Membaca screenshot…' : 'Isi dari screenshot'}
+            variant="secondary"
+            icon={<ImagesIcon size={18} weight="bold" />}
+            onClick={() => pemilihBerkas.current?.click()}
+            loading={scan.isPending}
+            disabled={scan.isPending}
+          />
+
           {terakhir.length > 0 && cari.trim() === '' ? (
             <div className="stack-xs">
               <span className="t-overline c-tertiary">Terakhir kamu lakukan</span>
@@ -225,14 +317,32 @@ export const WorkoutPanel = () => {
           {dipilih ? (
             <>
               {/* Bentuk isian mengikuti cara olahraganya diukur; push up tidak pernah ditanya menit. */}
-              <WorkoutMeasureFields
-                measure={dipilih.measure}
-                value={ukuran}
-                onChange={setUkuran}
-                nama={dipilih.name}
-                intensitas={intensitas}
-                onIntensitas={pakaiIntensitas ? setIntensitas : undefined}
-              />
+              {jenis !== null ? (
+                <DistanceFields value={rincian} onChange={setRincian} />
+              ) : (
+                <>
+                  <WorkoutMeasureFields
+                    measure={dipilih.measure}
+                    value={ukuran}
+                    onChange={setUkuran}
+                    nama={dipilih.name}
+                    intensitas={intensitas}
+                    onIntensitas={pakaiIntensitas ? setIntensitas : undefined}
+                  />
+                  {/* HR olahraga lain cuma tampil kalau terbaca dari screenshot. */}
+                  {rincian.hr !== '' ? (
+                    <Input
+                      label="HR rata-rata"
+                      inputMode="numeric"
+                      value={rincian.hr}
+                      onChange={(e) =>
+                        setRincian({ ...rincian, hr: e.target.value.replace(/[^0-9]/g, '') })
+                      }
+                      suffix="bpm"
+                    />
+                  ) : null}
+                </>
+              )}
 
               {/*
                 Satu kolom kalori, terisi taksiran dan bisa ditimpa: angka dari
@@ -248,7 +358,9 @@ export const WorkoutPanel = () => {
                 hint={
                   kaloriDiketik === null
                     ? dipilih.measure === 'TIME'
-                      ? 'Taksiran dari durasi, intensitas, dan berat badanmu. Ketik sendiri kalau jam tanganmu menunjukkan angka lain.'
+                      ? jenis !== null
+                        ? 'Taksiran dari jarak, durasi, dan berat badanmu. Ketik sendiri angka total dari jam tanganmu kalau ada.'
+                        : 'Taksiran dari durasi, intensitas, dan berat badanmu. Ketik sendiri angka total dari jam tanganmu kalau ada.'
                       : 'Taksiran dari waktu gerak ulanganmu saja, jeda antar set tidak dihitung. Kecil itu wajar: nilai latihan ini di ototmu, bukan kalorinya.'
                     : 'Angka ini disimpan apa adanya dan tidak dihitung ulang.'
                 }
@@ -272,6 +384,13 @@ export const WorkoutPanel = () => {
               />
             </>
           ) : null}
+
+          {/* Hasil cek silang screenshot: perlu dilihat sebelum menyimpan. */}
+          {peringatan.map((p) => (
+            <span key={p} className="t-caption c-warning">
+              {p}
+            </span>
+          ))}
 
           {error ? <ErrorNote message={error} /> : null}
 
@@ -318,6 +437,7 @@ export const WorkoutPanel = () => {
                   <span className="t-caption c-tertiary">
                     {' '}
                     · {ringkasSesi(log)} · {thousands(log.calories_burned)} kkal
+                    {log.avg_hr !== null ? ' · HR ' + String(log.avg_hr) : ''}
                     {log.tracked_by_device ? ' · terekam jam' : ''}
                     {log.calories_source === 'MANUAL' ? ' · kalori diisi sendiri' : ''}
                   </span>

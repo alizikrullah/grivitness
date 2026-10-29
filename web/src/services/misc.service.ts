@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { get, patch, post } from '@/lib/api';
+import { get, patch, post, put } from '@/lib/api';
 import { qk } from '@/lib/query';
 import type {
   CalendarDays,
@@ -11,6 +11,7 @@ import type {
   GoalWithProgress,
   NotificationSettings,
   PeriodSummary,
+  SickMark,
   Streak,
   HistorySummary,
 } from '@/types';
@@ -138,5 +139,21 @@ export const useUpdateNotificationSettings = () => {
     mutationFn: (body: Partial<NotificationSettings>) =>
       patch<NotificationSettings>('/api/notifications/settings', body),
     onSuccess: (data) => client.setQueryData(qk.notifications, data),
+  });
+};
+
+/**
+ * Centang "Lagi sakit" di halaman Catat untuk satu tanggal. Backend yang
+ * mengatur rentangnya: menyalakan di hari pertama berlaku terus sampai
+ * dimatikan di hari sembuh. Tanda sakit ikut ringkasan harian, jadi yang
+ * disegarkan semua kunci 'summary'.
+ */
+export const useSetSickDay = () => {
+  const client = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: { date: string; sick: boolean }) =>
+      put<{ sick: SickMark | null }>('/api/sick-periods/day', body),
+    onSuccess: () => void client.invalidateQueries({ queryKey: ['summary'] }),
   });
 };

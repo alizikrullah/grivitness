@@ -1,4 +1,18 @@
-import { BarbellIcon, CaretRightIcon, MagnifyingGlassIcon } from 'phosphor-react-native';
+import {
+  BarbellIcon,
+  CaretRightIcon,
+  ImagesIcon,
+  MagnifyingGlassIcon,
+} from 'phosphor-react-native';
+import {
+  DistanceFields,
+  RINCIAN_KOSONG,
+  type RincianLari,
+  detikDurasi,
+  kkalLariJalan,
+  rincianDariScan,
+  rincianKeBody,
+} from '@/components/features/DistanceFields';
 import { LogActions } from '@/components/features/LogActions';
 import { WorkoutEditSheet } from '@/components/features/WorkoutEditSheet';
 import {
@@ -32,6 +46,7 @@ import {
 import { colors, metricColors } from '@/constants/colors';
 import { CATEGORY_LABEL, CATEGORY_OPTIONS } from '@/constants/labels';
 import { radius, spacing } from '@/constants/theme';
+import { usePhotoPicker } from '@/hooks/usePhotoPicker';
 import { useTanggalAwal } from '@/hooks/useTanggalAwal';
 import { toApiError } from '@/lib/api';
 import {
@@ -43,8 +58,17 @@ import {
   useWorkoutsRange,
   type WorkoutInput,
 } from '@/services/workouts.service';
-import type { WorkoutCategory, WorkoutIntensity, WorkoutLog, WorkoutMeasure } from '@/types';
+import type {
+  DistanceKind,
+  WorkoutCategory,
+  WorkoutIntensity,
+  WorkoutLibraryItem,
+  WorkoutLog,
+  WorkoutMeasure,
+  WorkoutScanResult,
+} from '@/types';
 import { useProfile } from '@/services/users.service';
+import { useScanWorkout } from '@/services/workout-scan.service';
 import { dayPhrase, shiftDays, todayWIB } from '@/utils/date';
 import { duration, thousands, toNum } from '@/utils/format';
 
@@ -57,7 +81,19 @@ interface Pilihan {
   /** Menentukan bentuk isian: menit, set x ulangan, atau set x detik. */
   measure: WorkoutMeasure;
   detikPerUlangan: number | null;
+  /** RUN/WALK: isiannya jarak, durasi, pace, dan HR. */
+  jenis: DistanceKind | null;
 }
+
+const pilihanDariLibrary = (w: WorkoutLibraryItem): Pilihan => ({
+  id: w.id,
+  name: w.name,
+  sumber: 'library',
+  perMenit: toNum(w.calories_burned_per_minute) ?? 0,
+  measure: w.measure,
+  detikPerUlangan: w.seconds_per_rep,
+  jenis: w.distance_kind ?? null,
+});
 
 /** Berat acuan nilai kkal/menit di library. Sama dengan BERAT_ACUAN_KG di backend. */
 const BERAT_ACUAN_KG = 70;
@@ -86,6 +122,14 @@ export default function WorkoutScreen() {
   const [intensitas, setIntensitas] = useState<WorkoutIntensity>('MEDIUM');
   const [error, setError] = useState<string | null>(null);
   const [diedit, setDiedit] = useState<WorkoutLog | null>(null);
+  const [rincian, setRincian] = useState<RincianLari>(RINCIAN_KOSONG);
+  /** Hasil cek silang screenshot yang perlu dilihat sebelum menyimpan. */
+  const [peringatan, setPeringatan] = useState<string[]>([]);
+
+  const scan = useScanWorkout();
+  const { dariGaleriBanyak, sibuk: memilih } = usePhotoPicker();
+  // Dimuat sejak awal supaya hasil screenshot bisa langsung dicocokkan.
+  const library = useWorkoutLibrary();
 
   // Urutan tombol "Berikutnya": nama tulis sendiri, ukuran, kalori, catatan.
   const kolomUkuran = useRef<TextInput>(null);
@@ -118,24 +162,96 @@ export default function WorkoutScreen() {
    * ditaksir aplikasi. Sesi yang terekam jam tangan atau kalorinya diketik
    * sendiri tidak memakainya, sama seperti backend.
    */
-  const pakaiIntensitas = measure === 'TIME' && !pakaiManual && !terekam && kaloriDiketik === null;
+  /** Lari dan jalan: jarak, durasi, pace, HR menggantikan isian menit. */
+  const jenis = measure === 'TIME' ? (pilihan?.jenis ?? null) : null;
 
-  const taksiran = pilihan
-    ? Math.round(
-        (kkalPerMenitIntensitas(pilihan.perMenit, pakaiIntensitas ? intensitas : null) *
-          menitGerak(measure, ukuran, pilihan.detikPerUlangan) *
-          beratKg) /
-          BERAT_ACUAN_KG,
-      )
-    : null;
+  const pakaiIntensitas =
+    measure === 'TIME' && !pakaiManual && !terekam && kaloriDiketik === null && jenis === null;
+
+  /**
+   * Lari dan jalan berjarak: kalori dari kecepatannya, cermin backend. Tanpa
+   * jarak: kkal/menit library dikali durasinya. Olahraga lain seperti biasa.
+   */
+  const taksiranJarak = ((): number | null => {
+    if (!pilihan || jenis === null) return null;
+    const dariKecepatan = kkalLariJalan(rincian, jenis, beratKg);
+    if (dariKecepatan !== null) return dariKecepatan;
+    const detik = detikDurasi(rincian);
+    return detik === null
+      ? null
+      : Math.round((pilihan.perMenit * (detik / 60) * beratKg) / BERAT_ACUAN_KG);
+  })();
+
+  const taksiran = !pilihan
+    ? null
+    : jenis !== null
+      ? taksiranJarak
+      : Math.round(
+          (kkalPerMenitIntensitas(pilihan.perMenit, pakaiIntensitas ? intensitas : null) *
+            menitGerak(measure, ukuran, pilihan.detikPerUlangan) *
+            beratKg) /
+            BERAT_ACUAN_KG,
+        );
+
+  /**
+   * Screenshot jadi isian. Jenis olahraga, tanggal, durasi, jarak, pace, HR,
+   * dan kalori TOTAL terisi; sesinya dianggap terekam jam tangan. Belum ada
+   * yang tersimpan: user memeriksa lalu menekan Simpan.
+   */
+  const terapkanScan = (hasil: WorkoutScanResult) => {
+    const lib = library.data?.find((w) => w.id === hasil.workout_library_id);
+    if (lib) {
+      setPilihan(pilihanDariLibrary(lib));
+    } else if (hasil.workout_library_id && hasil.workout_name) {
+      setPilihan({
+        id: hasil.workout_library_id,
+        name: hasil.workout_name,
+        sumber: 'library',
+        perMenit: 0,
+        measure: hasil.measure ?? 'TIME',
+        detikPerUlangan: null,
+        jenis: hasil.distance_kind,
+      });
+    } else {
+      setPilihan(null);
+      setManual(hasil.workout_name ?? '');
+    }
+
+    if (hasil.logged_at) setTanggal(hasil.logged_at);
+    setRincian(rincianDariScan(hasil));
+    if (hasil.duration_seconds !== null) {
+      const menit = Math.max(1, Math.round(hasil.duration_seconds / 60));
+      setUkuran((u) => ({ ...u, menit }));
+    }
+    if (hasil.calories_total !== null) setKaloriDiketik(String(hasil.calories_total));
+    setTerekam(true);
+    setPeringatan(hasil.warnings);
+  };
+
+  const isiDariScreenshot = async () => {
+    const uris = await dariGaleriBanyak(3);
+    if (uris.length === 0) return;
+    setError(null);
+    scan.mutate(uris, {
+      onSuccess: terapkanScan,
+      onError: (e) => setError(toApiError(e).message),
+    });
+  };
 
   const kaloriTampil = kaloriDiketik ?? (taksiran === null ? '' : String(taksiran));
 
   const simpan = () => {
     setError(null);
 
+    if (jenis !== null && detikDurasi(rincian) === null) {
+      setError('Isi durasinya dulu');
+      return;
+    }
+
     const body: WorkoutInput = {
-      ...ukuranKeBody(measure, ukuran),
+      // Lari dan jalan mengirim durasi dalam detik; backend menurunkan menitnya.
+      ...(jenis !== null ? {} : ukuranKeBody(measure, ukuran)),
+      ...rincianKeBody(rincian, jenis !== null),
       notes: catatan.trim() === '' ? undefined : catatan.trim(),
       tracked_by_device: terekam,
       ...(pakaiIntensitas ? { intensity: intensitas } : {}),
@@ -178,6 +294,8 @@ export default function WorkoutScreen() {
         setCatatan('');
         setTerekam(false);
         setIntensitas('MEDIUM');
+        setRincian(RINCIAN_KOSONG);
+        setPeringatan([]);
       },
       onError: (e) => setError(toApiError(e).message),
     });
@@ -189,6 +307,16 @@ export default function WorkoutScreen() {
         <Header title="Olahraga" subtitle="Boleh lebih dari satu sesi per hari" />
 
         <DateNav value={tanggal} onChange={setTanggal} section="workout" />
+
+        {/* Satu sampai tiga screenshot satu sesi dari aplikasi jam atau lari. */}
+        <Button
+          label={scan.isPending ? 'Membaca screenshot...' : 'Isi dari screenshot'}
+          variant="secondary"
+          icon={<ImagesIcon size={18} color={colors.textPrimary} weight="bold" />}
+          onPress={() => void isiDariScreenshot()}
+          loading={scan.isPending}
+          disabled={memilih || scan.isPending}
+        />
 
         <Pressable
           onPress={() => setSheet(true)}
@@ -224,15 +352,31 @@ export default function WorkoutScreen() {
 
         {/* Bentuk isian mengikuti cara olahraganya diukur; push up tidak pernah ditanya menit. */}
         <Card>
-          <WorkoutMeasureFields
-            measure={measure}
-            value={ukuran}
-            onChange={setUkuran}
-            awal={kolomUkuran}
-            next={kolomKalori}
-            intensitas={intensitas}
-            onIntensitas={pakaiIntensitas ? setIntensitas : undefined}
-          />
+          {jenis !== null ? (
+            <DistanceFields value={rincian} onChange={setRincian} next={kolomKalori} />
+          ) : (
+            <View style={styles.isian}>
+              <WorkoutMeasureFields
+                measure={measure}
+                value={ukuran}
+                onChange={setUkuran}
+                awal={kolomUkuran}
+                next={kolomKalori}
+                intensitas={intensitas}
+                onIntensitas={pakaiIntensitas ? setIntensitas : undefined}
+              />
+              {/* HR olahraga lain cuma tampil kalau terbaca dari screenshot. */}
+              {rincian.hr !== '' ? (
+                <Input
+                  label="HR rata-rata"
+                  value={rincian.hr}
+                  onChangeText={(hr) => setRincian({ ...rincian, hr: hr.replace(/[^0-9]/g, '') })}
+                  keyboardType="number-pad"
+                  suffix="bpm"
+                />
+              ) : null}
+            </View>
+          )}
         </Card>
 
         {/*
@@ -254,9 +398,11 @@ export default function WorkoutScreen() {
             pakaiManual
               ? 'Wajib diisi untuk olahraga yang ditulis sendiri.'
               : kaloriDiketik === null
-                ? measure === 'TIME'
-                  ? 'Taksiran dari durasi, intensitas, dan berat badanmu. Ketik sendiri kalau jam tanganmu menunjukkan angka lain.'
-                  : 'Taksiran dari waktu gerak ulanganmu saja, jeda antar set tidak dihitung. Kecil itu wajar: nilai latihan ini di ototmu, bukan kalorinya.'
+                ? jenis !== null
+                  ? 'Taksiran dari jarak, durasi, dan berat badanmu. Ketik sendiri angka total dari jam tanganmu kalau ada.'
+                  : measure === 'TIME'
+                    ? 'Taksiran dari durasi, intensitas, dan berat badanmu. Ketik sendiri angka total dari jam tanganmu kalau ada.'
+                    : 'Taksiran dari waktu gerak ulanganmu saja, jeda antar set tidak dihitung. Kecil itu wajar: nilai latihan ini di ototmu, bukan kalorinya.'
                 : 'Angka ini disimpan apa adanya dan tidak dihitung ulang.'
           }
         />
@@ -290,6 +436,13 @@ export default function WorkoutScreen() {
           maxLength={1000}
           autoCapitalize="sentences"
         />
+
+        {/* Hasil cek silang screenshot: perlu dilihat sebelum menyimpan. */}
+        {peringatan.map((p) => (
+          <Text key={p} variant="caption" tone="warning">
+            {p}
+          </Text>
+        ))}
 
         {error ? <ErrorNote message={error} /> : null}
 
@@ -329,9 +482,12 @@ export default function WorkoutScreen() {
                   <Text variant="caption" tone="secondary">
                     {ringkasSesi(log)} · {thousands(log.calories_burned)} kkal
                   </Text>
-                  {log.tracked_by_device || log.calories_source === 'MANUAL' ? (
+                  {log.avg_hr !== null ||
+                  log.tracked_by_device ||
+                  log.calories_source === 'MANUAL' ? (
                     <Text variant="caption" tone="tertiary">
                       {[
+                        log.avg_hr !== null ? 'HR ' + String(log.avg_hr) : null,
                         log.tracked_by_device ? 'Terekam jam tangan' : null,
                         log.calories_source === 'MANUAL' ? 'Kalori diisi sendiri' : null,
                       ]
@@ -397,15 +553,9 @@ const WorkoutPicker = ({
       perMenit: toNum(w.calories_burned_per_minute) ?? 0,
       measure: w.measure,
       detikPerUlangan: null,
+      jenis: null,
     })),
-    ...(library.data ?? []).map((w) => ({
-      id: w.id,
-      name: w.name,
-      sumber: 'library' as const,
-      perMenit: toNum(w.calories_burned_per_minute) ?? 0,
-      measure: w.measure,
-      detikPerUlangan: w.seconds_per_rep,
-    })),
+    ...(library.data ?? []).map(pilihanDariLibrary),
   ];
 
   /**
@@ -509,6 +659,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSoft,
   },
   pickerText: { flex: 1, gap: 2 },
+  isian: { gap: spacing.md },
   pressed: { opacity: 0.75 },
   logRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   logText: { flex: 1, gap: 2 },

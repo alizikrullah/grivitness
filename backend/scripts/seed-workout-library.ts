@@ -35,7 +35,7 @@ import {
   updateItem,
 } from '@directus/sdk';
 
-import type { WorkoutCategory, WorkoutMeasure } from '../src/constants/enums.js';
+import type { DistanceKind, WorkoutCategory, WorkoutMeasure } from '../src/constants/enums.js';
 import { env } from '../src/config/env.js';
 import { netKcalPerMinuteAt70 } from '../src/utils/calories.js';
 
@@ -64,19 +64,54 @@ interface SeedItem {
    * perkiraan, dan tetap ditandai begitu.
    */
   seconds_per_rep?: number;
+  /** RUN/WALK untuk olahraga berjarak: MET diturunkan dari kecepatannya. */
+  distance_kind?: DistanceKind;
+  /** Tidak ditawarkan lagi di pilihan, barisnya tetap untuk catatan lama. */
+  hidden?: true;
+  /**
+   * Nama lama baris ini. Seed mencocokkan baris lewat nama, jadi tanpa ini
+   * penggantian nama akan membuat baris baru dan meninggalkan yang lama.
+   */
+  renamedFrom?: string;
 }
 
 const LIBRARY: SeedItem[] = [
   // --- CARDIO ---
+  // Lari dan jalan: satu jenis masing-masing. "Santai" dan "cepat" dulu
+  // cuma tebakan kecepatan; sekarang MET diturunkan dari pace atau jarak
+  // (metFromSpeed). MET di sini cuma dipakai kalau jaraknya tidak diisi.
   {
-    name: 'Jalan Santai',
+    name: 'Jalan',
+    renamedFrom: 'Jalan Santai',
     category: 'CARDIO',
     met: 3.0,
-    description: 'Sekitar 4 km/jam, tempo mengobrol',
+    distance_kind: 'WALK',
+    description: 'Isi jarak supaya kalori dihitung dari kecepatanmu. Tanpa jarak dianggap 4 km/jam',
   },
-  { name: 'Jalan Cepat', category: 'CARDIO', met: 5.0, description: 'Sekitar 6,4 km/jam' },
-  { name: 'Lari Santai', category: 'CARDIO', met: 8.3, description: 'Sekitar 8 km/jam' },
-  { name: 'Lari Cepat', category: 'CARDIO', met: 11.5, description: 'Sekitar 12 km/jam' },
+  {
+    name: 'Jalan Cepat',
+    category: 'CARDIO',
+    met: 5.0,
+    distance_kind: 'WALK',
+    hidden: true,
+    description: 'Sekitar 6,4 km/jam. Digabung ke Jalan',
+  },
+  {
+    name: 'Lari',
+    renamedFrom: 'Lari Santai',
+    category: 'CARDIO',
+    met: 8.3,
+    distance_kind: 'RUN',
+    description: 'Isi jarak supaya kalori dihitung dari pacemu. Tanpa jarak dianggap 8 km/jam',
+  },
+  {
+    name: 'Lari Cepat',
+    category: 'CARDIO',
+    met: 11.5,
+    distance_kind: 'RUN',
+    hidden: true,
+    description: 'Sekitar 12 km/jam. Digabung ke Lari',
+  },
   {
     name: 'Bersepeda Santai',
     category: 'CARDIO',
@@ -246,6 +281,8 @@ const toRow = (item: SeedItem) => ({
   description: item.description,
   measure: item.measure ?? 'TIME',
   seconds_per_rep: item.seconds_per_rep ?? null,
+  distance_kind: item.distance_kind ?? null,
+  hidden: item.hidden ?? false,
 });
 
 const write = (line: string) => process.stdout.write(`${line}\n`);
@@ -260,6 +297,9 @@ interface ExistingRow {
   calories_burned_per_minute: string;
   measure: WorkoutMeasure | null;
   seconds_per_rep: number | null;
+  distance_kind: DistanceKind | null;
+  hidden: boolean | null;
+  description: string | null;
 }
 
 const main = async (): Promise<void> => {
@@ -268,27 +308,46 @@ const main = async (): Promise<void> => {
 
   const existing = (await client.request(
     readItems('workout_library', {
-      fields: ['id', 'name', 'met', 'calories_burned_per_minute', 'measure', 'seconds_per_rep'],
+      fields: [
+        'id',
+        'name',
+        'met',
+        'calories_burned_per_minute',
+        'measure',
+        'seconds_per_rep',
+        'distance_kind',
+        'hidden',
+        'description',
+      ],
       limit: -1,
     }),
   )) as ExistingRow[];
 
   const byName = new Map(existing.map((row) => [row.name, row]));
 
-  const baru = LIBRARY.filter((item) => !byName.has(item.name));
+  /** Baris untuk item ini: namanya sekarang, atau nama lamanya kalau baru diganti. */
+  const barisUntuk = (item: SeedItem): ExistingRow | undefined =>
+    byName.get(item.name) ??
+    (item.renamedFrom === undefined ? undefined : byName.get(item.renamedFrom));
+
+  const baru = LIBRARY.filter((item) => !barisUntuk(item));
 
   // Entri yang sudah ada tapi nilainya berbeda dari daftar di atas. Inilah yang
   // membuat koreksi benar-benar sampai ke database yang sudah terisi.
   const berubah = LIBRARY.flatMap((item) => {
-    const row = byName.get(item.name);
+    const row = barisUntuk(item);
     if (!row) return [];
 
     const target = toRow(item);
     const sama =
+      row.name === target.name &&
       row.met === target.met &&
       row.calories_burned_per_minute === target.calories_burned_per_minute &&
       row.measure === target.measure &&
-      row.seconds_per_rep === target.seconds_per_rep;
+      row.seconds_per_rep === target.seconds_per_rep &&
+      row.distance_kind === target.distance_kind &&
+      (row.hidden ?? false) === target.hidden &&
+      row.description === target.description;
 
     return sama ? [] : [{ id: row.id, item, target, lama: row }];
   });
@@ -314,18 +373,23 @@ const main = async (): Promise<void> => {
   for (const { id, item, target, lama } of berubah) {
     await client.request(
       updateItem('workout_library', id, {
+        name: target.name,
         met: target.met,
         calories_burned_per_minute: target.calories_burned_per_minute,
         category: target.category,
         description: target.description,
         measure: target.measure,
         seconds_per_rep: target.seconds_per_rep,
+        distance_kind: target.distance_kind,
+        hidden: target.hidden,
       }),
     );
 
+    const ganti = lama.name === target.name ? item.name : `${lama.name} → ${target.name}`;
     write(
-      `  ${kuning('~')} ${item.name}, ${lama.calories_burned_per_minute} → ` +
-        `${target.calories_burned_per_minute} kkal/menit (MET ${target.met})`,
+      `  ${kuning('~')} ${ganti}, ${lama.calories_burned_per_minute} → ` +
+        `${target.calories_burned_per_minute} kkal/menit (MET ${target.met})` +
+        `${target.distance_kind ? `, ${target.distance_kind}` : ''}${target.hidden ? ', disembunyikan' : ''}`,
     );
   }
 

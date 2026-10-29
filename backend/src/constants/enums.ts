@@ -103,6 +103,18 @@ export const CALORIE_SOURCE = ['MET', 'MANUAL'] as const;
 export type CalorieSource = (typeof CALORIE_SOURCE)[number];
 
 /**
+ * Olahraga berjarak di workout_library: lari atau jalan.
+ *
+ * Penandanya di library, bukan nama, supaya form tahu kapan menanyakan jarak,
+ * pace, dan HR, dan supaya MET bisa diturunkan dari kecepatan sesungguhnya
+ * (metFromSpeed di utils/calories.ts). Lari Santai/Cepat dan Jalan
+ * Santai/Cepat digabung karena "santai" dan "cepat" cuma tebakan kecepatan;
+ * begitu pace diketahui, tebakan itu tidak perlu lagi.
+ */
+export const DISTANCE_KIND = ['RUN', 'WALK'] as const;
+export type DistanceKind = (typeof DISTANCE_KIND)[number];
+
+/**
  * PAR (Physical Activity Ratio) untuk SISA hari, jam yang tidak terpakai untuk
  * tidur atau olahraga.
  *

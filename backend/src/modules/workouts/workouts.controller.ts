@@ -74,6 +74,23 @@ export const removeCustom = async (req: Request, res: Response): Promise<void> =
   sendSuccess(res, { message: 'Custom workout dihapus' });
 };
 
+/**
+ * Screenshot aplikasi jam atau aplikasi lari, maksimal tiga, dibaca jadi
+ * isian form. Tidak ada yang tersimpan: gambarnya dibuang setelah dibaca.
+ */
+export const scan = async (req: Request, res: Response): Promise<void> => {
+  const user = getAuthUser(req);
+  const files = (req.files as Express.Multer.File[] | undefined) ?? [];
+
+  sendSuccess(
+    res,
+    await workoutsService.scan(
+      user.id,
+      files.map((file) => file.buffer),
+    ),
+  );
+};
+
 export const update = async (req: Request, res: Response): Promise<void> => {
   const user = getAuthUser(req);
   const { id } = getValidatedParams<UuidParamDto>(res);

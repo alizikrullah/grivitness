@@ -26,8 +26,9 @@ export const upload = multer({
   storage,
   limits: {
     fileSize: MAX_UPLOAD_BYTES,
-    // Tidak ada endpoint yang menerima lebih dari dua file sekaligus.
-    files: 2,
+    // Paling banyak tiga: scan olahraga menerima tiga screenshot, sama dengan
+    // batas gambar per permintaan model vision Groq.
+    files: 3,
   },
   fileFilter: (_req, file, callback) => {
     if (!TIPE_DIIZINKAN.has(file.mimetype.toLowerCase())) {

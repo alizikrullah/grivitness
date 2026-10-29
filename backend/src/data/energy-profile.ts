@@ -1,4 +1,10 @@
-import { baselineTDEE, dailyCaloriesOut, outCorrectionFactor } from '../utils/calories.js';
+import {
+  baselineTDEE,
+  dailyCaloriesOut,
+  outCorrectionFactor,
+  type WorkoutForOut,
+  workoutDayTotals,
+} from '../utils/calories.js';
 import { jakartaDate, todayInJakarta } from '../utils/daily-key.js';
 import { toNumber } from '../utils/number.js';
 import { type ObservedTdee, observeTDEE, type WeightPoint } from '../utils/observed-tdee.js';
@@ -84,7 +90,13 @@ export const loadEnergyProfile = async (userId: string): Promise<EnergyProfile> 
       }),
       repo.list('workout_logs', {
         filter: dateRangeFilter(range),
-        fields: ['logged_at', 'duration_minutes', 'calories_burned', 'tracked_by_device'],
+        fields: [
+          'logged_at',
+          'duration_minutes',
+          'calories_burned',
+          'calories_source',
+          'tracked_by_device',
+        ],
         limit: -1,
       }),
       repo.list('device_energy_logs', {
@@ -153,12 +165,7 @@ const rataKeluarRumus = (input: {
   activityLevel: UserMetrics['activityLevel'];
   hariMakan: string[];
   sleepLogs: { logged_at: string; duration_minutes: number }[];
-  workoutLogs: {
-    logged_at: string;
-    duration_minutes: number;
-    calories_burned: number;
-    tracked_by_device: boolean | null;
-  }[];
+  workoutLogs: (WorkoutForOut & { logged_at: string })[];
   deviceLogs: { logged_at: string; total_kcal: number; active_kcal: number | null }[];
 }): number => {
   if (input.hariMakan.length === 0) return 0;
@@ -168,12 +175,10 @@ const rataKeluarRumus = (input: {
     tidur.set(t.logged_at, (tidur.get(t.logged_at) ?? 0) + t.duration_minutes);
   }
 
-  const olahraga = new Map<string, { menit: number; kalori: number; tanpaJam: number }>();
+  const olahraga = new Map<string, WorkoutForOut[]>();
   for (const o of input.workoutLogs) {
-    const h = olahraga.get(o.logged_at) ?? { menit: 0, kalori: 0, tanpaJam: 0 };
-    h.menit += o.duration_minutes;
-    h.kalori += o.calories_burned;
-    if (o.tracked_by_device !== true) h.tanpaJam += o.calories_burned;
+    const h = olahraga.get(o.logged_at) ?? [];
+    h.push(o);
     olahraga.set(o.logged_at, h);
   }
 
@@ -181,16 +186,13 @@ const rataKeluarRumus = (input: {
 
   let total = 0;
   for (const tanggal of input.hariMakan) {
-    const o = olahraga.get(tanggal);
     const jam = perangkat.get(tanggal);
     const menitTidur = tidur.get(tanggal) ?? 0;
     total += dailyCaloriesOut({
       bmr: input.bmr,
       activityLevel: input.activityLevel,
       sleepMinutes: menitTidur > 0 ? menitTidur : null,
-      workoutMinutes: o?.menit ?? 0,
-      workoutCalories: o?.kalori ?? 0,
-      untrackedWorkoutCalories: o?.tanpaJam ?? 0,
+      ...workoutDayTotals(olahraga.get(tanggal) ?? []),
       device: jam ? { total_kcal: jam.total_kcal, active_kcal: jam.active_kcal } : null,
     }).calories_out;
   }

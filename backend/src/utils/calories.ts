@@ -1,6 +1,8 @@
 import {
   ACTIVITY_PAR,
   type ActivityLevel,
+  type CalorieSource,
+  type DistanceKind,
   type Gender,
   type WorkoutIntensity,
 } from '../constants/enums.js';
@@ -207,6 +209,70 @@ export const kcalPerMinuteWithIntensity = (
 };
 
 /**
+ * MET menurut kecepatan, untuk lari dan jalan yang jaraknya diketahui.
+ *
+ * Titik-titiknya dari Compendium 2011 (Ainsworth dkk.), kode 12xxx untuk lari
+ * dan 17xxx untuk jalan di permukaan datar, kecepatan dikonversi dari mph.
+ * Di antara dua titik nilainya diinterpolasi linear; di luar tabel ditahan di
+ * titik terujung. Lari lebih lambat dari 6,4 km/jam (lari-jalan) memakai titik
+ * lari terendah: berlari lambat tetap lebih mahal daripada berjalan secepat itu.
+ *
+ * Dipakai HANYA kalau kalorinya tidak diketahui. Sesi dari jam tangan membawa
+ * kalorinya sendiri dan MET tidak dipakai sama sekali.
+ */
+const MET_LARI_PER_KM_JAM: [number, number][] = [
+  [6.4, 6.0],
+  [8.0, 8.3],
+  [8.4, 9.0],
+  [9.7, 9.8],
+  [10.8, 10.5],
+  [11.3, 11.0],
+  [12.1, 11.5],
+  [12.9, 11.8],
+  [13.8, 12.3],
+  [14.5, 12.8],
+  [16.1, 14.5],
+  [17.7, 16.0],
+  [19.3, 19.0],
+  [20.9, 19.8],
+  [22.5, 23.0],
+];
+
+const MET_JALAN_PER_KM_JAM: [number, number][] = [
+  [3.2, 2.8],
+  [4.0, 3.0],
+  [4.8, 3.5],
+  [5.6, 4.3],
+  [6.4, 5.0],
+  [7.2, 7.0],
+  [8.0, 8.3],
+];
+
+export const metFromSpeed = (kind: DistanceKind, kmPerHour: number): number => {
+  const tabel = kind === 'RUN' ? MET_LARI_PER_KM_JAM : MET_JALAN_PER_KM_JAM;
+  const pertama = tabel[0];
+  const terakhir = tabel.at(-1);
+  if (!pertama || !terakhir) return 1;
+  if (kmPerHour <= pertama[0]) return pertama[1];
+  if (kmPerHour >= terakhir[0]) return terakhir[1];
+
+  for (let i = 1; i < tabel.length; i++) {
+    const kanan = tabel[i];
+    const kiri = tabel[i - 1];
+    if (!kanan || !kiri) continue;
+    if (kmPerHour <= kanan[0]) {
+      const t = (kmPerHour - kiri[0]) / (kanan[0] - kiri[0]);
+      return round(kiri[1] + t * (kanan[1] - kiri[1]), 2);
+    }
+  }
+  return terakhir[1];
+};
+
+/** Kecepatan dari pace. Null kalau pacenya tidak masuk akal. */
+export const speedFromPace = (paceSecondsPerKm: number): number | null =>
+  paceSecondsPerKm > 0 ? 3600 / paceSecondsPerKm : null;
+
+/**
  * Detik satu ulangan kalau library tidak menyebutkannya sendiri.
  *
  * PERKIRAAN, bukan dari Compendium: tempo yang lazim dianjurkan sekitar satu
@@ -258,6 +324,13 @@ export interface PalInput {
   /** Menit tidur yang tercatat. Null berarti belum dicatat, dipakai asumsi 8 jam. */
   sleepMinutes: number | null;
   workoutMinutes: number;
+  /**
+   * Bagian dari workoutMinutes yang energinya, TERMASUK istirahatnya, sudah
+   * dibawa angka kalori TOTAL sesi itu (kalori MANUAL dari jam). Menit ini
+   * keluar dari partisi: kalau tetap diberi PAR 1,0, istirahat selama sesi
+   * dibayar dua kali, sekali oleh BMR dan sekali di dalam angka total jam.
+   */
+  coveredMinutes?: number;
 }
 
 /**
@@ -279,16 +352,22 @@ export const restingPartitionPAL = ({
   activityLevel,
   sleepMinutes,
   workoutMinutes,
+  coveredMinutes = 0,
 }: PalInput): number => {
   const tidur = Math.max(sleepMinutes ?? TIDUR_DEFAULT_MENIT, 0);
   const olahraga = Math.max(workoutMinutes, 0);
+  const tertanggung = Math.min(Math.max(coveredMinutes, 0), olahraga);
 
   // Data yang tidak masuk akal (tidur 20 jam plus olahraga 6 jam) tidak boleh
   // membuat sisa hari jadi negatif dan menghasilkan PAL yang mustahil.
   const terpakai = Math.min(tidur + olahraga, MENIT_SEHARI);
   const sisa = MENIT_SEHARI - terpakai;
 
-  return round((terpakai * PAR_TIDUR + sisa * ACTIVITY_PAR[activityLevel]) / MENIT_SEHARI, 4);
+  // Menit yang ditanggung angka total tetap mengurangi sisa hari, tapi tidak
+  // dibayar PAR apa pun di sini: energinya sudah ada di angka total itu.
+  const berbayar = Math.max(terpakai - tertanggung, 0);
+
+  return round((berbayar * PAR_TIDUR + sisa * ACTIVITY_PAR[activityLevel]) / MENIT_SEHARI, 4);
 };
 
 export interface TdeeInput extends PalInput {
@@ -367,13 +446,70 @@ export interface DailyOutInput {
   sleepMinutes: number | null;
   /** Menit gerak SEMUA olahraga hari itu, terekam jam atau tidak. */
   workoutMinutes: number;
-  /** Kalori bersih SEMUA olahraga hari itu. */
+  /**
+   * Kalori SEMUA olahraga hari itu: bersih untuk yang dihitung dari MET,
+   * total (termasuk istirahat) untuk yang diisi dari jam (MANUAL).
+   */
   workoutCalories: number;
-  /** Kalori bersih olahraga yang TIDAK dicentang "terekam jam tangan". */
+  /** Kalori olahraga yang TIDAK dicentang "terekam jam tangan". */
   untrackedWorkoutCalories: number;
+  /** Menit olahraga yang kalorinya MANUAL, angka total dari jam. */
+  grossWorkoutMinutes?: number;
+  /** Sama, tapi hanya yang tidak terekam jam tangan. */
+  untrackedGrossWorkoutMinutes?: number;
   /** Angka jam tangan hari itu, null kalau tidak dicatat. */
   device: DeviceEnergy | null;
 }
+
+/** Satu sesi olahraga, cukup untuk hitungan kalori keluar. */
+export interface WorkoutForOut {
+  duration_minutes: number;
+  calories_burned: number;
+  /** Null di baris yang dibuat sebelum kolomnya ada; semua itu dulu MET. */
+  calories_source: CalorieSource | null;
+  /** Null di baris lama, artinya tidak terekam jam. */
+  tracked_by_device: boolean | null;
+}
+
+export type WorkoutDayTotals = Pick<
+  DailyOutInput,
+  | 'workoutMinutes'
+  | 'workoutCalories'
+  | 'untrackedWorkoutCalories'
+  | 'grossWorkoutMinutes'
+  | 'untrackedGrossWorkoutMinutes'
+>;
+
+/**
+ * Jumlah olahraga satu hari dalam bentuk yang dibutuhkan dailyCaloriesOut().
+ * Satu tempat, supaya beranda, riwayat, overview, dan profil energi tidak
+ * menjumlahkannya dengan cara masing-masing.
+ *
+ * Kalori MANUAL dianggap angka TOTAL dari jam (termasuk istirahat selama
+ * sesi), sesuai kebiasaan user dan label di form. Menitnya ikut dijumlahkan
+ * terpisah supaya dailyCaloriesOut() bisa mengeluarkannya dari partisi.
+ */
+export const workoutDayTotals = (logs: WorkoutForOut[]): Required<WorkoutDayTotals> => {
+  const hasil = {
+    workoutMinutes: 0,
+    workoutCalories: 0,
+    untrackedWorkoutCalories: 0,
+    grossWorkoutMinutes: 0,
+    untrackedGrossWorkoutMinutes: 0,
+  };
+
+  for (const o of logs) {
+    const tanpaJam = o.tracked_by_device !== true;
+    const total = o.calories_source === 'MANUAL';
+    hasil.workoutMinutes += o.duration_minutes;
+    hasil.workoutCalories += o.calories_burned;
+    if (tanpaJam) hasil.untrackedWorkoutCalories += o.calories_burned;
+    if (total) hasil.grossWorkoutMinutes += o.duration_minutes;
+    if (total && tanpaJam) hasil.untrackedGrossWorkoutMinutes += o.duration_minutes;
+  }
+
+  return hasil;
+};
 
 export interface DailyOut {
   calories_out: number;
@@ -414,6 +550,12 @@ export interface DailyOut {
  * terekam jam, aktif jam 367. PAL partisi = (350 + 96 + 994 x 1,6) / 1.440
  * = 1,414, jadi 1.866 x 1,414 + 367 = 3.005 kkal.
  *
+ * Kalori olahraga MANUAL adalah angka TOTAL dari jam: sudah termasuk
+ * istirahat selama sesi. Kalau dijumlahkan, menit sesinya dikeluarkan dari
+ * partisi (coveredMinutes), supaya istirahat itu tidak dibayar lagi oleh BMR.
+ * Contoh lari 28 Okt 2026: 45 menit, total 360 kkal, BMR 1.876. Metabolisme
+ * turun 1.876 x 45 / 1.440 = 59 kkal, olahraga tetap tampil 360.
+ *
  * Langkah tetap tidak masuk, lihat catatan LANGKAH di atas.
  */
 export const dailyCaloriesOut = (input: DailyOutInput): DailyOut => {
@@ -441,12 +583,21 @@ export const dailyCaloriesOut = (input: DailyOutInput): DailyOut => {
         };
   }
 
+  // Menit yang energinya sudah dibawa angka total sesi: hanya sesi yang
+  // kalorinya BENAR-BENAR dijumlahkan hari ini. Sesi terekam jam di hari
+  // berangka jam tidak dijumlahkan, jadi istirahatnya tetap ditanggung BMR.
+  const tertanggung =
+    input.device === null
+      ? (input.grossWorkoutMinutes ?? 0)
+      : (input.untrackedGrossWorkoutMinutes ?? 0);
+
   const baseline = round(
     input.bmr *
       restingPartitionPAL({
         activityLevel: input.activityLevel,
         sleepMinutes: input.sleepMinutes,
         workoutMinutes: input.workoutMinutes,
+        coveredMinutes: tertanggung,
       }),
     0,
   );

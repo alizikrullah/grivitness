@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import type { TextInput } from 'react-native';
 
 import { Button, Checkbox, ErrorNote, Input, Sheet } from '@/components/ui';
+import { DistanceFields, rincianBerubah, rincianDariLog } from './DistanceFields';
 import { toApiError } from '@/lib/api';
 import { useUpdateWorkout } from '@/services/workouts.service';
 import type { WorkoutIntensity, WorkoutLog } from '@/types';
@@ -33,6 +34,11 @@ export const WorkoutEditSheet = ({ log, onClose }: WorkoutEditSheetProps) => {
   // sebagai set x ulangan, bukan dipaksa jadi menit.
   const measure = measureDariLog(log);
   const [ukuran, setUkuran] = useState(ukuranDariLog(log));
+
+  // Lari dan jalan dikoreksi lewat jarak, durasi, pace, dan HR.
+  const berjarak = log.distance_kind !== null && measure === 'TIME';
+  const [awalRincian] = useState(() => rincianDariLog(log));
+  const [rincian, setRincian] = useState(awalRincian);
   const [catatan, setCatatan] = useState(log.notes ?? '');
   const [terekam, setTerekam] = useState(log.tracked_by_device);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +53,8 @@ export const WorkoutEditSheet = ({ log, onClose }: WorkoutEditSheetProps) => {
    * seperti semula sampai user sendiri memilih intensitasnya.
    */
   const [intensitas, setIntensitas] = useState<WorkoutIntensity | null>(log.intensity);
-  const pakaiIntensitas = measure === 'TIME' && !manual && !terekam && kaloriDiketik === null;
+  const pakaiIntensitas =
+    measure === 'TIME' && !manual && !terekam && kaloriDiketik === null && !berjarak;
 
   const kolomKalori = useRef<TextInput>(null);
   const kolomCatatan = useRef<TextInput>(null);
@@ -71,7 +78,8 @@ export const WorkoutEditSheet = ({ log, onClose }: WorkoutEditSheetProps) => {
     update.mutate(
       {
         id: log.id,
-        ...ukuranKeBody(measure, ukuran),
+        ...(berjarak ? {} : ukuranKeBody(measure, ukuran)),
+        ...rincianBerubah(awalRincian, rincian, berjarak),
         // Beban yang dikosongkan berarti dihapus, bukan dibiarkan.
         ...(measure === 'REPS' && ukuran.beban.trim() === '' ? { load_kg: null } : {}),
         notes: catatan.trim() === '' ? null : catatan.trim(),
@@ -94,14 +102,29 @@ export const WorkoutEditSheet = ({ log, onClose }: WorkoutEditSheetProps) => {
         <Button label="Simpan perubahan" onPress={simpan} loading={update.isPending} size="lg" />
       }
     >
-      <WorkoutMeasureFields
-        measure={measure}
-        value={ukuran}
-        onChange={setUkuran}
-        next={kolomKalori}
-        intensitas={intensitas}
-        onIntensitas={pakaiIntensitas ? setIntensitas : undefined}
-      />
+      {berjarak ? (
+        <DistanceFields value={rincian} onChange={setRincian} next={kolomKalori} />
+      ) : (
+        <>
+          <WorkoutMeasureFields
+            measure={measure}
+            value={ukuran}
+            onChange={setUkuran}
+            next={kolomKalori}
+            intensitas={intensitas}
+            onIntensitas={pakaiIntensitas ? setIntensitas : undefined}
+          />
+          {awalRincian.hr !== '' ? (
+            <Input
+              label="HR rata-rata"
+              value={rincian.hr}
+              onChangeText={(hr) => setRincian({ ...rincian, hr: hr.replace(/[^0-9]/g, '') })}
+              keyboardType="number-pad"
+              suffix="bpm"
+            />
+          ) : null}
+        </>
+      )}
 
       <Input
         ref={kolomKalori}

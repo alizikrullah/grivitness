@@ -3,7 +3,10 @@ import {
   DropIcon,
   FireIcon,
   FootprintsIcon,
+  GaugeIcon,
+  MapPinLineIcon,
   MoonStarsIcon,
+  PersonSimpleRunIcon,
   ScalesIcon,
   TrendDownIcon,
   TrendUpIcon,
@@ -20,6 +23,7 @@ import {
   Loading,
   Screen,
   SectionHeader,
+  StatPill,
   Text,
   type BarDatum,
   type LinePoint,
@@ -29,8 +33,15 @@ import { spacing, typography } from '@/constants/theme';
 import { useMonthlySummary, useWeeklySummary } from '@/services/misc.service';
 import { useStepsRange } from '@/services/steps.service';
 import { useWeightRange } from '@/services/weight.service';
+import { useWorkoutsRange } from '@/services/workouts.service';
+import type { DistanceKind } from '@/types';
 import { dateRange, dayLabel, shiftDays, shortDate, todayWIB } from '@/utils/date';
-import { duration, kg, signed, thousands, toNum, volume } from '@/utils/format';
+import { duration, kg, km, pace, signed, thousands, toNum, volume } from '@/utils/format';
+
+/** Sesi yang digambar di grafik lari dan jalan, terbaru di kanan. */
+const SESI_DIGAMBAR = 12;
+/** Pace terbaik cuma dari sesi minimal sejauh ini: lari 300 m bukan rekor. */
+const JARAK_MIN_REKOR_KM = 1;
 
 type Periode = 'pekan' | 'bulan';
 
@@ -53,6 +64,14 @@ export default function ProgressScreen() {
 
   const berat = useWeightRange(from, to);
   const langkah = useStepsRange(from, to);
+
+  /**
+   * Lari dan jalan: setengah tahun terakhir, supaya grafik perkembangan dan
+   * rekornya tidak ikut terpotong pilihan pekan atau bulan. Yang mengikuti
+   * periode cuma total jarak dan jumlah sesinya.
+   */
+  const olahraga = useWorkoutsRange(shiftDays(hariIni, -179), hariIni);
+  const [jenisPilihan, setJenisPilihan] = useState<DistanceKind>('RUN');
 
   const hari = dateRange(from, to);
 
@@ -83,6 +102,48 @@ export default function ProgressScreen() {
       caption: sebulan ? shortDate(tanggal) + ' · ' + thousands(nilai ?? 0) : thousands(nilai ?? 0),
     };
   });
+
+  const sesiJarak = (olahraga.data ?? [])
+    .filter((o) => o.distance_kind !== null && o.distance_km !== null)
+    .sort((a, b) =>
+      a.logged_at === b.logged_at
+        ? (a.started_at ?? a.created_at ?? '').localeCompare(b.started_at ?? b.created_at ?? '')
+        : a.logged_at.localeCompare(b.logged_at),
+    );
+  const adaLari = sesiJarak.some((o) => o.distance_kind === 'RUN');
+  const adaJalan = sesiJarak.some((o) => o.distance_kind === 'WALK');
+  const jenisTampil: DistanceKind = adaLari && adaJalan ? jenisPilihan : adaLari ? 'RUN' : 'WALK';
+  const sesiJenis = sesiJarak.filter((o) => o.distance_kind === jenisTampil);
+  const sesiTerakhir = sesiJenis.slice(-SESI_DIGAMBAR);
+  const sesiPeriode = sesiJenis.filter((o) => o.logged_at >= from);
+  const jarakSesi = (o: (typeof sesiJenis)[number]) => toNum(o.distance_km) ?? 0;
+
+  const totalKm = sesiPeriode.reduce((s, o) => s + jarakSesi(o), 0);
+  const paceRekor = sesiJenis
+    .filter((o) => o.pace_seconds_per_km !== null && jarakSesi(o) >= JARAK_MIN_REKOR_KM)
+    .reduce<number | null>(
+      (terbaik, o) =>
+        terbaik === null || (o.pace_seconds_per_km ?? Infinity) < terbaik
+          ? o.pace_seconds_per_km
+          : terbaik,
+      null,
+    );
+  const terjauh = sesiJenis.reduce((m, o) => Math.max(m, jarakSesi(o)), 0);
+
+  const pacePerSesi: LinePoint[] = sesiTerakhir.map((o) => ({
+    label: shortDate(o.logged_at),
+    value: o.pace_seconds_per_km,
+  }));
+  const jarakPerSesi: BarDatum[] = sesiTerakhir.map((o) => ({
+    label: String(Number(o.logged_at.slice(8))),
+    value: jarakSesi(o),
+    caption:
+      shortDate(o.logged_at) +
+      ' · ' +
+      km(jarakSesi(o)) +
+      ' km' +
+      (o.avg_hr !== null ? ' · HR ' + String(o.avg_hr) : ''),
+  }));
 
   const perubahan = rekap.data?.weight_change_kg ?? null;
   const turun = perubahan !== null && perubahan < 0;
@@ -168,6 +229,84 @@ export default function ProgressScreen() {
             </View>
           </Card>
 
+          {/* Lari dan jalan dari jam tangan: pace, jarak, dan rekornya. */}
+          {sesiJarak.length > 0 ? (
+            <Card>
+              <View style={styles.weightCard}>
+                <SectionHeader
+                  title={jenisTampil === 'RUN' ? 'Lari' : 'Jalan'}
+                  action={
+                    adaLari && adaJalan ? (
+                      <View style={styles.chips}>
+                        <Chip
+                          label="Lari"
+                          size="sm"
+                          active={jenisTampil === 'RUN'}
+                          onPress={() => setJenisPilihan('RUN')}
+                        />
+                        <Chip
+                          label="Jalan"
+                          size="sm"
+                          active={jenisTampil === 'WALK'}
+                          onPress={() => setJenisPilihan('WALK')}
+                        />
+                      </View>
+                    ) : null
+                  }
+                />
+
+                <View style={styles.pills}>
+                  <StatPill
+                    icon={<MapPinLineIcon size={16} color={metricColors.workout} weight="fill" />}
+                    value={km(totalKm) + ' km'}
+                    label={
+                      (periode === 'pekan' ? 'Pekan ini, ' : 'Bulan ini, ') +
+                      String(sesiPeriode.length) +
+                      ' sesi'
+                    }
+                  />
+                  {paceRekor !== null ? (
+                    <StatPill
+                      icon={<GaugeIcon size={16} color={metricColors.workout} weight="fill" />}
+                      value={pace(paceRekor) + '/km'}
+                      label="Pace terbaik"
+                    />
+                  ) : null}
+                  <StatPill
+                    icon={
+                      <PersonSimpleRunIcon size={16} color={metricColors.workout} weight="fill" />
+                    }
+                    value={km(terjauh) + ' km'}
+                    label="Terjauh"
+                  />
+                </View>
+
+                {pacePerSesi.some((t) => t.value !== null) ? (
+                  <>
+                    <Text variant="overline" tone="tertiary">
+                      Pace per sesi
+                    </Text>
+                    <LineChart
+                      data={pacePerSesi}
+                      color={metricColors.workout}
+                      invert
+                      formatBound={pace}
+                    />
+                  </>
+                ) : null}
+
+                <Text variant="overline" tone="tertiary">
+                  Jarak per sesi
+                </Text>
+                <BarChart
+                  data={jarakPerSesi}
+                  color={metricColors.workout}
+                  formatValue={(n) => km(n) + ' km'}
+                />
+              </View>
+            </Card>
+          ) : null}
+
           <SectionHeader title={periode === 'pekan' ? 'Rekap pekan ini' : 'Rekap bulan ini'} />
 
           <View style={styles.grid}>
@@ -245,4 +384,5 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   grid: { flexDirection: 'row', gap: spacing.md },
+  pills: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
 });

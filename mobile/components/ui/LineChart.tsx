@@ -17,6 +17,13 @@ interface LineChartProps {
   color?: string;
   /** Menampilkan nilai terkecil dan terbesar di tepi kiri. */
   showBounds?: boolean;
+  /**
+   * Nilai kecil digambar di atas. Untuk pace: makin cepat (detik per km
+   * makin kecil) garisnya makin naik, jadi kemajuan tetap terbaca naik.
+   */
+  invert?: boolean;
+  /** Format angka batas bawah dan atas, mis. pace 11'24". */
+  formatBound?: (value: number) => string;
 }
 
 /**
@@ -31,6 +38,8 @@ export const LineChart = ({
   height = 140,
   color = colors.primary,
   showBounds = true,
+  invert = false,
+  formatBound = (value: number) => value.toFixed(1),
 }: LineChartProps) => {
   const [lebar, setLebar] = useState(0);
 
@@ -65,7 +74,10 @@ export const LineChart = ({
   const x = (index: number): number =>
     data.length <= 1 ? lebar / 2 : (index / (data.length - 1)) * lebar;
 
-  const y = (value: number): number => pad + (1 - (value - min) / rentang) * tinggiPlot;
+  const y = (value: number): number => {
+    const posisi = (value - min) / rentang;
+    return pad + (invert ? posisi : 1 - posisi) * tinggiPlot;
+  };
 
   const titik = terisi.map((d) => ({ x: x(d.index), y: y(d.value) }));
 
@@ -132,7 +144,9 @@ export const LineChart = ({
             {data[0]?.label ?? ''}
           </Text>
           <Text variant="caption" tone="tertiary">
-            {min.toFixed(1)} – {maks.toFixed(1)}
+            {invert
+              ? formatBound(maks) + ' – ' + formatBound(min)
+              : formatBound(min) + ' – ' + formatBound(maks)}
           </Text>
           <Text variant="caption" tone="tertiary">
             {data[data.length - 1]?.label ?? ''}

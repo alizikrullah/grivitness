@@ -14,6 +14,7 @@ import goalsRoutes from './modules/goals/goals.routes.js';
 import measurementsRoutes from './modules/measurements/measurements.routes.js';
 import moodRoutes from './modules/mood/mood.routes.js';
 import notificationsRoutes from './modules/notifications/notifications.routes.js';
+import sickPeriodsRoutes from './modules/sick-periods/sick-periods.routes.js';
 import sleepRoutes from './modules/sleep/sleep.routes.js';
 import stepsRoutes from './modules/steps/steps.routes.js';
 import streaksRoutes from './modules/streaks/streaks.routes.js';
@@ -89,6 +90,7 @@ export const createApp = (): Express => {
   app.use('/api/device-energy', deviceEnergyRoutes);
   app.use('/api/water', waterRoutes);
   app.use('/api/sleep', sleepRoutes);
+  app.use('/api/sick-periods', sickPeriodsRoutes);
   app.use('/api/measurements', measurementsRoutes);
   app.use('/api/mood', moodRoutes);
   app.use('/api/workouts', workoutsRoutes);
