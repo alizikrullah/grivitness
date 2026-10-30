@@ -40,7 +40,6 @@ import {
   useWorkoutsRange,
 } from '@/services/workouts.service';
 import { DateNav } from '@/components/features/DateNav';
-import { DayStatusPicker } from '@/components/features/DayStatusPicker';
 import { useTanggalLog } from '@/hooks/useTanggalLog';
 import { useProfile } from '@/services/users.service';
 import { useScanWorkout } from '@/services/workout-scan.service';
@@ -240,13 +239,6 @@ export const WorkoutPanel = () => {
       <SectionHeader title="Catat olahraga" />
 
       <DateNav value={tanggal} onChange={setTanggal} section="workout" />
-
-      {/* Ditunggu datanya, supaya tidak sempat tampil "Hari biasa" di hari yang ditandai. */}
-      {today.data ? (
-        <Card>
-          <DayStatusPicker date={tanggal} value={today.data.day_status} sick={today.data.sick} />
-        </Card>
-      ) : null}
 
       <Card>
         <div className="stack">

@@ -24,7 +24,10 @@
 
   --text-primary: #f7f7f8;
   --text-secondary: #9a9aa2;
-  --text-tertiary: #5f5f68;
+  /* Lolos WCAG 4,5 di semua latar padat; nilai lama #5f5f68 nyaru. */
+  --text-tertiary: #8e8e97;
+  /* Khusus yang nonaktif, misalnya tanggal yang belum terjadi. */
+  --text-disabled: #5f5f68;
 
   --success: #2ed573;
   --success-soft: rgba(46, 213, 115, 0.14);

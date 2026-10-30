@@ -30,7 +30,7 @@ import {
 } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { ACTIVITY_LABEL, GENDER_LABEL } from '@/constants/labels';
-import { radius, spacing } from '@/constants/theme';
+import { spacing } from '@/constants/theme';
 import { toApiError } from '@/lib/api';
 import {
   useActiveGoal,
@@ -163,9 +163,10 @@ export default function ProfileScreen() {
       <Card onPress={() => setSheetGoal(true)}>
         {goal.data ? (
           <View style={styles.goalCard}>
-            <View style={[styles.goalIcon, { backgroundColor: colors.primarySoft }]}>
+            {/* Wadah gelap, ikonnya yang berwarna (section 11). */}
+            <IconCircle size={48} round={false}>
               <TargetIcon size={24} color={colors.primary} weight="duotone" />
-            </View>
+            </IconCircle>
 
             <View style={styles.goalText}>
               <Text variant="label">{kg(goal.data.target_weight_kg) + ' kg'}</Text>
@@ -422,13 +423,6 @@ const styles = StyleSheet.create({
   statRow: { flexDirection: 'row', justifyContent: 'space-between' },
   stat: { flex: 1, alignItems: 'center', gap: 2 },
   goalCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  goalIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   goalText: { flex: 1, gap: 2 },
   toggle: {
     flexDirection: 'row',

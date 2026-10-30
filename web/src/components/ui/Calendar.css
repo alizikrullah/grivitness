@@ -54,7 +54,7 @@
 }
 
 .kalender-tanggal:disabled {
-  color: var(--text-tertiary);
+  color: var(--text-disabled);
   opacity: 1;
 }
 

@@ -50,12 +50,17 @@ export const ReminderRow = ({
       accessibilityLabel={label + ', atur ' + value}
       style={({ pressed }) => [styles.pill, !enabled && styles.pillOff, pressed && styles.pressed]}
     >
-      <Text variant="caption" tone={enabled ? 'primary' : 'tertiary'} numberOfLines={1}>
+      {/* Pengingat yang dimatikan sengaja redup: nonaktif, bukan keterangan. */}
+      <Text
+        variant="caption"
+        color={enabled ? colors.textPrimary : colors.textDisabled}
+        numberOfLines={1}
+      >
         {value}
       </Text>
       <CaretRightIcon
         size={12}
-        color={enabled ? colors.textSecondary : colors.textTertiary}
+        color={enabled ? colors.textSecondary : colors.textDisabled}
         weight="bold"
       />
     </Pressable>

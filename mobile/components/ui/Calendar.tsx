@@ -119,7 +119,7 @@ export const Calendar = ({
                   <Text
                     style={styles.dayNumber}
                     color={
-                      dipilih ? colors.white : nanti ? colors.textTertiary : colors.textPrimary
+                      dipilih ? colors.white : nanti ? colors.textDisabled : colors.textPrimary
                     }
                   >
                     {Number(tanggal.slice(8, 10))}

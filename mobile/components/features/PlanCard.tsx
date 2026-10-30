@@ -2,7 +2,7 @@ import { FireIcon, FootprintsIcon, TrendDownIcon, WarningCircleIcon } from 'phos
 import { StyleSheet, View } from 'react-native';
 
 import { ObservedTdeeNote } from '@/components/features/ObservedTdeeNote';
-import { Card, Divider, Row, Text } from '@/components/ui';
+import { Card, Divider, IconCircle, Row, Text } from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/theme';
 import type { DailyTargets, GoalWithProgress } from '@/types';
@@ -61,9 +61,10 @@ export const PlanCard = ({ goal, targets }: PlanCardProps) => {
     <Card>
       <View style={styles.body}>
         <View style={styles.head}>
-          <View style={styles.headIcon}>
+          {/* Wadah gelap, ikonnya yang berwarna (section 11). */}
+          <IconCircle size={40}>
             <TrendDownIcon size={20} color={colors.primary} weight="duotone" />
-          </View>
+          </IconCircle>
 
           <View style={styles.headText}>
             <Text variant="label">
@@ -156,14 +157,6 @@ export const PlanCard = ({ goal, targets }: PlanCardProps) => {
 const styles = StyleSheet.create({
   body: { gap: spacing.sm },
   head: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  headIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primarySoft,
-  },
   headText: { flex: 1, gap: 2 },
   warn: {
     flexDirection: 'row',

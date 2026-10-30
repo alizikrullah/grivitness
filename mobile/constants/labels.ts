@@ -70,14 +70,14 @@ export const INTENSITY_HINT: Record<WorkoutIntensity, string> = {
   HIGH: 'Hampir terus bergerak, cuma jeda ambil napas.',
 };
 
-/** Status hari di layar olahraga. Kunci kosong ('') = hari biasa. */
+/** Kondisi tubuh di layar Mood. Kunci kosong ('') = normal, tanpa tanda. */
 export const DAY_STATUS_LABEL: Record<WorkoutDayStatus | '', string> = {
-  '': 'Hari biasa',
+  '': 'Normal',
   REST: 'Rest day',
   SICK: 'Lagi sakit',
 };
 
-/** Arti tiap tanda, ditampilkan di daftar pilihannya. Hari biasa tidak perlu dijelaskan. */
+/** Arti tiap tanda, ditampilkan di daftar pilihannya. Normal tidak perlu dijelaskan. */
 export const DAY_STATUS_HINT: Record<WorkoutDayStatus, string> = {
   REST: 'Istirahat yang disengaja, misalnya badan pegal habis lari.',
   SICK: 'Berlaku terus sampai kamu pilih status lain di hari sembuh.',

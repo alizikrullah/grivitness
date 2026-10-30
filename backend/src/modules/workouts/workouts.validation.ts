@@ -305,7 +305,7 @@ export const LibraryQuerySchema = z.object({
   search: z.string().trim().min(1).max(100).optional(),
 });
 
-/** Status hari di layar olahraga. null = hari biasa, mencabut rest day dan tanda sakit. */
+/** Kondisi tubuh (layar Mood). null = normal, mencabut rest day dan tanda sakit. */
 export const WorkoutDayStatusSchema = z.object({
   date: dateString,
   status: z.enum(WORKOUT_DAY_STATUS, { message: 'status harus REST, SICK, atau null' }).nullable(),

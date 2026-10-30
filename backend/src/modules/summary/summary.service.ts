@@ -125,11 +125,11 @@ export interface DailySummary {
    */
   logged: LoggedFlags;
   /**
-   * Rentang sakit yang memuat tanggal ini, ditandai user dari layar olahraga.
+   * Rentang sakit yang memuat tanggal ini, ditandai user dari layar Mood.
    * Cuma TANDA untuk chat dan overview; tidak ada hitungan yang berubah.
    */
   sick: SickMark | null;
-  /** Tanggal ini ditandai rest day di layar olahraga. Cuma tanda, sama seperti sakit. */
+  /** Tanggal ini ditandai rest day di layar Mood. Cuma tanda, sama seperti sakit. */
   rest: boolean;
   /**
    * Target harian yang diturunkan dari tubuh dan tujuan user.

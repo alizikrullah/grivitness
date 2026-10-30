@@ -11,7 +11,8 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: var(--primary-soft);
+  /* Wadah gelap, ikonnya yang berwarna (section 11). */
+  background: var(--surface-high);
   flex-shrink: 0;
 }
 

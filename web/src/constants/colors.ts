@@ -17,7 +17,10 @@ export const colors = {
 
   textPrimary: '#F7F7F8',
   textSecondary: '#9A9AA2',
-  textTertiary: '#5F5F68',
+  /** Lolos WCAG 4,5 di semua latar padat; nilai lama #5F5F68 nyaru. */
+  textTertiary: '#8E8E97',
+  /** Khusus yang nonaktif, misalnya tanggal yang belum terjadi. */
+  textDisabled: '#5F5F68',
 
   success: '#2ED573',
   warning: '#FFA726',

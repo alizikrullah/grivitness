@@ -180,18 +180,13 @@ export default function ProgressScreen() {
                 title="Berat badan"
                 action={
                   perubahan !== null ? (
-                    <View
-                      style={[
-                        styles.delta,
-                        { backgroundColor: turun ? colors.successSoft : colors.primarySoft },
-                      ]}
-                    >
+                    <View style={styles.delta}>
                       {turun ? (
                         <TrendDownIcon size={14} color={colors.success} weight="bold" />
                       ) : (
-                        <TrendUpIcon size={14} color={colors.primary} weight="bold" />
+                        <TrendUpIcon size={14} color={colors.warning} weight="bold" />
                       )}
-                      <Text variant="caption" color={turun ? colors.success : colors.primary}>
+                      <Text variant="caption" color={turun ? colors.success : colors.warning}>
                         {signed(perubahan)} kg
                       </Text>
                     </View>
@@ -382,6 +377,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
     borderRadius: 999,
+    backgroundColor: colors.surfaceHigh,
   },
   grid: { flexDirection: 'row', gap: spacing.md },
   pills: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },

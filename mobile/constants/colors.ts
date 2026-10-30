@@ -23,8 +23,16 @@ export const colors = {
 
   textPrimary: '#F7F7F8',
   textSecondary: '#9A9AA2',
-  /** Untuk label sumbu chart dan keterangan yang sengaja dibuat redup. */
-  textTertiary: '#5F5F68',
+  /**
+   * Teks lapis ketiga: label kecil, keterangan, placeholder, sumbu chart.
+   *
+   * Dulu #5F5F68, kontrasnya cuma 2,4 sampai 3,1 di latar aplikasi dan
+   * tulisannya nyaru. Sekarang lolos WCAG 4,5 di SEMUA latar padat: 6,1
+   * background, 5,7 surface, 5,2 surfaceAlt, 4,6 surfaceHigh.
+   */
+  textTertiary: '#8E8E97',
+  /** Khusus yang NONAKTIF (tanggal belum terjadi, pengingat mati), boleh di bawah 4,5. */
+  textDisabled: '#5F5F68',
 
   success: '#2ED573',
   successSoft: 'rgba(46, 213, 115, 0.14)',
