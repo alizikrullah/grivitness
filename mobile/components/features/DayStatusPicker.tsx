@@ -1,8 +1,8 @@
 import {
-  BarbellIcon,
   BedIcon,
   CaretDownIcon,
   CheckIcon,
+  HeartbeatIcon,
   ThermometerSimpleIcon,
   type IconProps,
 } from 'phosphor-react-native';
@@ -22,31 +22,35 @@ type Pilihan = WorkoutDayStatus | '';
 
 /** Wadahnya tetap gelap, warnanya cuma di ikon (section 11). Sakit oranye, bukan merah. */
 const IKON: Record<Pilihan, { Icon: ComponentType<IconProps>; color: string }> = {
-  '': { Icon: BarbellIcon, color: metricColors.workout },
+  '': { Icon: HeartbeatIcon, color: colors.success },
   REST: { Icon: BedIcon, color: metricColors.sleep },
   SICK: { Icon: ThermometerSimpleIcon, color: colors.warning },
 };
 
 interface DayStatusPickerProps {
   date: string;
-  value: WorkoutDayStatus | null;
-  /** Rentang sakit yang memuat tanggal ini, untuk menyebut sejak kapan. */
+  /** Rentang sakit yang memuat tanggal ini (DailySummary.sick), untuk menyebut sejak kapan. */
   sick: SickMark | null;
+  /** Tanggal ini ditandai rest day (DailySummary.rest). */
+  rest: boolean;
 }
 
 /**
- * Status hari di layar olahraga: hari biasa, rest day, atau lagi sakit.
+ * Kondisi tubuh di layar Mood: normal, rest day, atau lagi sakit.
  *
- * Dulu tanda sakit berupa centang di halaman Catat, dan terlihat janggal di
- * sana. Di sini pertanyaannya memang muncul: hari ini kenapa tidak latihan.
+ * Tempatnya sempat berpindah dua kali. Centang di halaman Catat terlihat
+ * janggal; di layar olahraga gampang terlewat karena olahraga tidak wajib
+ * tiap hari. Mood termasuk enam catatan harian, jadi dibuka setiap hari.
  * Cuma tanda untuk chat dan overview; tidak ada hitungan yang berubah.
  */
-export const DayStatusPicker = ({ date, value, sick }: DayStatusPickerProps) => {
+export const DayStatusPicker = ({ date, sick, rest }: DayStatusPickerProps) => {
   const [buka, setBuka] = useState(false);
   const ubah = useSetWorkoutDayStatus();
 
+  // Sakit menang kalau dua-duanya ada, sama dengan bacaStatusHari() di backend.
+  const tersimpan: Pilihan = sick ? 'SICK' : rest ? 'REST' : '';
   // Selama permintaan berjalan, tampilkan yang baru dipilih, bukan yang lama.
-  const aktif: Pilihan = (ubah.isPending ? ubah.variables?.status : value) ?? '';
+  const aktif: Pilihan = ubah.isPending ? (ubah.variables?.status ?? '') : tersimpan;
   const { Icon, color } = IKON[aktif];
 
   const pilih = (p: Pilihan) => {
@@ -66,7 +70,7 @@ export const DayStatusPicker = ({ date, value, sick }: DayStatusPickerProps) => 
         </IconCircle>
         <View style={styles.text}>
           <Text variant="caption" tone="tertiary">
-            Status hari
+            Kondisi tubuh
           </Text>
           <Text variant="label" numberOfLines={1}>
             {DAY_STATUS_LABEL[aktif]}
@@ -88,7 +92,7 @@ export const DayStatusPicker = ({ date, value, sick }: DayStatusPickerProps) => 
 
       {ubah.isError ? <ErrorNote message={toApiError(ubah.error).message} /> : null}
 
-      <Sheet visible={buka} onClose={() => setBuka(false)} title="Status hari">
+      <Sheet visible={buka} onClose={() => setBuka(false)} title="Kondisi tubuh">
         <View style={styles.list}>
           {DAY_STATUS_OPTIONS.map((p) => {
             const ikon = IKON[p];

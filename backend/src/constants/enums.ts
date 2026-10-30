@@ -115,7 +115,7 @@ export const DISTANCE_KIND = ['RUN', 'WALK'] as const;
 export type DistanceKind = (typeof DISTANCE_KIND)[number];
 
 /**
- * Status hari di layar olahraga. Kosong (null) berarti hari biasa.
+ * Kondisi tubuh satu hari, dipilih di layar Mood. Kosong (null) berarti normal.
  *
  *   REST  hari istirahat yang disengaja, misalnya pemulihan habis lari.
  *         Satu baris per hari di rest_days.

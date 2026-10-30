@@ -122,9 +122,14 @@ export const useCreateWorkout = () => {
 };
 
 /**
- * Rest day, lagi sakit, atau hari biasa (null) untuk satu tanggal. Sakit
+ * Kondisi tubuh satu tanggal: rest day, lagi sakit, atau normal (null). Sakit
  * berlaku terus sampai status lain dipilih di hari sembuh; backend yang
- * mengatur rentangnya.
+ * mengatur rentangnya. Endpoint-nya tetap di /workouts walau pilihannya kini
+ * di layar Mood: yang pindah cuma tampilan.
+ *
+ * Ringkasan harian DITUNGGU sampai terambil ulang. Pilihan di layar dibaca
+ * dari ringkasan itu; tanpa menunggu, pilihan sempat melompat balik ke nilai
+ * lama di antara permintaan selesai dan ringkasan baru datang.
  */
 export const useSetWorkoutDayStatus = () => {
   const client = useQueryClient();
@@ -135,7 +140,12 @@ export const useSetWorkoutDayStatus = () => {
         '/api/workouts/day-status',
         body,
       ),
-    onSuccess: () => segarkan(client),
+    onSuccess: async () => {
+      await Promise.all([
+        client.invalidateQueries({ queryKey: ['summary'] }),
+        client.invalidateQueries({ queryKey: ['workouts'] }),
+      ]);
+    },
   });
 };
 

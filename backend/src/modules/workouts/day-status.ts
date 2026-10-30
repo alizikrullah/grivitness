@@ -8,12 +8,12 @@ import * as sickService from '../sick-periods/sick-periods.service.js';
 import type { WorkoutDayStatusDto } from './workouts.validation.js';
 
 /**
- * Status hari di layar olahraga: rest day, lagi sakit, atau hari biasa.
+ * Kondisi tubuh satu hari: rest day, lagi sakit, atau normal.
  *
- * Dulu tanda sakit berupa centang di halaman Catat, dan terlihat janggal di
- * sana: halaman itu menjawab "catatan mana yang belum diisi", bukan kondisi
- * badan. Pindah ke layar olahraga karena di situ pertanyaannya muncul: hari
- * ini kenapa tidak latihan.
+ * Pilihannya di layar Mood ("Kondisi tubuh"). Tempatnya sempat berpindah dua
+ * kali: centang di halaman Catat terlihat janggal, dan di layar olahraga
+ * gampang terlewat karena olahraga tidak wajib tiap hari. Mood termasuk enam
+ * catatan harian. Endpoint-nya tetap di /workouts: yang pindah cuma tampilan.
  *
  * Dua-duanya cuma TANDA untuk chat dan overview. Tidak ada hitungan yang
  * berubah (CLAUDE.md section 9).

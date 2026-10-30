@@ -27,7 +27,7 @@ import {
   Text,
 } from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
-import { radius, spacing } from '@/constants/theme';
+import { spacing } from '@/constants/theme';
 import { useSetFoodDayStatus } from '@/services/food.service';
 import { useDailyOverview, useDailySummary, useStreak } from '@/services/misc.service';
 import { useProfile } from '@/services/users.service';
@@ -329,9 +329,10 @@ export default function HomeScreen() {
 
           <Card onPress={() => router.push('/log/weight')}>
             <View style={styles.weightCard}>
-              <View style={[styles.weightIcon, { backgroundColor: colors.primarySoft }]}>
+              {/* Wadah gelap, ikonnya yang berwarna (section 11). */}
+              <IconCircle size={48} round={false}>
                 <ScalesIcon size={24} color={colors.primary} weight="duotone" />
-              </View>
+              </IconCircle>
 
               <View style={styles.weightText}>
                 <Text variant="label">
@@ -384,12 +385,5 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', gap: spacing.md },
   macroCard: { gap: spacing.lg },
   weightCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  weightIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   weightText: { flex: 1, gap: 2 },
 });

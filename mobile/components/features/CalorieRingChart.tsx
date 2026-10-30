@@ -59,13 +59,8 @@ export const CalorieRingChart = ({ caloriesIn, budget, size = 190 }: CalorieRing
       </Ring>
 
       {sisa !== null ? (
-        <View
-          style={[
-            styles.badge,
-            { backgroundColor: lewat ? colors.primarySoft : colors.successSoft },
-          ]}
-        >
-          <Text variant="label" color={lewat ? colors.primary : colors.success}>
+        <View style={styles.badge}>
+          <Text variant="label" color={lewat ? colors.warning : colors.success}>
             {lewat
               ? 'Lewat ' + thousands(Math.abs(sisa)) + ' kkal'
               : 'Sisa ' + thousands(sisa) + ' kkal'}
@@ -87,5 +82,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     borderRadius: 999,
+    backgroundColor: colors.surfaceHigh,
   },
 });

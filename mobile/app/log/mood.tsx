@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { DateNav } from '@/components/features/DateNav';
+import { DayStatusPicker } from '@/components/features/DayStatusPicker';
 import {
   BarChart,
   Button,
@@ -23,6 +24,7 @@ import { colors, metricColors } from '@/constants/colors';
 import { spacing } from '@/constants/theme';
 import { useTanggalAwal } from '@/hooks/useTanggalAwal';
 import { toApiError } from '@/lib/api';
+import { useDailySummary } from '@/services/misc.service';
 import { useDeleteMood, useMoodDate, useMoodRange, useSaveMood } from '@/services/mood.service';
 import { dateRange, dayLabel, dayPhrase, shiftDays, todayWIB } from '@/utils/date';
 
@@ -40,6 +42,9 @@ export default function MoodScreen() {
   const awal = shiftDays(hariIni, -6);
 
   const today = useMoodDate(dipilih);
+  // Kondisi tubuh dibaca dari ringkasan harian, yang biasanya sudah tersimpan
+  // karena halaman Catat memuatnya untuk tanggal yang sama.
+  const ringkasan = useDailySummary(dipilih);
   const riwayat = useMoodRange(awal, hariIni);
   const saveMood = useSaveMood();
   const deleteMood = useDeleteMood();
@@ -138,6 +143,11 @@ export default function MoodScreen() {
       />
 
       <DateNav value={dipilih} onChange={setDipilih} section="mood" />
+
+      {/* Ditunggu datanya, supaya tidak sempat tampil "Normal" di hari yang ditandai. */}
+      {ringkasan.data ? (
+        <DayStatusPicker date={dipilih} sick={ringkasan.data.sick} rest={ringkasan.data.rest} />
+      ) : null}
 
       {today.isPending ? (
         <Loading />

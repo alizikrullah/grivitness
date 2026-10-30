@@ -2,11 +2,13 @@ import { SmileyIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
 
 import { DateNav } from '@/components/features/DateNav';
+import { DayStatusPicker } from '@/components/features/DayStatusPicker';
 import { Button, Card, ErrorNote, Loading, SectionHeader } from '@/components/ui';
 import { metricColors } from '@/constants/colors';
 import { SCORE_LABEL } from '@/constants/labels';
 import { useTanggalLog } from '@/hooks/useTanggalLog';
 import { toApiError } from '@/lib/api';
+import { useDailySummary } from '@/services/misc.service';
 import { useDeleteMood, useMoodDate, useSaveMood } from '@/services/mood.service';
 import { dayPhrase } from '@/utils/date';
 import { LogActions } from './LogActions';
@@ -49,6 +51,9 @@ export const MoodPanel = () => {
   const [tanggal, setTanggal] = useTanggalLog();
 
   const today = useMoodDate(tanggal);
+  // Kondisi tubuh dibaca dari ringkasan harian, yang header halaman Catat
+  // sudah memuatnya untuk tanggal yang sama.
+  const ringkasan = useDailySummary(tanggal);
   const save = useSaveMood();
   const hapus = useDeleteMood();
 
@@ -91,6 +96,13 @@ export const MoodPanel = () => {
       <SectionHeader title={'Mood ' + dayPhrase(tanggal)} />
 
       <DateNav value={tanggal} onChange={setTanggal} section="mood" />
+
+      {/* Ditunggu datanya, supaya tidak sempat tampil "Normal" di hari yang ditandai. */}
+      {ringkasan.data ? (
+        <Card>
+          <DayStatusPicker date={tanggal} sick={ringkasan.data.sick} rest={ringkasan.data.rest} />
+        </Card>
+      ) : null}
 
       <Card>
         <div className="stack">
