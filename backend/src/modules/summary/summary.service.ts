@@ -125,10 +125,12 @@ export interface DailySummary {
    */
   logged: LoggedFlags;
   /**
-   * Rentang sakit yang memuat tanggal ini, ditandai user dari halaman Catat.
+   * Rentang sakit yang memuat tanggal ini, ditandai user dari layar olahraga.
    * Cuma TANDA untuk chat dan overview; tidak ada hitungan yang berubah.
    */
   sick: SickMark | null;
+  /** Tanggal ini ditandai rest day di layar olahraga. Cuma tanda, sama seperti sakit. */
+  rest: boolean;
   /**
    * Target harian yang diturunkan dari tubuh dan tujuan user.
    *
@@ -166,6 +168,7 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
     statusMakan,
     jumlahMakan,
     sakit,
+    istirahat,
   ] = await Promise.all([
     loadEnergyProfile(userId),
     repo.findOne('weight_logs', { filter: hari }),
@@ -199,6 +202,7 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
         _or: [{ end_date: { _null: true } }, { end_date: { _gte: date } }],
       },
     }),
+    repo.count('rest_days', hari),
   ]);
 
   // Sesi push up 15 detik tersimpan 0 menit, tapi tetap olahraga.
@@ -296,6 +300,7 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
       sakit === null
         ? null
         : { id: sakit.id, start_date: sakit.start_date, end_date: sakit.end_date },
+    rest: istirahat > 0,
     targets: dailyTargets({
       weightKg: beratHitung,
       age: metrics.age,

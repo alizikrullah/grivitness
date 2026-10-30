@@ -14,19 +14,13 @@ import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 
 import { CalendarModal } from '@/components/features/CalendarModal';
 import { WeekStrip } from '@/components/features/WeekStrip';
-import { Card, Checkbox, IconCircle } from '@/components/ui';
+import { Card, IconCircle } from '@/components/ui';
 import { metricColors } from '@/constants/colors';
+import { DAY_STATUS_LABEL } from '@/constants/labels';
 import { useTanggalLog } from '@/hooks/useTanggalLog';
-import { useCalendarDays, useDailySummary, useSetSickDay } from '@/services/misc.service';
+import { useCalendarDays, useDailySummary } from '@/services/misc.service';
 import type { DailySummary, LoggedFlags } from '@/types';
-import {
-  dayPhrase,
-  navDateLabel,
-  shiftDays,
-  shortDate,
-  sleepDayNow,
-  weekdayMon,
-} from '@/utils/date';
+import { dayPhrase, navDateLabel, shiftDays, sleepDayNow, weekdayMon } from '@/utils/date';
 import { duration, kg, thousands, volume } from '@/utils/format';
 import { BodyPhotoPanel } from './BodyPhotoPanel';
 import { DeviceEnergyPanel } from './DeviceEnergyPanel';
@@ -52,7 +46,7 @@ interface JenisCatat {
   /** Keadaannya di tanggal terpilih, dipakai kalau sudah diisi. */
   status: (d: DailySummary) => string;
   /** Teks kalau belum diisi, bawaan "Belum diisi". */
-  kosong?: string;
+  kosong?: (d: DailySummary) => string;
 }
 
 /**
@@ -147,6 +141,8 @@ const JENIS: JenisCatat[] = [
     harian: false,
     // Durasi saja tidak menjawab yang dicari: berapa yang terbakar.
     status: (d) => duration(d.workout_minutes) + ' · ' + thousands(d.workout_calories) + ' kkal',
+    // Tanpa sesi, status hari dari panel olahraga menjawab kenapa kosong.
+    kosong: (d) => (d.rest || d.sick ? DAY_STATUS_LABEL[d.rest ? 'REST' : 'SICK'] : 'Belum diisi'),
   },
   // Foto badan dan lingkar pinggang jadi satu panel, irama 2-4 minggu sekali.
   {
@@ -158,7 +154,7 @@ const JENIS: JenisCatat[] = [
     kunci: 'body_photo',
     harian: false,
     status: () => 'Sudah difoto',
-    kosong: 'Cek 2-4 minggu sekali',
+    kosong: () => 'Cek 2-4 minggu sekali',
   },
 ];
 
@@ -194,9 +190,6 @@ export const LogPage = () => {
   const hijau = new Set((pekan.data?.dates ?? []).filter((t) => !kuning.has(t)));
 
   const d = summary.data;
-  const setSakit = useSetSickDay();
-  // Selama permintaan berjalan, tampilkan yang baru dipilih, bukan yang lama.
-  const sakit = setSakit.isPending ? (setSakit.variables?.sick ?? false) : d?.sick != null;
   const terisi = d ? HARIAN.filter((j) => d.logged[j.kunci]).length : 0;
   const lengkap = d !== undefined && terisi === HARIAN.length;
 
@@ -206,7 +199,7 @@ export const LogPage = () => {
     // Catatan harian yang belum diisi dibuat oranye supaya menonjol; yang
     // tidak wajib tiap hari cukup redup.
     const nada = !d ? 'c-tertiary' : ada ? 'c-success' : j.harian ? 'c-warning' : 'c-tertiary';
-    const teks = !d ? '…' : ada ? j.status(d) : (j.kosong ?? 'Belum diisi');
+    const teks = !d ? '…' : ada ? j.status(d) : (j.kosong?.(d) ?? 'Belum diisi');
 
     return (
       <NavLink
@@ -237,25 +230,6 @@ export const LogPage = () => {
               ? `${String(terisi)} dari ${String(HARIAN.length)} catatan harian terisi.`
               : 'Memuat catatan ' + dayPhrase(tanggal) + '…'}
           </span>
-
-          {/*
-            Tanda sakit, cuma konteks untuk chat dan overview: tidak ada hitungan
-            yang berubah. Dicentang di hari pertama, berlaku terus sampai
-            centangnya dihilangkan di hari sembuh. Padanan mobile.
-          */}
-          <Checkbox
-            label="Lagi sakit"
-            checked={sakit}
-            onChange={(nilai) => setSakit.mutate({ date: tanggal, sick: nilai })}
-            hint={
-              d?.sick
-                ? 'Sakit sejak ' +
-                  shortDate(d.sick.start_date) +
-                  (d.sick.end_date ? ' sampai ' + shortDate(d.sick.end_date) : '') +
-                  '. Hilangkan centang di hari kamu sembuh.'
-                : undefined
-            }
-          />
         </div>
 
         <WeekStrip

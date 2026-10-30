@@ -1,4 +1,11 @@
-import type { ActivityLevel, Gender, MealType, WorkoutCategory, WorkoutIntensity } from '@/types';
+import type {
+  ActivityLevel,
+  Gender,
+  MealType,
+  WorkoutCategory,
+  WorkoutDayStatus,
+  WorkoutIntensity,
+} from '@/types';
 
 /**
  * Terjemahan enum backend ke bahasa yang dibaca user.
@@ -63,6 +70,19 @@ export const INTENSITY_HINT: Record<WorkoutIntensity, string> = {
   HIGH: 'Hampir terus bergerak, cuma jeda ambil napas.',
 };
 
+/** Status hari di layar olahraga. Kunci kosong ('') = hari biasa. */
+export const DAY_STATUS_LABEL: Record<WorkoutDayStatus | '', string> = {
+  '': 'Hari biasa',
+  REST: 'Rest day',
+  SICK: 'Lagi sakit',
+};
+
+/** Arti tiap tanda, ditampilkan di daftar pilihannya. Hari biasa tidak perlu dijelaskan. */
+export const DAY_STATUS_HINT: Record<WorkoutDayStatus, string> = {
+  REST: 'Istirahat yang disengaja, misalnya badan pegal habis lari.',
+  SICK: 'Berlaku terus sampai kamu pilih status lain di hari sembuh.',
+};
+
 export const CATEGORY_LABEL: Record<WorkoutCategory, string> = {
   CARDIO: 'Kardio',
   STRENGTH: 'Kekuatan',
@@ -82,3 +102,4 @@ export const ACTIVITY_OPTIONS = Object.keys(ACTIVITY_LABEL) as ActivityLevel[];
 export const MEAL_OPTIONS = Object.keys(MEAL_LABEL) as MealType[];
 export const INTENSITY_OPTIONS = Object.keys(INTENSITY_LABEL) as WorkoutIntensity[];
 export const CATEGORY_OPTIONS = Object.keys(CATEGORY_LABEL) as WorkoutCategory[];
+export const DAY_STATUS_OPTIONS = Object.keys(DAY_STATUS_LABEL) as (WorkoutDayStatus | '')[];

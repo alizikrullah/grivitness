@@ -115,6 +115,20 @@ export const DISTANCE_KIND = ['RUN', 'WALK'] as const;
 export type DistanceKind = (typeof DISTANCE_KIND)[number];
 
 /**
+ * Status hari di layar olahraga. Kosong (null) berarti hari biasa.
+ *
+ *   REST  hari istirahat yang disengaja, misalnya pemulihan habis lari.
+ *         Satu baris per hari di rest_days.
+ *   SICK  lagi sakit. Disimpan sebagai RENTANG di sick_periods, berlaku
+ *         terus sampai status lain dipilih di hari sembuh.
+ *
+ * Dua-duanya cuma TANDA untuk chat dan overview; tidak ada hitungan yang
+ * berubah. Satu hari cuma punya satu status.
+ */
+export const WORKOUT_DAY_STATUS = ['REST', 'SICK'] as const;
+export type WorkoutDayStatus = (typeof WORKOUT_DAY_STATUS)[number];
+
+/**
  * PAR (Physical Activity Ratio) untuk SISA hari, jam yang tidak terpakai untuk
  * tidur atau olahraga.
  *

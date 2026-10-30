@@ -27,6 +27,7 @@ import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, type TextInput, View } from 'react-native';
 
 import { DateNav } from '@/components/features/DateNav';
+import { DayStatusPicker } from '@/components/features/DayStatusPicker';
 import {
   Button,
   Card,
@@ -307,6 +308,11 @@ export default function WorkoutScreen() {
         <Header title="Olahraga" subtitle="Boleh lebih dari satu sesi per hari" />
 
         <DateNav value={tanggal} onChange={setTanggal} section="workout" />
+
+        {/* Ditunggu datanya, supaya tidak sempat tampil "Hari biasa" di hari yang ditandai. */}
+        {today.data ? (
+          <DayStatusPicker date={tanggal} value={today.data.day_status} sick={today.data.sick} />
+        ) : null}
 
         {/* Satu sampai tiga screenshot satu sesi dari aplikasi jam atau lari. */}
         <Button

@@ -4,12 +4,14 @@ import { getValidatedParams, getValidatedQuery } from '../../middlewares/validat
 import { getAuthUser } from '../../types/index.js';
 import type { DateRangeDto, SingleDateDto, UuidParamDto } from '../../utils/query.js';
 import { sendSuccess } from '../../utils/response.js';
+import * as dayStatus from './day-status.js';
 import * as workoutsService from './workouts.service.js';
 import type {
   CreateCustomWorkoutDto,
   CreateWorkoutDto,
   LibraryQueryDto,
   UpdateWorkoutDto,
+  WorkoutDayStatusDto,
 } from './workouts.validation.js';
 
 export const create = async (req: Request, res: Response): Promise<void> => {
@@ -33,6 +35,11 @@ export const getDay = async (req: Request, res: Response): Promise<void> => {
   const { date } = getValidatedQuery<SingleDateDto>(res);
 
   sendSuccess(res, await workoutsService.getByDate(user.id, date));
+};
+
+export const setDayStatus = async (req: Request, res: Response): Promise<void> => {
+  const user = getAuthUser(req);
+  sendSuccess(res, await dayStatus.setDayStatus(user.id, req.body as WorkoutDayStatusDto));
 };
 
 export const getRange = async (req: Request, res: Response): Promise<void> => {

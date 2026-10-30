@@ -45,6 +45,7 @@ const harian = (ubah: Partial<DailySummary> = {}): DailySummary => ({
     workout: false,
   },
   sick: null,
+  rest: false,
   targets: {
     water_ml: 3350,
     sleep: { min_minutes: 420, max_minutes: 540 },
@@ -433,6 +434,7 @@ describe('susunFakta: sakit dan lari', () => {
         { start_date: '2026-10-22', end_date: '2026-10-24' },
         { start_date: '2026-10-27', end_date: null },
       ],
+      istirahat: ['2026-10-26', '2026-10-30'],
       jarak: [
         {
           logged_at: '2026-10-28',
@@ -448,6 +450,7 @@ describe('susunFakta: sakit dan lari', () => {
     expect(fakta).toContain(
       'Hari sakit yang dia tandai: 2026-10-22 sampai 2026-10-24; sejak 2026-10-27 dan masih sakit.',
     );
+    expect(fakta).toContain('Rest day yang dia tandai: 2026-10-26, 2026-10-30.');
     expect(fakta).toContain(
       'Lari dan jalan terakhir (dari jam tangan): 2026-10-28 lari 3,92 km, 44:45, pace 11:24/km, HR 156.',
     );
@@ -456,6 +459,7 @@ describe('susunFakta: sakit dan lari', () => {
   it('tanpa sakit dan tanpa lari, tidak ada baris kosong yang ikut', () => {
     const fakta = susunFakta(harian(), pekan, riwayat(), null, null, null, null, '06.12');
     expect(fakta).not.toContain('Hari sakit');
+    expect(fakta).not.toContain('Rest day');
     expect(fakta).not.toContain('Lari dan jalan');
   });
 });

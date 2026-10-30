@@ -19,6 +19,9 @@ export type WorkoutIntensity = 'LOW' | 'MEDIUM' | 'HIGH';
 
 /** Olahraga berjarak di library: Lari atau Jalan. */
 export type DistanceKind = 'RUN' | 'WALK';
+
+/** Status hari di layar olahraga. null berarti hari biasa. Cuma tanda, tidak mengubah hitungan. */
+export type WorkoutDayStatus = 'REST' | 'SICK';
 export type WorkoutCategory = 'CARDIO' | 'STRENGTH' | 'FLEXIBILITY' | 'SPORTS' | 'OTHER';
 
 export interface ApiSuccess<T> {
@@ -511,6 +514,10 @@ export interface WorkoutDay {
   date: string;
   total_minutes: number;
   total_calories: number;
+  /** Rest day atau lagi sakit, dipilih di layar olahraga. */
+  day_status: WorkoutDayStatus | null;
+  /** Rentang sakit yang memuat tanggal ini, untuk menyebut sejak kapan. */
+  sick: SickMark | null;
   logs: WorkoutLog[];
 }
 
@@ -678,10 +685,12 @@ export interface DailySummary {
   /** Dibedakan dari angkanya: langkah 0 dan langkah yang tidak dicatat sama-sama 0. */
   logged: LoggedFlags;
   /**
-   * Rentang sakit yang memuat tanggal ini, ditandai sendiri dari halaman
-   * Catat. Cuma tanda untuk chat dan overview, tidak mengubah hitungan.
+   * Rentang sakit yang memuat tanggal ini, ditandai sendiri dari layar
+   * olahraga. Cuma tanda untuk chat dan overview, tidak mengubah hitungan.
    */
   sick: SickMark | null;
+  /** Ditandai rest day di layar olahraga. Cuma tanda, sama seperti sakit. */
+  rest: boolean;
   targets: DailyTargets;
 }
 
