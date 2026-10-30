@@ -16,12 +16,13 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { CalendarSheet } from '@/components/features/CalendarSheet';
 import { WeekStrip } from '@/components/features/WeekStrip';
-import { Checkbox, IconCircle, Screen, Text } from '@/components/ui';
+import { IconCircle, Screen, Text } from '@/components/ui';
 import { HeroTitle } from '@/components/ui/HeroTitle';
 import { colors, metricColors } from '@/constants/colors';
+import { DAY_STATUS_LABEL } from '@/constants/labels';
 import { radius, spacing } from '@/constants/theme';
-import { useCalendarDays, useDailySummary, useSetSickDay } from '@/services/misc.service';
-import { dayPhrase, navDateLabel, shiftDays, shortDate, todayWIB, weekdayMon } from '@/utils/date';
+import { useCalendarDays, useDailySummary } from '@/services/misc.service';
+import { dayPhrase, navDateLabel, shiftDays, todayWIB, weekdayMon } from '@/utils/date';
 import { duration, kg, thousands, volume } from '@/utils/format';
 
 type Layar =
@@ -72,9 +73,6 @@ export default function LogHubScreen() {
   const hijau = new Set((pekan.data?.dates ?? []).filter((t) => !kuning.has(t)));
 
   const d = summary.data;
-  const setSakit = useSetSickDay();
-  // Selama permintaan berjalan, tampilkan yang baru dipilih, bukan yang lama.
-  const sakit = setSakit.isPending ? (setSakit.variables?.sick ?? false) : d?.sick != null;
   const memuat = summary.isPending;
   const ada = d?.logged;
 
@@ -155,12 +153,19 @@ export default function LogHubScreen() {
       label: 'Olahraga',
       Icon: BarbellIcon,
       color: metricColors.workout,
-      // Durasi saja tidak menjawab yang dicari: berapa yang terbakar.
-      status: status(
-        ada?.workout,
-        () =>
-          duration(d?.workout_minutes ?? 0) + ' · ' + thousands(d?.workout_calories ?? 0) + ' kkal',
-      ),
+      // Durasi saja tidak menjawab yang dicari: berapa yang terbakar. Tanpa
+      // sesi, status hari dari layar olahraga menjawab kenapa kosong.
+      status:
+        !memuat && !ada?.workout && (d?.rest || d?.sick)
+          ? DAY_STATUS_LABEL[d.rest ? 'REST' : 'SICK']
+          : status(
+              ada?.workout,
+              () =>
+                duration(d?.workout_minutes ?? 0) +
+                ' · ' +
+                thousands(d?.workout_calories ?? 0) +
+                ' kkal',
+            ),
       done: ada?.workout ?? false,
     },
     {
@@ -242,26 +247,6 @@ export default function LogHubScreen() {
         onOpenCalendar={() => setKalender(true)}
         complete={hijau}
         partial={kuning}
-      />
-
-      {/*
-        Tanda sakit, cuma konteks untuk chat dan overview: tidak ada hitungan
-        yang berubah. Dicentang di hari pertama, berlaku terus sampai centangnya
-        dihilangkan di hari sembuh. Keterangannya muncul hanya saat tercentang,
-        karena saat itulah user perlu tahu cara mengakhirinya.
-      */}
-      <Checkbox
-        label="Lagi sakit"
-        checked={sakit}
-        onChange={(nilai) => setSakit.mutate({ date: tanggal, sick: nilai })}
-        hint={
-          d?.sick
-            ? 'Sakit sejak ' +
-              shortDate(d.sick.start_date) +
-              (d.sick.end_date ? ' sampai ' + shortDate(d.sick.end_date) : '') +
-              '. Hilangkan centang di hari kamu sembuh.'
-            : undefined
-        }
       />
 
       <View style={styles.section}>

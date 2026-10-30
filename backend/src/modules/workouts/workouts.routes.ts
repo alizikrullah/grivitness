@@ -14,6 +14,7 @@ import {
   CreateWorkoutSchema,
   LibraryQuerySchema,
   UpdateWorkoutSchema,
+  WorkoutDayStatusSchema,
 } from './workouts.validation.js';
 
 const router: Router = Router();
@@ -30,6 +31,9 @@ router.delete('/custom/:id', validateParams(UuidParamSchema), workoutsController
 
 router.get('/today', workoutsController.getToday);
 router.get('/day', validateQuery(SingleDateSchema), workoutsController.getDay);
+
+// Rest day atau lagi sakit untuk satu tanggal; backend yang mengatur rentang sakitnya.
+router.put('/day-status', validateBody(WorkoutDayStatusSchema), workoutsController.setDayStatus);
 
 router.get('/', validateQuery(DateRangeSchema), workoutsController.getRange);
 router.post('/', validateBody(CreateWorkoutSchema), workoutsController.create);

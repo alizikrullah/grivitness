@@ -26,6 +26,7 @@ import { toNumber } from '../../utils/number.js';
 import { type DateRangeDto, dateRangeFilter } from '../../utils/query.js';
 import { toScreenshotBuffer } from '../../utils/sharp.js';
 import { recordActivitySafely } from '../streaks/streaks.service.js';
+import { bacaStatusHari, type StatusHari } from './day-status.js';
 import {
   normalisasiScan,
   type PilihanLibrary,
@@ -401,7 +402,8 @@ export const create = async (
   return { ...log, distance_kind: sumber.distance_kind };
 };
 
-export interface WorkoutDay {
+/** Sesi satu tanggal beserta status harinya (rest day, sakit, atau biasa). */
+export interface WorkoutDay extends StatusHari {
   date: string;
   total_minutes: number;
   total_calories: number;
@@ -412,17 +414,19 @@ export const getByDate = async (userId: string, date: string): Promise<WorkoutDa
   const repo = forUser(userId);
   const filter = { logged_at: { _eq: date } };
 
-  // Tiga query yang tidak saling bergantung, jadi dijalankan bersamaan.
-  const [logs, totalMinutes, totalCalories] = await Promise.all([
+  // Query yang tidak saling bergantung, jadi dijalankan bersamaan.
+  const [logs, totalMinutes, totalCalories, status] = await Promise.all([
     repo.list('workout_logs', { filter, sort: ['created_at'], limit: -1 }),
     repo.sum('workout_logs', 'duration_minutes', filter),
     repo.sum('workout_logs', 'calories_burned', filter),
+    bacaStatusHari(userId, date),
   ]);
 
   return {
     date,
     total_minutes: totalMinutes,
     total_calories: totalCalories,
+    ...status,
     logs: await denganJenis(logs),
   };
 };

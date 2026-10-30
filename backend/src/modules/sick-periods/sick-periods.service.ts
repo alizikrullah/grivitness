@@ -1,10 +1,10 @@
-import { forUser } from '../../data/scoped.js';
+import { forUser, type ScopedRepository } from '../../data/scoped.js';
 import { unitOfWork } from '../../data/unit-of-work.js';
 import type { SickPeriodRecord } from '../../types/directus-schema.js';
 import { AppError } from '../../utils/api-error.js';
 import { todayInJakarta } from '../../utils/daily-key.js';
 import type { DateRangeDto } from '../../utils/query.js';
-import { type PeriodeSakit, periodePada, ubahTandaSakit } from './sick-days.js';
+import { type OperasiSakit, type PeriodeSakit, periodePada, ubahTandaSakit } from './sick-days.js';
 import type { SetSickDayDto } from './sick-periods.validation.js';
 
 /** Semua rentang sakit user, urut dari yang paling lama. Jumlahnya kecil. */
@@ -46,20 +46,28 @@ export const setDay = async (
   const operasi = ubahTandaSakit(periode, data.date, data.sick, hariIni);
 
   if (operasi.length > 0) {
-    await unitOfWork(async (tx) => {
-      const repo = forUser(userId, tx);
-      for (const op of operasi) {
-        if (op.jenis === 'create') {
-          await repo.create('sick_periods', { start_date: op.start_date, end_date: op.end_date });
-        } else if (op.jenis === 'update') {
-          const { id, jenis: _jenis, ...perubahan } = op;
-          await repo.update('sick_periods', id, perubahan);
-        } else {
-          await repo.remove('sick_periods', op.id);
-        }
-      }
-    });
+    await unitOfWork(async (tx) => terapkanOperasi(forUser(userId, tx), operasi));
   }
 
   return { sick: periodePada(operasi.length > 0 ? await listAll(userId) : periode, data.date) };
+};
+
+/**
+ * Menjalankan operasi rentang dari ubahTandaSakit(). Repo-nya WAJIB dari
+ * unitOfWork, karena satu perubahan bisa menulis dua baris.
+ */
+export const terapkanOperasi = async (
+  repo: ScopedRepository,
+  operasi: OperasiSakit[],
+): Promise<void> => {
+  for (const op of operasi) {
+    if (op.jenis === 'create') {
+      await repo.create('sick_periods', { start_date: op.start_date, end_date: op.end_date });
+    } else if (op.jenis === 'update') {
+      const { id, jenis: _jenis, ...perubahan } = op;
+      await repo.update('sick_periods', id, perubahan);
+    } else {
+      await repo.remove('sick_periods', op.id);
+    }
+  }
 };

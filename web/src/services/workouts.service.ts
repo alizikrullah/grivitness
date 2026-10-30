@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { del, get, patch, post } from '@/lib/api';
+import { del, get, patch, post, put } from '@/lib/api';
 import { invalidateAfterLog, qk } from '@/lib/query';
 import { todayWIB } from '@/utils/date';
 import type {
   CustomWorkout,
+  SickMark,
   WorkoutCategory,
   WorkoutDay,
+  WorkoutDayStatus,
   WorkoutIntensity,
   WorkoutLibraryItem,
   WorkoutLog,
@@ -115,6 +117,24 @@ export const useCreateWorkout = () => {
 
   return useMutation({
     mutationFn: (body: WorkoutInput) => post<WorkoutLog>('/api/workouts', body),
+    onSuccess: () => segarkan(client),
+  });
+};
+
+/**
+ * Rest day, lagi sakit, atau hari biasa (null) untuk satu tanggal. Sakit
+ * berlaku terus sampai status lain dipilih di hari sembuh; backend yang
+ * mengatur rentangnya.
+ */
+export const useSetWorkoutDayStatus = () => {
+  const client = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: { date: string; status: WorkoutDayStatus | null }) =>
+      put<{ day_status: WorkoutDayStatus | null; sick: SickMark | null }>(
+        '/api/workouts/day-status',
+        body,
+      ),
     onSuccess: () => segarkan(client),
   });
 };

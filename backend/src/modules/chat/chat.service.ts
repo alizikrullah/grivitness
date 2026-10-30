@@ -79,7 +79,7 @@ MAKANAN:
 8. Bawaan: bahan Indonesia sehari-hari dan murah (telur, tempe, tahu, ayam, ikan kembung, tongkol, sarden kaleng, nasi, sayur pasar, buah lokal). Salmon, whey, almond, yoghurt Yunani, oatmeal hanya kalau dia menyebutnya duluan.
 9. Kalau dia menolak satu item, ganti item ITU saja, jangan cetak ulang seluruh hari.
 10. Makro per item hanya kalau dia minta rinci. Bawaannya nama, porsi, perkiraan kalori dan protein.
-11. Hari SAKIT di DATA ditandai dia sendiri. Olahraga, langkah, dan kalori keluar yang turun di hari itu wajar, jangan dibahas sebagai kekurangan. Berat yang naik waktu sakit biasanya air. Selama masih sakit, utamakan pemulihan (minum, protein, tidur), jangan menyuruh mengejar defisit.
+11. Hari SAKIT di DATA ditandai dia sendiri. Olahraga, langkah, dan kalori keluar yang turun di hari itu wajar, jangan dibahas sebagai kekurangan. Berat yang naik waktu sakit biasanya air. Selama masih sakit, utamakan pemulihan (minum, protein, tidur), jangan menyuruh mengejar defisit. Hari REST juga ditandai dia sendiri: istirahat yang disengaja, misalnya otot pegal habis lari. Itu bagian dari latihan, jangan disebut bolos atau kurang gerak.
 12. LARI DAN JALAN di DATA dari jam tangannya. Kalau dia tanya perkembangan, bandingkan pace, jarak, dan HR antarsesi apa adanya; pace lebih cepat di HR yang sama atau lebih rendah berarti kebugarannya naik. Jangan menghitung pace sendiri.
 
 GAYA:
@@ -127,6 +127,8 @@ const durasiSesi = (detik: number): string => {
 export interface FaktaTambahan {
   /** Rentang sakit yang ditandai user, 30 hari terakhir. */
   sakit?: { start_date: string; end_date: string | null }[];
+  /** Tanggal rest day yang ditandai user, 30 hari terakhir. */
+  istirahat?: string[];
   /** Lari dan jalan berjarak 60 hari terakhir, terbaru dulu. */
   jarak?: {
     logged_at: string;
@@ -423,6 +425,10 @@ export const susunFakta = (
     b.push(`Hari sakit yang dia tandai: ${daftar.join('; ')}.`);
   }
 
+  if (tambahan.istirahat && tambahan.istirahat.length > 0) {
+    b.push(`Rest day yang dia tandai: ${tambahan.istirahat.join(', ')}.`);
+  }
+
   if (tambahan.jarak && tambahan.jarak.length > 0) {
     const sesi = tambahan.jarak.map((o) => {
       const jenis = o.distance_kind === 'RUN' ? 'lari' : 'jalan';
@@ -554,8 +560,8 @@ export const kumpulkanFakta = async (userId: string): Promise<string> => {
       .toISOString()
       .slice(0, 10);
 
-  const [harian, pekan, riwayat, profil, goal, makanan, badan, sakit, olahraga] = await Promise.all(
-    [
+  const [harian, pekan, riwayat, profil, goal, makanan, badan, sakit, istirahat, olahraga] =
+    await Promise.all([
       summaryService.getDaily(userId, hariIni),
       // Tanpa argumen, getWeekly memakai tujuh hari terakhir sampai hari ini.
       summaryService.getWeekly(userId),
@@ -565,9 +571,14 @@ export const kumpulkanFakta = async (userId: string): Promise<string> => {
       foodService.getToday(userId),
       forUser(userId).findOne('body_comparisons', { sort: ['-to_date', '-created_at'] }),
       sickService.getRange(userId, { from: geser(-29), to: hariIni }),
+      forUser(userId).list('rest_days', {
+        filter: { logged_at: { _between: [geser(-29), hariIni] } },
+        fields: ['logged_at'],
+        sort: ['logged_at'],
+        limit: -1,
+      }),
       workoutsService.getRange(userId, { from: geser(-59), to: hariIni }),
-    ],
-  );
+    ]);
 
   // Lima sesi lari atau jalan terakhir yang jaraknya tercatat.
   const jarak = olahraga
@@ -585,6 +596,7 @@ export const kumpulkanFakta = async (userId: string): Promise<string> => {
 
   return susunFakta(harian, pekan, riwayat, profil, goal, makanan, badan, jamWIB(), {
     sakit,
+    istirahat: istirahat.map((r) => r.logged_at),
     jarak,
   });
 };

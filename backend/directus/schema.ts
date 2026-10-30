@@ -797,6 +797,14 @@ export const collections: CollectionDef[] = [
   },
 
   {
+    collection: 'rest_days',
+    typeName: 'RestDayRecord',
+    icon: 'hotel',
+    note: 'Hari istirahat yang disengaja (rest day), dipilih user di layar olahraga. Cuma TANDA untuk chat: tidak ada hitungan yang berubah. Satu baris per user per hari.',
+    fields: [pk(), userFk('rest_days'), loggedAtDate(), userDateKey(), createdAt()],
+  },
+
+  {
     collection: 'food_memory_forgets',
     typeName: 'FoodMemoryForgetRecord',
     icon: 'history_toggle_off',

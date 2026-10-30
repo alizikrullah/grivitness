@@ -484,6 +484,25 @@ export interface SickPeriodRecord {
 }
 
 /**
+ * Hari istirahat yang disengaja (rest day), dipilih user di layar olahraga. Cuma TANDA
+ * untuk chat: tidak ada hitungan yang berubah. Satu baris per user per hari.
+ */
+export interface RestDayRecord {
+  id: string;
+  /** Pemilik data ini */
+  user_id: string;
+  /** Tanggal log dalam format YYYY-MM-DD */
+  logged_at: DateString;
+  /**
+   * Kunci unik "{user_id}:{YYYY-MM-DD}". Pengganti composite unique yang tidak didukung
+   * Directus. Diisi backend, jangan diedit manual.
+   */
+  user_date_key: string;
+  /** Diisi otomatis oleh Directus saat item dibuat */
+  created_at: TimestampString | null;
+}
+
+/**
  * Nama makanan yang diminta user dilupakan dari ingatan makanan. Catatan yang dibuat
  * sebelum forgotten_at tidak lagi jadi sumber saran.
  */
@@ -644,6 +663,7 @@ export type UserOwnedCollection =
   | 'mood_logs'
   | 'food_day_status'
   | 'sick_periods'
+  | 'rest_days'
   | 'food_memory_forgets'
   | 'chat_messages'
   | 'streaks'
@@ -669,6 +689,7 @@ export interface DirectusSchema {
   mood_logs: MoodLogRecord[];
   food_day_status: FoodDayStatusRecord[];
   sick_periods: SickPeriodRecord[];
+  rest_days: RestDayRecord[];
   food_memory_forgets: FoodMemoryForgetRecord[];
   chat_messages: ChatMessageRecord[];
   streaks: StreakRecord[];

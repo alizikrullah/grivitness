@@ -248,3 +248,77 @@ describe('tanda sakit', () => {
     expect(punyaOrang.body.data).toHaveLength(0);
   });
 });
+
+/**
+ * Status hari di layar olahraga: rest day atau lagi sakit, satu status per
+ * hari. Berjalan sesudah "tanda sakit", jadi rentang [awal, kemarin] sudah ada.
+ */
+describe('status hari olahraga', () => {
+  const awal = geser(HARI_INI, -3);
+  const kemarin = geser(HARI_INI, -1);
+
+  const pasang = (status: 'REST' | 'SICK' | null, date = HARI_INI) =>
+    request(app).put('/api/workouts/day-status').set(auth()).send({ date, status });
+
+  it('rest day tersimpan dan terbaca di layar olahraga dan ringkasan harian', async () => {
+    const res = await pasang('REST');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ day_status: 'REST', sick: null });
+
+    const [hari, harian] = await Promise.all([
+      request(app).get('/api/workouts/today').set(auth()),
+      request(app).get('/api/summary/daily').set(auth()).query({ date: HARI_INI }),
+    ]);
+    expect(hari.body.data.day_status).toBe('REST');
+    expect(harian.body.data.rest).toBe(true);
+  });
+
+  it('memilih sakit mencabut rest day dan menyambung rentang yang bersebelahan', async () => {
+    const res = await pasang('SICK');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.day_status).toBe('SICK');
+    expect(res.body.data.sick).toMatchObject({ start_date: awal, end_date: null });
+
+    const harian = await request(app)
+      .get('/api/summary/daily')
+      .set(auth())
+      .query({ date: HARI_INI });
+    expect(harian.body.data.rest).toBe(false);
+  });
+
+  it('hari biasa mencabut tanda sakit: sembuh hari ini, rentangnya berakhir kemarin', async () => {
+    const res = await pasang(null);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ day_status: null, sick: null });
+
+    const sebelum = await request(app)
+      .get('/api/workouts/day')
+      .set(auth())
+      .query({ date: kemarin });
+    expect(sebelum.body.data.day_status).toBe('SICK');
+    expect(sebelum.body.data.sick).toMatchObject({ start_date: awal, end_date: kemarin });
+  });
+
+  it('tanggal yang belum terjadi dan status yang tidak dikenal ditolak', async () => {
+    const [besok, ngawur] = await Promise.all([
+      pasang('REST', geser(HARI_INI, 1)),
+      request(app)
+        .put('/api/workouts/day-status')
+        .set(auth())
+        .send({ date: HARI_INI, status: 'BOLOS' }),
+    ]);
+
+    expect(besok.status).toBe(400);
+    expect(ngawur.status).toBe(400);
+  });
+
+  it('rest day tidak bocor ke user lain', async () => {
+    await pasang('REST');
+    const orang = await request(app).get('/api/workouts/today').set(auth(tokenLain));
+
+    expect(orang.body.data.day_status).toBeNull();
+  });
+});

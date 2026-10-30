@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
-import { WORKOUT_CATEGORY, WORKOUT_INTENSITY, WORKOUT_MEASURE } from '../../constants/enums.js';
+import {
+  WORKOUT_CATEGORY,
+  WORKOUT_DAY_STATUS,
+  WORKOUT_INTENSITY,
+  WORKOUT_MEASURE,
+} from '../../constants/enums.js';
 import { dateString } from '../../utils/query.js';
 
 interface UkuranSesi {
@@ -300,7 +305,14 @@ export const LibraryQuerySchema = z.object({
   search: z.string().trim().min(1).max(100).optional(),
 });
 
+/** Status hari di layar olahraga. null = hari biasa, mencabut rest day dan tanda sakit. */
+export const WorkoutDayStatusSchema = z.object({
+  date: dateString,
+  status: z.enum(WORKOUT_DAY_STATUS, { message: 'status harus REST, SICK, atau null' }).nullable(),
+});
+
 export type CreateWorkoutDto = z.infer<typeof CreateWorkoutSchema>;
 export type UpdateWorkoutDto = z.infer<typeof UpdateWorkoutSchema>;
 export type CreateCustomWorkoutDto = z.infer<typeof CreateCustomWorkoutSchema>;
 export type LibraryQueryDto = z.infer<typeof LibraryQuerySchema>;
+export type WorkoutDayStatusDto = z.infer<typeof WorkoutDayStatusSchema>;
