@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  catatanMirip,
   cocokkanIngatan,
   kaloriPerPorsi,
+  namaTersering,
   normalisasiNama,
   saranMakanan,
   susunIngatan,
@@ -272,5 +274,52 @@ describe('salinan tidak mengalahkan sumbernya', () => {
     const salinan = { ...item('Roti', 250), nutrition_source: 'PREVIOUS' };
     const peta = susunIngatan([log('2026-09-22T06:00:00Z', [salinan])]);
     expect(peta.get('roti|g')?.per100.kcal).toBe(250);
+  });
+});
+
+describe('pencarian untuk scan foto', () => {
+  const peta = susunIngatan([
+    log('2026-09-23T06:00:00Z', [item('Nasi Goreng Teri', 200)]),
+    log('2026-09-22T06:00:00Z', [item('Nasi Goreng', 170), item('Nasi putih', 130)]),
+    log('2026-09-21T06:00:00Z', [item('Nasi putih', 130), item('Es teh', 30, { unit: 'ml' })]),
+  ]);
+
+  it('saran mendahulukan nama yang persis sama, walau lebih jarang dicatat', () => {
+    expect(saranMakanan(peta, 'nasi goreng')[0]?.name).toBe('Nasi Goreng');
+  });
+
+  it('nama tersering diurutkan dari yang paling sering', () => {
+    expect(namaTersering(peta)[0]).toBe('Nasi putih');
+    expect(namaTersering(peta)).toHaveLength(4);
+  });
+
+  it('nama tersering dibatasi supaya prompt tidak boros token', () => {
+    const banyak = susunIngatan([
+      log(
+        '2026-09-23T06:00:00Z',
+        Array.from({ length: 70 }, (_, i) => item('Lauk ' + String(i), 100)),
+      ),
+    ]);
+
+    expect(namaTersering(banyak)).toHaveLength(50);
+  });
+
+  it('mirip menemukan nama yang lebih pendek, arah yang tidak tercakup saran', () => {
+    expect(catatanMirip(peta, 'Nasi Goreng Ati Ampela', 'g').map((m) => m.name)).toEqual([
+      'Nasi Goreng',
+    ]);
+  });
+
+  it('mirip menemukan nama yang lebih lengkap', () => {
+    expect(catatanMirip(peta, 'Goreng Teri', 'g').map((m) => m.name)).toEqual(['Nasi Goreng Teri']);
+  });
+
+  it('mirip per kata utuh dan tidak menyertakan nama itu sendiri', () => {
+    expect(catatanMirip(peta, 'Nasi Goreng', 'g').map((m) => m.name)).toEqual(['Nasi Goreng Teri']);
+  });
+
+  it('mirip memeriksa satuan', () => {
+    expect(catatanMirip(peta, 'Es teh manis', 'g')).toEqual([]);
+    expect(catatanMirip(peta, 'Es teh manis', 'ml').map((m) => m.name)).toEqual(['Es teh']);
   });
 });

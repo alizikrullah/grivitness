@@ -1,4 +1,4 @@
-import { InfoIcon, WatchIcon } from '@phosphor-icons/react';
+import { WatchIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
 
 import { DateNav } from '@/components/features/DateNav';
@@ -163,21 +163,6 @@ export const DeviceEnergyPanel = () => {
 
       <DateNav value={tanggal} onChange={setTanggal} section="device-energy" />
 
-      {/*
-        Jam tangan tidak semuanya menampilkan angka yang sama. Sebagian punya
-        keduanya, sebagian HANYA kalori aktif. Menanyakannya di depan lebih baik
-        daripada menolak angkanya belakangan dengan pesan error.
-      */}
-      <Card variant="outline" padding="md">
-        <div className="row-start">
-          <InfoIcon size={20} color={metricColors.device} weight="duotone" />
-          <span className="t-caption c-secondary flex-1">
-            Kalori total sudah termasuk yang terbakar saat kamu diam; kalori aktif belum. Pilih yang
-            sesuai dengan angka di jam tanganmu, dan sisanya dihitung di sini.
-          </span>
-        </div>
-      </Card>
-
       {hari.isPending ? (
         <Loading />
       ) : (
@@ -211,6 +196,11 @@ export const DeviceEnergyPanel = () => {
                 ) : null}
               </div>
 
+              {/*
+                Jam tangan tidak semuanya menampilkan angka yang sama. Sebagian
+                punya keduanya, sebagian HANYA kalori aktif. Menanyakannya di
+                depan lebih baik daripada menolak angkanya belakangan.
+              */}
               <div className="stack-xs">
                 <span className="t-label c-secondary">Jam tanganmu menampilkan yang mana?</span>
                 <ChipGroup options={JENIS} value={jenis} onChange={setJenis} labels={JENIS_LABEL} />
@@ -345,15 +335,6 @@ export const DeviceEnergyPanel = () => {
               </div>
             </Card>
           ) : null}
-
-          <Card variant="outline" padding="md">
-            <span className="t-caption c-tertiary">
-              Kalori aktif jam ditambahkan ke metabolisme dan pekerjaanmu, bukan menggantikannya.
-              Jam cuma melihat gerak saat dipakai, jadi hari jamnya dilepas tidak lagi jatuh ke
-              sekitar BMR. Olahraga yang kamu centang terekam jam tidak ditambah lagi, karena sudah
-              ada di angka aktif itu. Jatah kalori harianmu sendiri tidak ikut berubah.
-            </span>
-          </Card>
         </>
       )}
     </>

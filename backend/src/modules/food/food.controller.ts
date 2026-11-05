@@ -10,6 +10,7 @@ import type {
   CreateFoodDto,
   FoodDateDto,
   FoodDayStatusDto,
+  FoodScanDto,
   FoodSuggestionDto,
   ForgetSuggestionDto,
   UpdateFoodDto,
@@ -30,6 +31,16 @@ export const create = async (req: Request, res: Response): Promise<void> => {
   );
 
   sendSuccess(res, result, 201);
+};
+
+/** Foto jadi isian form. Tidak ada yang tersimpan sampai user menekan Simpan. */
+export const scan = async (req: Request, res: Response): Promise<void> => {
+  const user = getAuthUser(req);
+
+  sendSuccess(
+    res,
+    await foodService.scan(user.id, req.file?.buffer ?? null, req.body as FoodScanDto),
+  );
 };
 
 export const getToday = async (req: Request, res: Response): Promise<void> => {

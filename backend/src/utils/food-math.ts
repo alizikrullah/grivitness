@@ -30,6 +30,22 @@ export interface FoodLabel {
   sugar_g?: number;
 }
 
+/**
+ * Taksiran model dari POST /api/food/scan, dikirim balik saat user menekan
+ * Simpan. Sumbernya tetap AI, BUKAN kemasan: LABEL menang di ingatan makanan,
+ * dan ini bukan angka yang dibaca user. Nilainya melewati per100Dari() lagi,
+ * jadi pagar yang sama berlaku walau datangnya dari client.
+ */
+export interface FoodEstimate {
+  /** Berat satu porsi dari foto. Kosong kalau beratnya memang ditulis user. */
+  grams_per_portion?: number;
+  kcal_per_100: number;
+  protein_per_100: number;
+  carbs_per_100: number;
+  fat_per_100: number;
+  sugar_per_100?: number | null;
+}
+
 export interface FoodItemInput {
   name: string;
   portions: number;
@@ -37,12 +53,15 @@ export interface FoodItemInput {
   weight?: number;
   label?: FoodLabel;
   /**
-   * true kalau user memilih item ini dari saran "Dari catatanmu". HANYA ini
-   * yang membuat ingatan makanan dipakai: nama yang diketik sama persis tetap
-   * ditaksir dari nol, karena klik berarti "sama seperti kemarin" dan ketik
-   * berarti "taksir dari awal". Lihat food-memory.ts.
+   * true kalau user memilih item ini dari saran "Dari catatanmu", atau nama
+   * hasil scan foto yang persis ada di catatan dan tampil bertanda di form.
+   * HANYA ini yang membuat ingatan makanan dipakai: nama yang diketik sama
+   * persis tetap ditaksir dari nol, karena ketik berarti "taksir dari awal".
+   * Lihat food-memory.ts.
    */
   from_memory?: boolean;
+  /** Ada berarti model sudah ditanya saat scan dan tidak dipanggil lagi. */
+  estimate?: FoodEstimate;
 }
 
 /**
@@ -325,7 +344,14 @@ export const putuskan = (item: FoodItemInput, k: KonteksItem): Keputusan => {
 
   if (item.weight !== undefined) {
     berat = item.weight;
-    sumberBerat = beratSimpan !== null && item.weight === beratSimpan ? asal.berat : 'USER';
+    // Berat hasil scan yang tidak diubah user tetap taksiran AI, walau
+    // datangnya lewat kolom yang sama dengan berat yang diketik.
+    sumberBerat =
+      item.estimate?.grams_per_portion === item.weight
+        ? 'AI'
+        : beratSimpan !== null && item.weight === beratSimpan
+          ? asal.berat
+          : 'USER';
   } else if (k.beratDariFoto && model.berat !== null) {
     berat = model.berat;
     sumberBerat = 'AI';
@@ -499,21 +525,26 @@ export const hitungItem = (item: FoodItemInput, k: Keputusan): FoodItem => {
  *   gula   gizinya sudah ada, tapi gulanya belum diketahui
  *   berat  berat kosong dan bukan kemasan, lalu ada foto (berat dari foto,
  *          walau catatan menyimpan berat) atau tidak ada berat tersimpan
+ *
+ * Taksiran dari scan sudah dilihat user di form. Bertanya lagi cuma membuang
+ * kuota dan bisa mengubah angka yang barusan dia periksa, jadi gizi dan
+ * gulanya dianggap terjawab, walau gulanya kosong.
  */
 export const kebutuhanModel = (
   item: FoodItemInput,
   tersimpan: IngatanItem | null,
   adaFoto = false,
 ): { gizi: boolean; gula: boolean; berat: boolean } => {
-  const gizi = !item.label && tersimpan === null;
+  const adaTaksiran = item.estimate !== undefined;
+  const gizi = !item.label && tersimpan === null && !adaTaksiran;
 
   let gula = false;
-  if (item.label) {
+  if (!adaTaksiran && item.label) {
     const dariSimpan = tersimpan?.label
       ? (tersimpan.label.sugar_g ?? tersimpan.sugar_per_portion) !== null
       : tersimpan !== null && !tersimpan.per100.missing && tersimpan.per100.sugar !== null;
     gula = item.label.sugar_g === undefined && !dariSimpan;
-  } else if (tersimpan) {
+  } else if (!adaTaksiran && tersimpan) {
     gula = tersimpan.label
       ? (tersimpan.label.sugar_g ?? tersimpan.sugar_per_portion) === null
       : tersimpan.per100.sugar === null;
@@ -521,6 +552,7 @@ export const kebutuhanModel = (
 
   const berat =
     item.weight === undefined &&
+    item.estimate?.grams_per_portion === undefined &&
     !item.label &&
     !tersimpan?.label &&
     (adaFoto || (tersimpan?.weight_per_portion ?? null) === null);
@@ -592,11 +624,22 @@ export const balasanPerItem = (raw: Record<string, unknown>, jumlah: number): Ta
   return hasil.map((r) => ({ berat: angka(r?.grams_per_portion), per100: per100Dari(r) }));
 };
 
+/** Taksiran scan dalam bentuk yang sama dengan balasan model. */
+const dariTaksiran = (e: FoodEstimate): TaksiranModel => ({
+  berat: e.grams_per_portion ?? null,
+  per100: per100Dari({ ...e }),
+});
+
 export interface OpsiAnalisa {
   /** Catatan yang dipakai ulang per item, null untuk item yang tidak diklik dari saran. */
   ingatan?: (IngatanItem | null)[];
-  /** Model benar-benar dipanggil. Tanpa itu, foto tidak pernah dilihat siapa pun. */
+  /**
+   * Model benar-benar melihat foto, saat ini atau saat scan. Tanpa itu, foto
+   * tidak pernah dilihat siapa pun.
+   */
   modelDipanggil?: boolean;
+  /** User menekan Abaikan pada tanda foto, sudah di form sebelum disimpan. */
+  fotoDiabaikan?: boolean;
 }
 
 export const susunAnalisa = (
@@ -614,7 +657,7 @@ export const susunAnalisa = (
     return hitungItem(
       item,
       putuskan(item, {
-        model: balasan[i] ?? null,
+        model: item.estimate ? dariTaksiran(item.estimate) : (balasan[i] ?? null),
         tersimpan,
         beratDariFoto: adaFoto && kebutuhanModel(item, tersimpan, true).berat,
       }),
@@ -627,7 +670,9 @@ export const susunAnalisa = (
     logger.warn({ hilang }, 'Model tidak memberi nilai gizi untuk sebagian item');
   }
 
-  const cocok = adaFoto && typeof raw.photo_matches === 'boolean' ? raw.photo_matches : null;
+  const diabaikan = opsi.fotoDiabaikan === true;
+  const cocok =
+    adaFoto && !diabaikan && typeof raw.photo_matches === 'boolean' ? raw.photo_matches : null;
 
   return {
     source,
@@ -642,6 +687,7 @@ export const susunAnalisa = (
       raw.photo_note.trim() !== ''
         ? raw.photo_note.trim()
         : null,
+    ...(adaFoto && modelDipanggil && diabaikan ? { photo_dismissed: true } : {}),
     user_edited: false,
     raw,
   };

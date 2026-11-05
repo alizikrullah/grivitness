@@ -6,8 +6,11 @@ import { todayWIB } from '@/utils/date';
 import type {
   FoodDay,
   FoodDayStatus,
+  FoodEstimate,
   FoodLabel,
   FoodLog,
+  FoodPhotoCheck,
+  FoodScanResult,
   FoodSuggestion,
   FoodUnit,
   MealType,
@@ -35,6 +38,8 @@ export interface FoodItemInput {
    * persis tetap ditaksir dari nol. Dicabut begitu nama atau satuannya diubah.
    */
   from_memory?: boolean;
+  /** Taksiran dari scan foto. Ada berarti AI tidak dipanggil lagi untuk item ini. */
+  estimate?: FoodEstimate;
 }
 
 export interface FoodInput {
@@ -44,6 +49,8 @@ export interface FoodInput {
   items: FoodItemInput[];
   /** Timestamp ISO. Dikosongkan berarti sekarang. Diisi saat mencatat ke hari lampau. */
   logged_at?: string;
+  /** Hasil pemeriksaan foto saat scan, supaya kartunya tidak menulis "tidak diperiksa". */
+  scan?: FoodPhotoCheck;
 }
 
 /**
@@ -105,6 +112,28 @@ export const asFilePart = (uri: string) => {
 };
 
 /**
+ * Foto jadi isian form. Tidak menyimpan apa pun: hasilnya mengisi form, user
+ * memeriksa, lalu menyimpan lewat useCreateFood biasa. `items` berisi baris
+ * yang sudah ditulis user; kosong berarti AI menyebut apa yang terlihat.
+ */
+export const useScanFood = () =>
+  useMutation({
+    mutationFn: ({ uri, items }: { uri: string; items?: FoodItemInput[] }) => {
+      const form = new FormData();
+      form.append('photo', asFilePart(uri));
+      if (items) form.append('items', JSON.stringify(items));
+
+      return unwrap<FoodScanResult>(
+        api.post('/api/food/scan', form, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          // Batas laju Groq bisa menahan permintaan sampai belasan detik.
+          timeout: 90_000,
+        }),
+      );
+    },
+  });
+
+/**
  * Dua bentuk request untuk satu endpoint.
  *
  * Dengan foto: multipart, dan daftar item dikirim sebagai string JSON di field
@@ -115,7 +144,7 @@ export const useCreateFood = () => {
   const client = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ uri, items, ...rest }: FoodInput) => {
+    mutationFn: ({ uri, items, scan, ...rest }: FoodInput) => {
       if (!uri) {
         return unwrap<FoodLog>(api.post('/api/food', { ...rest, items }));
       }
@@ -123,6 +152,7 @@ export const useCreateFood = () => {
       const form = new FormData();
       form.append('photo', asFilePart(uri));
       form.append('items', JSON.stringify(items));
+      if (scan) form.append('scan', JSON.stringify(scan));
 
       for (const [kunci, nilai] of Object.entries(rest)) {
         if (nilai !== undefined && nilai !== '') form.append(kunci, String(nilai));

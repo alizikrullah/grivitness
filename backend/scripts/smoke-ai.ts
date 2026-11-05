@@ -149,8 +149,49 @@ const main = async (): Promise<void> => {
     if (tolakBerat.status === 400) ok(`ditolak: ${tolakBerat.body.error.message}`);
     else bad(`seharusnya 400, dapat ${tolakBerat.status}`);
 
-    write('\nPOST /api/food dengan foto (jalur vision), berat sebagian dikosongkan');
+    write('\nPOST /api/food/scan: foto jadi isian form, tidak ada yang tersimpan');
     const foto = await gambarUji(200, 150, 100);
+
+    const sebelumScan = await request(app)
+      .get('/api/food/today')
+      .set('Authorization', `Bearer ${token}`);
+
+    const scan = await request(app)
+      .post('/api/food/scan')
+      .set('Authorization', `Bearer ${token}`)
+      .field('items', JSON.stringify([{ name: 'Ayam goreng', portions: 2, unit: 'g' }]))
+      .attach('photo', foto, 'makan.jpg');
+
+    const sesudahScan = await request(app)
+      .get('/api/food/today')
+      .set('Authorization', `Bearer ${token}`);
+
+    if (scan.status !== 200) {
+      bad(`status ${scan.status}: ${JSON.stringify(scan.body.error)}`);
+    } else {
+      const baris = scan.body.data.items[0] as {
+        name: string;
+        portions: number;
+        weight: number | null;
+        estimate: { kcal_per_100: number } | null;
+      };
+      ok(`${baris.name}, ${baris.portions} porsi, berat ${String(baris.weight)}`);
+      ok(`taksiran ${String(baris.estimate?.kcal_per_100)} kkal/100 g`);
+
+      if (baris.name === 'Ayam goreng' && baris.portions === 2) {
+        ok('nama dan porsi tulisan user tidak disentuh');
+      } else {
+        bad('nama atau porsi tulisan user berubah');
+      }
+
+      if (sesudahScan.body.data.logs.length === sebelumScan.body.data.logs.length) {
+        ok('tidak ada catatan yang tersimpan');
+      } else {
+        bad('scan menyimpan catatan, padahal seharusnya tidak');
+      }
+    }
+
+    write('\nPOST /api/food dengan foto (jalur vision), berat sebagian dikosongkan');
 
     const food = await request(app)
       .post('/api/food')

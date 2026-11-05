@@ -50,12 +50,23 @@ interface JenisCatat {
 }
 
 /**
- * Enam yang pertama catatan HARIAN: makanan, minum, tidur, langkah, mood, jam
- * tangan. Sisanya tidak membuat hari terbaca bolong: berat ditimbang 2-4 kali
- * seminggu, olahraga punya hari istirahat, foto badan bulanan. Aturan yang
- * sama dipakai backend untuk titik kalender (getCalendar, type catat).
+ * Catatan HARIAN ada enam: makanan, minum, tidur, langkah, mood, jam tangan.
+ * Sisanya tidak membuat hari terbaca bolong: berat ditimbang 2-4 kali seminggu,
+ * olahraga punya hari istirahat, foto badan bulanan. Semuanya satu daftar,
+ * urutannya sama dengan mobile. Aturan yang sama dipakai backend untuk titik
+ * kalender (getCalendar, type catat).
  */
 const JENIS: JenisCatat[] = [
+  {
+    slug: 'weight',
+    label: 'Berat badan',
+    icon: ScalesIcon,
+    color: metricColors.weight,
+    Panel: WeightPanel,
+    kunci: 'weight',
+    harian: false,
+    status: (d) => kg(d.weight_kg, 1) + ' kg',
+  },
   {
     slug: 'food',
     label: 'Makanan',
@@ -65,6 +76,29 @@ const JENIS: JenisCatat[] = [
     kunci: 'food',
     harian: true,
     status: (d) => thousands(d.calories_in) + ' kkal',
+  },
+  {
+    slug: 'workout',
+    label: 'Olahraga',
+    icon: BarbellIcon,
+    color: metricColors.workout,
+    Panel: WorkoutPanel,
+    kunci: 'workout',
+    harian: false,
+    // Durasi saja tidak menjawab yang dicari: berapa yang terbakar.
+    status: (d) => duration(d.workout_minutes) + ' · ' + thousands(d.workout_calories) + ' kkal',
+    // Tanpa sesi, status hari dari panel Mood menjawab kenapa kosong.
+    kosong: (d) => (d.rest || d.sick ? DAY_STATUS_LABEL[d.rest ? 'REST' : 'SICK'] : 'Belum diisi'),
+  },
+  {
+    slug: 'steps',
+    label: 'Langkah',
+    icon: FootprintsIcon,
+    color: metricColors.steps,
+    Panel: StepsPanel,
+    kunci: 'steps',
+    harian: true,
+    status: (d) => thousands(d.steps) + ' langkah',
   },
   {
     slug: 'water',
@@ -88,26 +122,6 @@ const JENIS: JenisCatat[] = [
     status: (d) => duration(d.sleep_minutes),
   },
   {
-    slug: 'steps',
-    label: 'Langkah',
-    icon: FootprintsIcon,
-    color: metricColors.steps,
-    Panel: StepsPanel,
-    kunci: 'steps',
-    harian: true,
-    status: (d) => thousands(d.steps) + ' langkah',
-  },
-  {
-    slug: 'mood',
-    label: 'Mood',
-    icon: SmileyIcon,
-    color: metricColors.mood,
-    Panel: MoodPanel,
-    kunci: 'mood',
-    harian: true,
-    status: (d) => 'Skor ' + String(d.mood_score ?? '-') + '/5',
-  },
-  {
     slug: 'device-energy',
     label: 'Kalori jam',
     icon: WatchIcon,
@@ -122,27 +136,14 @@ const JENIS: JenisCatat[] = [
         : thousands(d.device_kcal ?? 0) + ' kkal',
   },
   {
-    slug: 'weight',
-    label: 'Berat badan',
-    icon: ScalesIcon,
-    color: metricColors.weight,
-    Panel: WeightPanel,
-    kunci: 'weight',
-    harian: false,
-    status: (d) => kg(d.weight_kg, 1) + ' kg',
-  },
-  {
-    slug: 'workout',
-    label: 'Olahraga',
-    icon: BarbellIcon,
-    color: metricColors.workout,
-    Panel: WorkoutPanel,
-    kunci: 'workout',
-    harian: false,
-    // Durasi saja tidak menjawab yang dicari: berapa yang terbakar.
-    status: (d) => duration(d.workout_minutes) + ' · ' + thousands(d.workout_calories) + ' kkal',
-    // Tanpa sesi, status hari dari panel olahraga menjawab kenapa kosong.
-    kosong: (d) => (d.rest || d.sick ? DAY_STATUS_LABEL[d.rest ? 'REST' : 'SICK'] : 'Belum diisi'),
+    slug: 'mood',
+    label: 'Mood',
+    icon: SmileyIcon,
+    color: metricColors.mood,
+    Panel: MoodPanel,
+    kunci: 'mood',
+    harian: true,
+    status: (d) => 'Skor ' + String(d.mood_score ?? '-') + '/5',
   },
   // Foto badan dan lingkar pinggang jadi satu panel, irama 2-4 minggu sekali.
   {
@@ -159,7 +160,6 @@ const JENIS: JenisCatat[] = [
 ];
 
 const HARIAN = JENIS.filter((j) => j.harian);
-const LAINNYA = JENIS.filter((j) => !j.harian);
 
 /**
  * Halaman Catat: semua jenis catatan untuk SATU tanggal, daftar di kiri,
@@ -242,22 +242,20 @@ export const LogPage = () => {
       </Card>
 
       <div className="log">
-        <nav className="log-nav">
-          <span className="t-overline c-tertiary log-nav-title">Catatan harian</span>
-          {HARIAN.map(baris)}
-          <span className="t-overline c-tertiary log-nav-title">Lainnya</span>
-          {LAINNYA.map(baris)}
-        </nav>
+        <nav className="log-nav">{JENIS.map(baris)}</nav>
 
         <div className="log-panel">
           <Routes>
-            <Route index element={<Navigate to={{ pathname: 'food', search }} replace />} />
+            <Route index element={<Navigate to={{ pathname: 'weight', search }} replace />} />
             {JENIS.map(({ slug, Panel }) => (
               <Route key={slug} path={slug} element={<Panel />} />
             ))}
             {/* Slug yang tidak dikenal dikembalikan ke jenis pertama, bukan
                 dibiarkan menampilkan panel kosong tanpa penjelasan. */}
-            <Route path="*" element={<Navigate to={{ pathname: '/log/food', search }} replace />} />
+            <Route
+              path="*"
+              element={<Navigate to={{ pathname: '/log/weight', search }} replace />}
+            />
           </Routes>
         </div>
       </div>

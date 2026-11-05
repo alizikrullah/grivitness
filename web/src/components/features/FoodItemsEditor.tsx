@@ -8,7 +8,8 @@ import {
   useFoodSuggestions,
   useForgetSuggestion,
 } from '@/services/food.service';
-import type { FoodLabel, FoodSuggestion, FoodUnit } from '@/types';
+import type { FoodEstimate, FoodLabel, FoodScanItem, FoodSuggestion, FoodUnit } from '@/types';
+import { thousands } from '@/utils/format';
 
 import './FoodItemsEditor.css';
 
@@ -42,6 +43,23 @@ export interface FoodItemDraft {
    * makanan yang sama ditaksir ulang dari nol dan angkanya bergeser.
    */
   asalCatatan?: { name: string; unit: FoodUnit } | null;
+  /** Kalori per 100 catatan yang dipilih, untuk taksiran kalori baris ini. */
+  kkalCatatan?: number;
+  /**
+   * Taksiran scan foto untuk nama dan satuan `asalTaksiran`. Dikirim saat
+   * Simpan supaya AI tidak dipanggil dua kali. Kalau namanya diganti, taksiran
+   * berhenti berlaku; kalau dikembalikan persis, berlaku lagi.
+   */
+  taksiran?: FoodEstimate | null;
+  asalTaksiran?: { name: string; unit: FoodUnit } | null;
+  /**
+   * Nama baris ini tebakan AI dari foto, bukan tulisan user. Berat fotonya
+   * dipertahankan saat tersambung ke catatan, dan nama yang dibetulkan user
+   * langsung tersambung kalau persis ada di catatan.
+   */
+  dariFoto?: boolean;
+  /** Catatan yang mirip dengan tebakan AI. Harus diklik. */
+  mirip?: FoodSuggestion[];
   /** Saat mengoreksi: urutan item ini di catatan yang tersimpan. */
   sourceIndex?: number;
 }
@@ -75,12 +93,23 @@ const angkaLabel = (n: number | undefined): string => (n ? String(n) : '');
  * Isian dari satu saran: nama, satuan, berat, dan kemasannya kalau ada.
  * Porsi dibiarkan, itu yang berubah tiap kali. Barisnya ditandai dariCatatan
  * supaya backend memakai angka yang sama dengan terakhir kali.
+ *
+ * Baris hasil foto mempertahankan beratnya: gizinya dari catatan, tapi yang
+ * ada di piring hari ini tetap yang terlihat di foto. Kecuali kemasan, yang
+ * kalorinya per porsi dan beratnya dari kemasan itu.
  */
 export const dariSaran = (baris: FoodItemDraft, s: FoodSuggestion): FoodItemDraft => ({
   ...baris,
   name: s.name,
   unit: s.unit,
-  weight: s.weight_per_portion === null ? '' : String(s.weight_per_portion),
+  weight:
+    baris.dariFoto && s.label === null && baris.weight.trim() !== ''
+      ? baris.weight
+      : s.weight_per_portion === null
+        ? ''
+        : String(s.weight_per_portion),
+  kkalCatatan: s.kcal_per_100,
+  mirip: [],
   pakaiKemasan: s.label !== null,
   labelKcal: s.label ? String(s.label.kcal) : '',
   labelProtein: angkaLabel(s.label?.protein_g),
@@ -105,6 +134,84 @@ export const barisKosong = (): FoodItemDraft => ({
   dariCatatan: false,
   asalCatatan: null,
 });
+
+/** Taksiran foto yang masih berlaku: nama dan satuannya belum diganti. */
+const taksiranBerlaku = (item: FoodItemDraft): FoodEstimate | null => {
+  const asal = item.asalTaksiran;
+  return item.taksiran &&
+    asal &&
+    item.unit === asal.unit &&
+    normalisasiNama(item.name) === normalisasiNama(asal.name)
+    ? item.taksiran
+    : null;
+};
+
+/**
+ * Baris form dari satu hasil scan. Tulisan user tidak disentuh: nama dan porsi
+ * cuma diambil dari AI kalau barisnya memang tebakan, dan berat yang sudah
+ * diisi tetap. Nama yang persis ada di catatan langsung tersambung.
+ */
+export const barisDariScan = (baris: FoodItemDraft, h: FoodScanItem): FoodItemDraft => {
+  const name = h.guessed ? h.name : baris.name;
+  const unit = h.guessed ? h.unit : baris.unit;
+  const taksiran = h.estimate ?? baris.taksiran ?? null;
+
+  const dasar: FoodItemDraft = {
+    ...baris,
+    name,
+    unit,
+    portions: h.guessed ? String(h.portions) : baris.portions,
+    weight: baris.weight.trim() !== '' || h.weight === null ? baris.weight : String(h.weight),
+    taksiran,
+    asalTaksiran: taksiran ? { name, unit } : null,
+    dariFoto: h.guessed,
+    mirip: h.similar,
+  };
+
+  return h.memory ? dariSaran(dasar, h.memory) : dasar;
+};
+
+/**
+ * Masih ada yang perlu dibaca dari foto: formnya kosong, atau ada baris yang
+ * belum punya angka dari kemasan, catatan, maupun taksiran.
+ */
+export const perluDibaca = (items: FoodItemDraft[]): boolean => {
+  const terisi = items.filter((i) => i.name.trim() !== '');
+
+  return (
+    terisi.length === 0 ||
+    terisi.some(
+      (i) =>
+        !i.pakaiKemasan &&
+        taksiranBerlaku(i) === null &&
+        !(i.dariCatatan && i.weight.trim() !== ''),
+    )
+  );
+};
+
+/**
+ * Taksiran kalori satu baris di form, supaya bisa diperiksa sebelum disimpan.
+ * Cermin hitungan backend, yang tetap jadi angka resminya. Null kalau gizinya
+ * belum diketahui: baris itu ditaksir saat Simpan.
+ */
+export const kkalBaris = (item: FoodItemDraft): number | null => {
+  const taksiran = taksiranBerlaku(item);
+  if (!item.dariCatatan && taksiran === null) return null;
+
+  const porsi = Number(item.portions.replace(',', '.'));
+  if (!Number.isFinite(porsi) || porsi <= 0) return null;
+
+  if (item.pakaiKemasan) {
+    const kkal = Number(item.labelKcal.replace(',', '.'));
+    return item.labelKcal.trim() !== '' && Number.isFinite(kkal) ? Math.round(kkal * porsi) : null;
+  }
+
+  const per100 = item.dariCatatan ? item.kkalCatatan : taksiran?.kcal_per_100;
+  const berat = Number(item.weight.replace(',', '.'));
+  if (per100 === undefined || !Number.isFinite(berat) || berat <= 0) return null;
+
+  return Math.round((per100 * berat * porsi) / 100);
+};
 
 /** "Nescafe Classic bubuk · 8 g · 28 kkal": yang dipilih kelihatan sebelum dipilih. */
 const labelSaran = (s: FoodSuggestion): string =>
@@ -182,6 +289,30 @@ export const FoodItemsEditor = ({
     setAktif(null);
   };
 
+  /**
+   * Tebakan AI yang dibetulkan user: hapus "Teri" dari "Nasi Goreng Teri", dan
+   * kalau "Nasi Goreng" persis ada di catatan, barisnya langsung tersambung.
+   * Ini koreksi nama, bukan permintaan menaksir dari awal, jadi aturan "yang
+   * diketik ditaksir dari nol" tidak berlaku. Baris yang ditulis user tetap.
+   */
+  useEffect(() => {
+    if (aktif === null) return;
+    const baris = items[aktif];
+    if (!baris?.dariFoto || baris.dariCatatan || taksiranBerlaku(baris)) return;
+
+    const nama = normalisasiNama(baris.name);
+    if (nama === '' || nama !== normalisasiNama(kataCari)) return;
+
+    const cocok = saran.data?.find(
+      (s) => s.unit === baris.unit && normalisasiNama(s.name) === nama,
+    );
+    if (!cocok) return;
+
+    // Teks kolomnya dibiarkan apa adanya: user mungkin masih mengetik.
+    const baru = { ...dariSaran(baris, cocok), name: baris.name };
+    onChange(items.map((item, j) => (j === aktif ? baru : item)));
+  }, [aktif, items, kataCari, onChange, saran.data]);
+
   return (
     <div className="food-items">
       {items.map((item, i) => (
@@ -217,6 +348,33 @@ export const FoodItemsEditor = ({
               Dari catatanmu: angkanya sama dengan terakhir kali. Ubah nama atau satuan berarti
               makanan lain.
             </span>
+          ) : null}
+
+          {kkalBaris(item) === null ? null : (
+            <span className="t-caption c-secondary">
+              Sekitar {thousands(kkalBaris(item) ?? 0)} kkal
+            </span>
+          )}
+
+          {/*
+            Catatan yang mirip dengan tebakan AI. Tidak otomatis: Nasi Goreng
+            Teri bukan Nasi Goreng, jadi user yang memutuskan.
+          */}
+          {!item.dariCatatan && aktif !== i && (item.mirip?.length ?? 0) > 0 ? (
+            <div className="food-saran">
+              <span className="food-saran-judul t-caption c-tertiary">
+                <ClockCounterClockwiseIcon size={12} weight="bold" /> Mirip di catatanmu
+              </span>
+              <div className="chip-group">
+                {item.mirip?.map((s) => (
+                  <Chip
+                    key={s.name + s.unit}
+                    label={labelSaran(s)}
+                    onClick={() => pilihSaran(i, s)}
+                  />
+                ))}
+              </div>
+            </div>
           ) : null}
 
           {/*
@@ -492,6 +650,8 @@ export const susunItem = (
       };
     }
 
+    const estimate = taksiranBerlaku(item);
+
     hasil.push({
       name: nama,
       portions: porsi,
@@ -499,6 +659,7 @@ export const susunItem = (
       ...(weight === undefined ? {} : { weight }),
       ...(label === undefined ? {} : { label }),
       ...(item.dariCatatan ? { from_memory: true } : {}),
+      ...(estimate === null ? {} : { estimate }),
       ...(item.sourceIndex === undefined ? {} : { source_index: item.sourceIndex }),
     });
   }

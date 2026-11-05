@@ -338,6 +338,47 @@ export interface FoodSuggestion {
   last_logged_at: string;
 }
 
+/** Taksiran model dari scan foto, dikirim balik saat Simpan supaya AI tidak dipanggil dua kali. */
+export interface FoodEstimate {
+  /** Berat satu porsi dari foto. Kosong kalau beratnya ditulis user. */
+  grams_per_portion?: number;
+  kcal_per_100: number;
+  protein_per_100: number;
+  carbs_per_100: number;
+  fat_per_100: number;
+  sugar_per_100?: number | null;
+}
+
+/** Satu baris hasil scan foto. Belum tersimpan, cuma mengisi form. */
+export interface FoodScanItem {
+  name: string;
+  portions: number;
+  unit: FoodUnit;
+  /** Berat satu porsi dari foto. Null kalau user sudah mengisinya, atau model diam. */
+  weight: number | null;
+  estimate: FoodEstimate | null;
+  /** Nama dan porsinya tebakan model, bukan tulisan user. */
+  guessed: boolean;
+  /** Catatan bernama persis sama: otomatis dipakai, bertanda di form. */
+  memory: FoodSuggestion | null;
+  /** Catatan yang cuma mirip, harus diklik. Nasi Goreng Teri bukan Nasi Goreng. */
+  similar: FoodSuggestion[];
+}
+
+/** Hasil pemeriksaan foto saat scan, dibawa ke Simpan. */
+export interface FoodPhotoCheck {
+  confidence: string | null;
+  /** Null kalau model tidak dipanggil karena semua baris sudah tertutup. */
+  photo_matches: boolean | null;
+  photo_note: string | null;
+  /** User menekan Abaikan pada tanda foto. */
+  photo_dismissed?: boolean;
+}
+
+export interface FoodScanResult extends FoodPhotoCheck {
+  items: FoodScanItem[];
+}
+
 export interface FoodLog {
   id: string;
   /** Null kalau dicatat tanpa foto. */
