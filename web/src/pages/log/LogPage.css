@@ -32,14 +32,6 @@
   top: 96px;
 }
 
-.log-nav-title {
-  padding: var(--space-md) var(--space-md) var(--space-xs);
-}
-
-.log-nav-title:first-child {
-  padding-top: 0;
-}
-
 .log-nav-item {
   display: flex;
   align-items: center;
@@ -158,11 +150,6 @@
     flex-direction: row;
     overflow-x: auto;
     padding-bottom: var(--space-sm);
-  }
-
-  /* Judul kelompok tidak masuk akal di baris mendatar. */
-  .log-nav-title {
-    display: none;
   }
 
   .log-nav-item {

@@ -41,6 +41,8 @@ interface LogEntry {
   label: string;
   Icon: ComponentType<IconProps>;
   color: string;
+  /** Catatan harian: ikut menentukan lengkap tidaknya hari. */
+  harian: boolean;
   /** Keadaan di tanggal terpilih, atau "Belum diisi". */
   status: string;
   done: boolean;
@@ -57,9 +59,10 @@ interface LogEntry {
  *
  * "Catatan harian" adalah enam yang memang diharapkan terisi tiap hari:
  * makanan, minum, tidur, langkah, mood, jam tangan. Berat (ditimbang 2-4 kali
- * seminggu), olahraga (ada hari istirahat), dan foto badan (bulanan) ada di
- * "Lainnya" dan tidak membuat hari terbaca bolong. Aturan yang sama dipakai
- * backend untuk titik kalender (getCalendar, type catat).
+ * seminggu), olahraga (ada hari istirahat), dan foto badan (bulanan) tidak
+ * membuat hari terbaca bolong. Semuanya satu daftar; bedanya cuma catatan
+ * harian yang belum diisi berwarna oranye. Aturan yang sama dipakai backend
+ * untuk titik kalender (getCalendar, type catat).
  */
 export default function LogHubScreen() {
   const router = useRouter();
@@ -79,82 +82,33 @@ export default function LogHubScreen() {
   const status = (terisi: boolean | undefined, teks: () => string): string =>
     memuat ? '...' : terisi ? teks() : 'Belum diisi';
 
-  const harian: LogEntry[] = [
-    {
-      layar: '/log/food',
-      label: 'Makanan',
-      Icon: ForkKnifeIcon,
-      color: metricColors.calories,
-      status: status(ada?.food, () => thousands(d?.calories_in ?? 0) + ' kkal'),
-      done: ada?.food ?? false,
-    },
-    {
-      layar: '/log/water',
-      label: 'Minum',
-      Icon: DropIcon,
-      color: metricColors.water,
-      // Angka dan targetnya, supaya 500 ml di siang hari kelihatan masih jauh.
-      status: status(
-        ada?.water,
-        () => volume(d?.water_ml ?? 0) + ' dari ' + volume(d?.targets.water_ml ?? 0),
-      ),
-      done: ada?.water ?? false,
-    },
-    {
-      layar: '/log/sleep',
-      label: 'Tidur',
-      Icon: MoonStarsIcon,
-      color: metricColors.sleep,
-      status: status(ada?.sleep, () => duration(d?.sleep_minutes ?? 0)),
-      done: ada?.sleep ?? false,
-    },
-    {
-      layar: '/log/steps',
-      label: 'Langkah',
-      Icon: FootprintsIcon,
-      color: metricColors.steps,
-      status: status(ada?.steps, () => thousands(d?.steps ?? 0) + ' langkah'),
-      done: ada?.steps ?? false,
-    },
-    {
-      layar: '/log/mood',
-      label: 'Mood',
-      Icon: SmileyIcon,
-      color: metricColors.mood,
-      status: status(ada?.mood, () => 'Skor ' + String(d?.mood_score ?? '-') + '/5'),
-      done: ada?.mood ?? false,
-    },
-    {
-      layar: '/log/device-energy',
-      label: 'Kalori jam',
-      Icon: WatchIcon,
-      color: metricColors.device,
-      // Yang dihitung bagian AKTIF-nya, jadi itu yang disebut di sini.
-      status: status(ada?.device, () =>
-        d?.energy?.device_active_kcal != null
-          ? 'aktif ' + thousands(d.energy.device_active_kcal) + ' kkal'
-          : thousands(d?.device_kcal ?? 0) + ' kkal',
-      ),
-      done: ada?.device ?? false,
-    },
-  ];
-
-  const lainnya: LogEntry[] = [
+  const entries: LogEntry[] = [
     {
       layar: '/log/weight',
       label: 'Berat badan',
       Icon: ScalesIcon,
       color: metricColors.weight,
+      harian: false,
       status: status(ada?.weight, () => kg(d?.weight_kg, 1) + ' kg'),
       done: ada?.weight ?? false,
+    },
+    {
+      layar: '/log/food',
+      label: 'Makanan',
+      Icon: ForkKnifeIcon,
+      color: metricColors.calories,
+      harian: true,
+      status: status(ada?.food, () => thousands(d?.calories_in ?? 0) + ' kkal'),
+      done: ada?.food ?? false,
     },
     {
       layar: '/log/workout',
       label: 'Olahraga',
       Icon: BarbellIcon,
       color: metricColors.workout,
+      harian: false,
       // Durasi saja tidak menjawab yang dicari: berapa yang terbakar. Tanpa
-      // sesi, status hari dari layar olahraga menjawab kenapa kosong.
+      // sesi, status hari dari layar Mood menjawab kenapa kosong.
       status:
         !memuat && !ada?.workout && (d?.rest || d?.sick)
           ? DAY_STATUS_LABEL[d.rest ? 'REST' : 'SICK']
@@ -169,15 +123,71 @@ export default function LogHubScreen() {
       done: ada?.workout ?? false,
     },
     {
+      layar: '/log/steps',
+      label: 'Langkah',
+      Icon: FootprintsIcon,
+      color: metricColors.steps,
+      harian: true,
+      status: status(ada?.steps, () => thousands(d?.steps ?? 0) + ' langkah'),
+      done: ada?.steps ?? false,
+    },
+    {
+      layar: '/log/water',
+      label: 'Minum',
+      Icon: DropIcon,
+      color: metricColors.water,
+      harian: true,
+      // Angka dan targetnya, supaya 500 ml di siang hari kelihatan masih jauh.
+      status: status(
+        ada?.water,
+        () => volume(d?.water_ml ?? 0) + ' dari ' + volume(d?.targets.water_ml ?? 0),
+      ),
+      done: ada?.water ?? false,
+    },
+    {
+      layar: '/log/sleep',
+      label: 'Tidur',
+      Icon: MoonStarsIcon,
+      color: metricColors.sleep,
+      harian: true,
+      status: status(ada?.sleep, () => duration(d?.sleep_minutes ?? 0)),
+      done: ada?.sleep ?? false,
+    },
+    {
+      layar: '/log/device-energy',
+      label: 'Kalori jam',
+      Icon: WatchIcon,
+      color: metricColors.device,
+      harian: true,
+      // Yang dihitung bagian AKTIF-nya, jadi itu yang disebut di sini.
+      status: status(ada?.device, () =>
+        d?.energy?.device_active_kcal != null
+          ? 'aktif ' + thousands(d.energy.device_active_kcal) + ' kkal'
+          : thousands(d?.device_kcal ?? 0) + ' kkal',
+      ),
+      done: ada?.device ?? false,
+    },
+    {
+      layar: '/log/mood',
+      label: 'Mood',
+      Icon: SmileyIcon,
+      color: metricColors.mood,
+      harian: true,
+      status: status(ada?.mood, () => 'Skor ' + String(d?.mood_score ?? '-') + '/5'),
+      done: ada?.mood ?? false,
+    },
+    {
       layar: '/log/body-photo',
       label: 'Foto badan & pinggang',
       Icon: CameraIcon,
       color: metricColors.measurement,
+      harian: false,
       status: memuat ? '...' : ada?.body_photo ? 'Sudah difoto' : 'Cek 2-4 minggu sekali',
       done: ada?.body_photo ?? false,
     },
   ];
 
+  const harian = entries.filter((e) => e.harian);
   const terisi = harian.filter((e) => e.done).length;
   const lengkap = !memuat && terisi === harian.length;
 
@@ -188,7 +198,7 @@ export default function LogHubScreen() {
     void pekan.refetch();
   };
 
-  const kartu = (entry: LogEntry, wajib: boolean) => {
+  const kartu = (entry: LogEntry) => {
     const { Icon } = entry;
     return (
       <Pressable
@@ -213,7 +223,7 @@ export default function LogHubScreen() {
             variant="caption"
             // Catatan harian yang belum diisi dibuat oranye supaya menonjol;
             // yang tidak wajib tiap hari cukup redup.
-            tone={entry.done ? 'success' : wajib && !memuat ? 'warning' : 'tertiary'}
+            tone={entry.done ? 'success' : entry.harian && !memuat ? 'warning' : 'tertiary'}
             numberOfLines={1}
           >
             {entry.status}
@@ -249,19 +259,7 @@ export default function LogHubScreen() {
         partial={kuning}
       />
 
-      <View style={styles.section}>
-        <Text variant="overline" tone="tertiary">
-          Catatan harian
-        </Text>
-        <View style={styles.grid}>{harian.map((e) => kartu(e, true))}</View>
-      </View>
-
-      <View style={styles.section}>
-        <Text variant="overline" tone="tertiary">
-          Lainnya
-        </Text>
-        <View style={styles.grid}>{lainnya.map((e) => kartu(e, false))}</View>
-      </View>
+      <View style={styles.grid}>{entries.map(kartu)}</View>
 
       <CalendarSheet
         visible={kalender}
@@ -279,7 +277,6 @@ export default function LogHubScreen() {
 
 const styles = StyleSheet.create({
   hero: { gap: spacing.md },
-  section: { gap: spacing.md },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
   tile: {
     width: '47.8%',

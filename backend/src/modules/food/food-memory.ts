@@ -26,6 +26,12 @@ import type {
  * nama dan satuannya; tanda klik untuk nama yang tidak ada di ingatan jatuh
  * ke model, bukan error.
  *
+ * Satu pengecualian: nama hasil scan foto yang PERSIS ada di catatan langsung
+ * ditandai from_memory di form, tempat user melihat dan bisa mengubahnya.
+ * Nama itu tidak diketik siapa pun, dan klik per baris bikin makanan yang
+ * sama dapat angka berbeda lagi tiap kali ada baris yang terlewat. Yang cuma
+ * mirip tetap harus diklik: Nasi Goreng Teri bukan Nasi Goreng.
+ *
  * Prioritasnya: angka kemasan (dibaca user, bukan taksiran) menang atas item
  * yang pernah dikoreksi user, yang menang atas taksiran AI terakhir. Di
  * antara yang setingkat, yang paling baru dipakai. Kecocokan lewat nama yang
@@ -215,19 +221,68 @@ const MAKS_SARAN = 8;
  */
 export const saranMakanan = (peta: Map<string, FoodMemory>, cari: string): FoodMemory[] => {
   const q = normalisasiNama(cari);
+  const nilai = (m: FoodMemory): number => {
+    if (q === '') return 0;
+    const nama = normalisasiNama(m.name);
+    return nama === q ? 2 : nama.startsWith(q) ? 1 : 0;
+  };
 
   return [...peta.values()]
     .filter((m) => q === '' || normalisasiNama(m.name).includes(q))
     .sort((a, b) => {
-      // Yang namanya DIAWALI kata pencarian naik ke atas, lalu yang paling
+      // Nama yang persis sama di paling atas (form menyambungkan baris hasil
+      // foto lewat itu), lalu yang DIAWALI kata pencarian, lalu yang paling
       // sering dicatat, lalu yang paling baru.
-      const awalA = q !== '' && normalisasiNama(a.name).startsWith(q) ? 1 : 0;
-      const awalB = q !== '' && normalisasiNama(b.name).startsWith(q) ? 1 : 0;
-      if (awalA !== awalB) return awalB - awalA;
+      if (nilai(a) !== nilai(b)) return nilai(b) - nilai(a);
       if (a.times !== b.times) return b.times - a.times;
       return a.last_logged_at < b.last_logged_at ? 1 : -1;
     })
     .slice(0, MAKS_SARAN);
+};
+
+/** Berapa nama catatan yang dikirim ke model saat scan foto. */
+const MAKS_NAMA_PROMPT = 50;
+
+/**
+ * Nama yang paling sering dicatat, untuk prompt scan foto: supaya model mengeja
+ * makanan yang sama persis seperti catatan user. Dibatasi karena tiap nama
+ * memakan token, dan yang jarang dicatat masih bisa cocok lewat ejaannya.
+ */
+export const namaTersering = (peta: Map<string, FoodMemory>): string[] =>
+  [...peta.values()]
+    .sort((a, b) => b.times - a.times)
+    .map((m) => m.name)
+    .filter((nama, i, semua) => semua.indexOf(nama) === i)
+    .slice(0, MAKS_NAMA_PROMPT);
+
+/** Batas catatan mirip per baris hasil scan. */
+const MAKS_MIRIP = 3;
+
+/**
+ * Catatan yang mirip dengan nama dari foto, per kata utuh dan ke dua arah:
+ * "Nasi Goreng" untuk "Nasi Goreng Teri", atau sebaliknya. Ini arah yang tidak
+ * tercakup saranMakanan(), yang cuma mencari kata ketikan di dalam nama
+ * catatan. Nama yang persis sama tidak ikut: itu sudah otomatis tersambung.
+ */
+export const catatanMirip = (
+  peta: Map<string, FoodMemory>,
+  nama: string,
+  unit: FoodUnit,
+): FoodMemory[] => {
+  const kata = new Set(normalisasiNama(nama).split(' ').filter(Boolean));
+  const kunci = kunciIngatan(nama, unit);
+
+  return [...peta.values()]
+    .flatMap((m) => {
+      if (m.unit !== unit || m.key === kunci) return [];
+      const kataCatatan = normalisasiNama(m.name).split(' ').filter(Boolean);
+      const sama = kataCatatan.filter((k) => kata.has(k)).length;
+      const bagiannya = sama === kataCatatan.length || sama === kata.size;
+      return sama > 0 && bagiannya ? [{ m, sama }] : [];
+    })
+    .sort((a, b) => b.sama - a.sama || b.m.times - a.m.times)
+    .slice(0, MAKS_MIRIP)
+    .map(({ m }) => m);
 };
 
 /**
@@ -240,3 +295,41 @@ export const kaloriPerPorsi = (m: IngatanItem): number | null => {
   if (m.weight_per_portion === null) return null;
   return Math.round((m.weight_per_portion * m.per100.kcal) / 100);
 };
+
+/** Satu saran nama untuk form makanan, siap dipakai tanpa memanggil model. */
+export interface FoodSuggestion {
+  name: string;
+  unit: 'g' | 'ml';
+  weight_per_portion: number | null;
+  label: {
+    kcal: number;
+    protein_g?: number;
+    carbs_g?: number;
+    fat_g?: number;
+    sugar_g?: number;
+  } | null;
+  kcal_per_100: number;
+  protein_per_100: number;
+  carbs_per_100: number;
+  fat_per_100: number;
+  /** Kalori satu porsi kalau saran ini dipilih apa adanya, untuk ditampilkan di chip. */
+  kcal_per_portion: number | null;
+  origin: 'LABEL' | 'EDITED' | 'AI';
+  times: number;
+  last_logged_at: string;
+}
+
+export const keSaran = (m: FoodMemory): FoodSuggestion => ({
+  name: m.name,
+  unit: m.unit,
+  weight_per_portion: m.weight_per_portion,
+  label: m.label,
+  kcal_per_100: m.per100.kcal,
+  protein_per_100: m.per100.protein,
+  carbs_per_100: m.per100.carbs,
+  fat_per_100: m.per100.fat,
+  kcal_per_portion: kaloriPerPorsi(m),
+  origin: m.origin,
+  times: m.times,
+  last_logged_at: m.last_logged_at,
+});

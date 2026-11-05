@@ -92,6 +92,33 @@ export const toAnalysisBuffer = async (webp: Buffer): Promise<Buffer> =>
     .toBuffer();
 
 /**
+ * Salinan foto makanan untuk scan, langsung dari berkas asli.
+ *
+ * Ukurannya sama dengan toAnalysisBuffer, tapi masukannya belum melewati
+ * convertToWebP: saat scan belum ada yang disimpan, jadi konversi kualitas
+ * penuh cuma membuang waktu. Karena itu orientasi EXIF diurus di sini.
+ */
+export const toFoodScanBuffer = async (input: Buffer): Promise<Buffer> => {
+  try {
+    return await sharp(input)
+      .rotate()
+      .resize({
+        width: MAX_DIMENSI_ANALISA_PX,
+        height: MAX_DIMENSI_ANALISA_PX,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .webp({ quality: 80 })
+      .toBuffer();
+  } catch (error) {
+    throw AppError.badRequest(
+      'File tidak bisa dibaca sebagai gambar. Pastikan formatnya JPG, PNG, HEIC, atau WebP.',
+      error instanceof Error ? error.message : undefined,
+    );
+  }
+};
+
+/**
  * Sisi terpanjang salinan screenshot yang dikirim ke AI.
  *
  * Screenshot HP tinggi dan sempit (mis. 886 x 2000). Dikecilkan ke 1024 px

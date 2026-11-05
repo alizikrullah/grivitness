@@ -3,6 +3,29 @@ import { z } from 'zod';
 import { FOOD_DAY_STATUS, FOOD_UNIT, MEAL_TYPE } from '../../constants/enums.js';
 import { dateString } from '../../utils/query.js';
 
+/** Field multipart cuma membawa string, jadi objek dan daftar datang sebagai JSON. */
+const dariJson = (nilai: unknown): unknown => {
+  if (typeof nilai !== 'string') return nilai;
+  try {
+    return JSON.parse(nilai) as unknown;
+  } catch {
+    return nilai;
+  }
+};
+
+/**
+ * Taksiran dari POST /api/food/scan yang dikirim balik saat Simpan. Batasnya
+ * sama dengan pagar per100Dari() di backend, yang tetap dijalankan lagi.
+ */
+const FoodEstimateSchema = z.object({
+  grams_per_portion: z.coerce.number().positive().max(5000).optional(),
+  kcal_per_100: z.coerce.number().min(0).max(900),
+  protein_per_100: z.coerce.number().min(0).max(100),
+  carbs_per_100: z.coerce.number().min(0).max(100),
+  fat_per_100: z.coerce.number().min(0).max(100),
+  sugar_per_100: z.coerce.number().min(0).max(100).nullable().optional(),
+});
+
 /**
  * Satu makanan di dalam sesi makan, seperti yang ditulis user.
  *
@@ -63,6 +86,9 @@ const FoodItemSchema = z.object({
    * ditaksir dari nol. Server tetap mencocokkan ulang nama dan satuannya.
    */
   from_memory: z.boolean().optional(),
+
+  /** Ada berarti model sudah ditanya saat scan dan tidak dipanggil lagi. */
+  estimate: FoodEstimateSchema.optional(),
 });
 
 /**
@@ -74,18 +100,26 @@ const FoodItemSchema = z.object({
  * Keduanya diterima di sini supaya client tidak perlu dua jalur.
  */
 const daftarItem = z.preprocess(
-  (nilai) => {
-    if (typeof nilai !== 'string') return nilai;
-    try {
-      return JSON.parse(nilai) as unknown;
-    } catch {
-      return nilai;
-    }
-  },
+  dariJson,
   z
     .array(FoodItemSchema, { message: 'items harus berupa daftar makanan' })
     .min(1, 'Tulis minimal satu makanan')
     .max(20, 'Maksimal 20 makanan dalam satu sesi'),
+);
+
+/**
+ * Hasil pemeriksaan foto saat scan. Dibawa ke Simpan karena model tidak
+ * dipanggil lagi: tanpa ini kartunya salah menulis "Foto tidak diperiksa".
+ */
+const HasilScanSchema = z.preprocess(
+  dariJson,
+  z.object({
+    photo_matches: z.boolean().nullable(),
+    photo_note: z.string().max(500).nullable(),
+    confidence: z.string().max(20).nullable(),
+    /** User menekan Abaikan pada tanda foto, sudah di form sebelum disimpan. */
+    photo_dismissed: z.boolean().optional(),
+  }),
 );
 
 export const CreateFoodSchema = z.object({
@@ -95,7 +129,19 @@ export const CreateFoodSchema = z.object({
 
   /** Timestamp lengkap supaya urutan makan dalam sehari bisa diurutkan. */
   logged_at: z.iso.datetime({ message: 'logged_at harus timestamp ISO 8601' }).optional(),
+
+  scan: HasilScanSchema.optional(),
 });
+
+/**
+ * Foto jadi isian form. `items` berisi baris yang sudah ditulis user: nama dan
+ * porsinya tidak disentuh. Kosong berarti model menyebut apa yang terlihat.
+ */
+export const FoodScanSchema = z.object({
+  items: daftarItem.optional(),
+});
+
+export type FoodScanDto = z.infer<typeof FoodScanSchema>;
 
 /** Pencarian saran nama. Kosong berarti yang paling sering dicatat. */
 export const FoodSuggestionSchema = z.object({
@@ -134,7 +180,7 @@ export const FoodDateSchema = z.object({
  * meleset tanpa memanggil model. Menambah makanan yang belum pernah
  * dianalisa tidak bisa lewat sini, itu sesi baru.
  */
-const FoodItemEditSchema = FoodItemSchema.extend({
+const FoodItemEditSchema = FoodItemSchema.omit({ estimate: true }).extend({
   /**
    * Urutan (mulai 0) item ini di catatan yang tersimpan. Supaya menghapus
    * item di tengah tidak membuat item sesudahnya mewarisi gizi item yang

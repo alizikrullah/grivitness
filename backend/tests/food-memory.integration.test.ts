@@ -1,5 +1,6 @@
 import { updateItem } from '@directus/sdk';
 import type { Express } from 'express';
+import sharp from 'sharp';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -275,5 +276,163 @@ describe('Lupakan', () => {
     expect(saran.body.data).toHaveLength(1);
     expect(saran.body.data[0].kcal_per_portion).toBe(35);
     expect(saran.body.data[0].times).toBe(1);
+  });
+});
+
+/**
+ * Foto mengisi form dulu, user yang menyimpan. Item di sini tertutup kemasan
+ * atau taksiran yang dibawa dari scan, jadi Groq tidak dipanggil.
+ */
+describe('scan foto makanan', () => {
+  const foto = () =>
+    sharp({ create: { width: 64, height: 48, channels: 3, background: { r: 200, g: 150, b: 90 } } })
+      .jpeg()
+      .toBuffer();
+
+  const taksiran = {
+    grams_per_portion: 300,
+    kcal_per_100: 170,
+    protein_per_100: 6,
+    carbs_per_100: 25,
+    fat_per_100: 5,
+    sugar_per_100: 1,
+  };
+
+  const jumlahCatatan = async (): Promise<number> => {
+    const hari = await request(app).get('/api/food/today').set(auth());
+    return (hari.body.data.logs as unknown[]).length;
+  };
+
+  it('tanpa foto ditolak', async () => {
+    const res = await request(app).post('/api/food/scan').set(auth()).field('x', 'y');
+
+    expect(res.status).toBe(400);
+  });
+
+  it('butuh login', async () => {
+    const res = await request(app).post('/api/food/scan');
+
+    expect(res.status).toBe(401);
+  });
+
+  it('semua baris tertutup kemasan: model tidak dipanggil dan tidak ada yang tersimpan', async () => {
+    const sebelum = await jumlahCatatan();
+
+    const res = await request(app)
+      .post('/api/food/scan')
+      .set(auth())
+      .field(
+        'items',
+        JSON.stringify([
+          { name: 'Kopi sachet', portions: 2, unit: 'g', label: { kcal: 70, sugar_g: 9 } },
+        ]),
+      )
+      .attach('photo', await foto(), 'makan.jpg');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.photo_matches).toBeNull();
+    expect(res.body.data.items[0].name).toBe('Kopi sachet');
+    expect(res.body.data.items[0].portions).toBe(2);
+    expect(await jumlahCatatan()).toBe(sebelum);
+  });
+
+  it('Simpan membawa taksiran: tanpa model, sumbernya AI, angkanya dari backend', async () => {
+    const res = await request(app)
+      .post('/api/food')
+      .set(auth())
+      .send({
+        meal_type: 'DINNER',
+        items: [{ name: 'Nasi Goreng', portions: 2, unit: 'g', weight: 300, estimate: taksiran }],
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.total_calories).toBe(1020);
+    expect(res.body.data.ai_analysis.items[0].nutrition_source).toBe('AI');
+    expect(res.body.data.ai_analysis.items[0].weight_source).toBe('AI');
+  });
+
+  it('taksiran di luar pagar ditolak', async () => {
+    const res = await request(app)
+      .post('/api/food')
+      .set(auth())
+      .send({
+        meal_type: 'DINNER',
+        items: [
+          {
+            name: 'Nasi Goreng',
+            portions: 1,
+            unit: 'g',
+            weight: 300,
+            estimate: { ...taksiran, kcal_per_100: 5000 },
+          },
+        ],
+      });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('foto tersimpan saat Simpan, hasil pemeriksaannya ikut lewat multipart', async () => {
+    const res = await request(app)
+      .post('/api/food')
+      .set(auth())
+      .field('meal_type', 'DINNER')
+      .field(
+        'items',
+        JSON.stringify([
+          { name: 'Nasi Goreng', portions: 1, unit: 'g', weight: 300, estimate: taksiran },
+        ]),
+      )
+      .field(
+        'scan',
+        JSON.stringify({
+          photo_matches: false,
+          photo_note: 'Foto menampilkan soto.',
+          confidence: 'medium',
+          photo_dismissed: true,
+        }),
+      )
+      .attach('photo', await foto(), 'makan.jpg');
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.directus_file_id).not.toBeNull();
+    expect(res.body.data.ai_analysis.source).toBe('PHOTO');
+    expect(res.body.data.ai_analysis.photo_matches).toBe(true);
+    expect(res.body.data.ai_analysis.photo_dismissed).toBe(true);
+    expect(res.body.data.ai_analysis.confidence).toBe('medium');
+
+    // Lewat DELETE supaya berkasnya ikut terhapus dari storage.
+    const hapus = await request(app)
+      .delete('/api/food/' + (res.body.data.id as string))
+      .set(auth());
+    expect(hapus.status).toBe(200);
+  });
+
+  it('koreksi sesudah tersimpan tidak menerima taksiran dari client', async () => {
+    const buat = await request(app)
+      .post('/api/food')
+      .set(auth())
+      .send({
+        meal_type: 'DINNER',
+        items: [{ name: 'Tempe', portions: 1, unit: 'g', weight: 100, estimate: taksiran }],
+      });
+
+    const res = await request(app)
+      .patch('/api/food/' + (buat.body.data.id as string))
+      .set(auth())
+      .send({
+        items: [
+          {
+            name: 'Tempe',
+            portions: 1,
+            unit: 'g',
+            weight: 100,
+            source_index: 0,
+            estimate: { ...taksiran, kcal_per_100: 1 },
+          },
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.ai_analysis.items[0].kcal_per_100).toBe(170);
   });
 });

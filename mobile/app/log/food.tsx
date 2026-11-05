@@ -4,9 +4,11 @@ import { StyleSheet, View } from 'react-native';
 
 import { FoodEditSheet } from '@/components/features/FoodEditSheet';
 import {
+  barisDariScan,
   barisKosong,
   type FoodItemDraft,
   FoodItemsEditor,
+  perluDibaca,
   susunItem,
 } from '@/components/features/FoodItemsEditor';
 import { LogActions } from '@/components/features/LogActions';
@@ -37,11 +39,12 @@ import {
   useCreateFood,
   useDeleteFood,
   useFoodDate,
+  useScanFood,
   useSetFoodDayStatus,
   useUpdateFood,
 } from '@/services/food.service';
 import { useDailySummary } from '@/services/misc.service';
-import type { FoodItem, FoodLog, MealType } from '@/types';
+import type { FoodItem, FoodLog, FoodPhotoCheck, MealType } from '@/types';
 import { usePhotoPicker } from '@/hooks/usePhotoPicker';
 import { dayPhrase, timeWIB, todayWIB, wibToISO } from '@/utils/date';
 import { thousands, toNum } from '@/utils/format';
@@ -71,6 +74,7 @@ export default function FoodScreen() {
   const today = useFoodDate(tanggal);
   const ringkasan = useDailySummary(tanggal);
   const createFood = useCreateFood();
+  const scanFood = useScanFood();
   const deleteFood = useDeleteFood();
   const updateFood = useUpdateFood();
   const statusHari = useSetFoodDayStatus();
@@ -83,16 +87,73 @@ export default function FoodScreen() {
   const [diedit, setDiedit] = useState<FoodLog | null>(null);
   /** Item yang angka kemasannya janggal, menunggu keputusan "Simpan tetap". */
   const [janggal, setJanggal] = useState<{ nama: string[]; items: FoodItemInput[] } | null>(null);
+  /** Hasil pemeriksaan foto saat dibaca. Null berarti fotonya belum dibaca. */
+  const [cekFoto, setCekFoto] = useState<FoodPhotoCheck | null>(null);
+  /** Pembacaan gagal: user tetap bisa mengisi sendiri, Simpan tidak boleh mengulanginya. */
+  const [bacaGagal, setBacaGagal] = useState(false);
+
+  const sibuk = createFood.isPending || scanFood.isPending;
+
+  const gantiFoto = (hasil: string | null) => {
+    setUri(hasil);
+    setCekFoto(null);
+    setBacaGagal(false);
+    setError(null);
+  };
 
   const ambil = async (dari: 'kamera' | 'galeri') => {
     const hasil = dari === 'kamera' ? await picker.dariKamera() : await picker.dariGaleri();
-    if (hasil) {
-      setUri(hasil);
-      setError(null);
+    if (hasil) gantiFoto(hasil);
+  };
+
+  /**
+   * Foto jadi isian form, belum ada yang tersimpan: sama seperti "Isi dari
+   * screenshot" di layar olahraga. Baris yang sudah ditulis user dijawab per
+   * baris tanpa disentuh namanya; form kosong diisi dari yang terlihat.
+   */
+  const isiDariFoto = () => {
+    if (uri === null) return;
+
+    const tertulis = items.filter((i) => i.name.trim() !== '');
+    const susunan = susunItem(tertulis, false);
+    const adaTulisan = tertulis.length > 0;
+
+    if (adaTulisan && 'error' in susunan) {
+      setError(susunan.error);
+      return;
     }
+
+    setError(null);
+
+    scanFood.mutate(
+      { uri, items: adaTulisan && 'items' in susunan ? susunan.items : undefined },
+      {
+        onSuccess: ({ items: hasil, ...cek }) => {
+          setCekFoto(cek);
+          setItems(
+            adaTulisan
+              ? tertulis.map((baris, i) => {
+                  const h = hasil[i];
+                  return h ? barisDariScan(baris, h) : baris;
+                })
+              : hasil.map((h) => barisDariScan(barisKosong(), h)),
+          );
+        },
+        onError: (e) => {
+          setBacaGagal(true);
+          setError(toApiError(e).message);
+        },
+      },
+    );
   };
 
   const simpan = () => {
+    // Foto yang belum dibaca mengisi form dulu, bukan langsung tersimpan.
+    if (uri !== null && cekFoto === null && !bacaGagal && perluDibaca(items)) {
+      isiDariFoto();
+      return;
+    }
+
     // Tanpa foto tidak ada yang bisa menaksir berat, jadi beratnya wajib.
     const susunan = susunItem(items, uri === null);
 
@@ -123,10 +184,11 @@ export default function FoodScreen() {
         // hari ini. Tengah hari dipakai sebagai jam netral karena jam
         // sesungguhnya sudah tidak bisa diingat lagi.
         logged_at: hariIni ? undefined : wibToISO(tanggal, '12:00'),
+        scan: cekFoto ?? undefined,
       },
       {
         onSuccess: () => {
-          setUri(null);
+          gantiFoto(null);
           setItems([barisKosong()]);
         },
         onError: (e) => setError(toApiError(e).message),
@@ -137,7 +199,7 @@ export default function FoodScreen() {
   return (
     <>
       <Screen>
-        <Header title="Makanan" subtitle="Tulis apa yang kamu makan, AI menaksir gizinya" />
+        <Header title="Makanan" subtitle="Tulis makananmu, atau isi dari foto" />
 
         <DateNav value={tanggal} onChange={setTanggal} section="food" />
 
@@ -154,26 +216,9 @@ export default function FoodScreen() {
           />
         </View>
 
-        {/*
-          Daftar makanan yang ditulis user adalah sumber kebenarannya. Foto di
-          bawah cuma pelengkap untuk menaksir berat yang dikosongkan. Dulu
-          terbalik: foto wajib, tulisan opsional, dan jumlah porsi yang ditulis
-          user diabaikan model.
-        */}
-        <FoodItemsEditor
-          items={items}
-          onChange={setItems}
-          beratWajib={uri === null}
-          disabled={createFood.isPending}
-        />
-
         <View style={styles.group}>
           <Text variant="label" tone="secondary">
             Foto (opsional)
-          </Text>
-          <Text variant="caption" tone="tertiary">
-            Kalau ada foto, berat yang kamu kosongkan ditaksir dari sana. Tanpa foto, isi perkiraan
-            beratnya sendiri.
           </Text>
           <View style={styles.photoRow}>
             <PhotoSlot
@@ -181,34 +226,78 @@ export default function FoodScreen() {
               label="Foto makanan"
               onCamera={() => void ambil('kamera')}
               onGallery={() => void ambil('galeri')}
-              onClear={() => setUri(null)}
+              onClear={() => gantiFoto(null)}
               aspectRatio={4 / 3}
-              disabled={picker.sibuk || createFood.isPending}
+              disabled={picker.sibuk || sibuk}
             />
           </View>
+          {uri !== null && cekFoto === null ? (
+            <Button
+              label={scanFood.isPending ? 'Membaca foto...' : 'Isi dari foto'}
+              variant="secondary"
+              icon={<SparkleIcon size={18} color={colors.textPrimary} weight="bold" />}
+              onPress={isiDariFoto}
+              loading={scanFood.isPending}
+              disabled={sibuk}
+            />
+          ) : null}
         </View>
+
+        {/*
+          Daftar makanan di form adalah sumber kebenarannya, siapa pun yang
+          mengisinya. Foto mengisi form, tidak pernah langsung tersimpan: dulu
+          hasil analisa baru bisa dibetulkan setelah tersimpan.
+        */}
+        <FoodItemsEditor
+          items={items}
+          onChange={setItems}
+          beratWajib={uri === null}
+          disabled={sibuk}
+        />
+
+        {/*
+          Tulisan menang atas foto, tapi kalau model melihat makanan yang jelas
+          berbeda, user diberi tahu sebelum menyimpan.
+        */}
+        {cekFoto?.photo_matches === false && !cekFoto.photo_dismissed ? (
+          <View style={styles.peringatan}>
+            <WarningCircleIcon size={16} color={colors.warning} weight="duotone" />
+            <Text variant="caption" tone="warning" style={styles.peringatanText}>
+              Foto terlihat berbeda dari yang ditulis.
+              {cekFoto.photo_note ? ' ' + cekFoto.photo_note : ''}
+            </Text>
+            <Button
+              label="Abaikan"
+              variant="ghost"
+              size="sm"
+              fullWidth={false}
+              onPress={() => setCekFoto({ ...cekFoto, photo_dismissed: true })}
+            />
+          </View>
+        ) : null}
+
+        {cekFoto?.confidence === 'low' ? (
+          <Text variant="caption" tone="warning">
+            AI kurang yakin dengan foto ini. Periksa lagi nama dan beratnya.
+          </Text>
+        ) : null}
 
         {error ? <ErrorNote message={error} /> : null}
 
-        {createFood.isPending ? (
+        {sibuk ? (
           <Card variant="outline" padding="md">
             <View style={styles.analyzing}>
               <SparkleIcon size={20} color={colors.primary} weight="duotone" />
               <Text variant="caption" tone="secondary" style={styles.analyzingText}>
-                {uri
-                  ? 'Menaksir berat dan gizinya dari foto. Ini bisa memakan waktu sampai satu menit.'
-                  : 'Mengambil nilai gizinya. Sebentar.'}
+                {scanFood.isPending
+                  ? 'Membaca makanan dari foto. Ini bisa memakan waktu sampai satu menit.'
+                  : 'Menyimpan catatanmu. Sebentar.'}
               </Text>
             </View>
           </Card>
         ) : null}
 
-        <Button
-          label={uri ? 'Analisa & simpan' : 'Hitung & simpan'}
-          onPress={simpan}
-          loading={createFood.isPending}
-          size="lg"
-        />
+        <Button label="Simpan" onPress={simpan} loading={createFood.isPending} size="lg" />
 
         <SectionHeader
           title={'Makan ' + dayPhrase(tanggal)}

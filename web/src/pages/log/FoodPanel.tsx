@@ -4,9 +4,11 @@ import { useState } from 'react';
 import { AuthImage } from '@/components/features/AuthImage';
 import { MacroStack } from '@/components/features/MacroStack';
 import {
+  barisDariScan,
   barisKosong,
   type FoodItemDraft,
   FoodItemsEditor,
+  perluDibaca,
   susunItem,
 } from '@/components/features/FoodItemsEditor';
 import { PhotoPicker } from '@/components/features/PhotoPicker';
@@ -32,11 +34,12 @@ import {
   useCreateFood,
   useDeleteFood,
   useFoodDate,
+  useScanFood,
   useSetFoodDayStatus,
   useUpdateFood,
 } from '@/services/food.service';
 import { useDailySummary } from '@/services/misc.service';
-import type { FoodItem, FoodLog, MealType } from '@/types';
+import type { FoodItem, FoodLog, FoodPhotoCheck, MealType } from '@/types';
 import { dayPhrase, timeWIB, todayWIB, wibToISO } from '@/utils/date';
 import { thousands, toNum } from '@/utils/format';
 import { LogActions } from './LogActions';
@@ -54,6 +57,7 @@ export const FoodPanel = () => {
   const today = useFoodDate(tanggal);
   const ringkasan = useDailySummary(tanggal);
   const create = useCreateFood();
+  const scan = useScanFood();
   const hapus = useDeleteFood();
   const update = useUpdateFood();
   const statusHari = useSetFoodDayStatus();
@@ -65,8 +69,68 @@ export const FoodPanel = () => {
   const [diedit, setDiedit] = useState<FoodLog | null>(null);
   /** Item yang angka kemasannya janggal, menunggu keputusan "Simpan tetap". */
   const [janggal, setJanggal] = useState<{ nama: string[]; items: FoodItemInput[] } | null>(null);
+  /** Hasil pemeriksaan foto saat dibaca. Null berarti fotonya belum dibaca. */
+  const [cekFoto, setCekFoto] = useState<FoodPhotoCheck | null>(null);
+  /** Pembacaan gagal: user tetap bisa mengisi sendiri, Simpan tidak boleh mengulanginya. */
+  const [bacaGagal, setBacaGagal] = useState(false);
+
+  const sibuk = create.isPending || scan.isPending;
+
+  const gantiFoto = (baru: File | null) => {
+    setFile(baru);
+    setCekFoto(null);
+    setBacaGagal(false);
+    setError(null);
+  };
+
+  /**
+   * Foto jadi isian form, belum ada yang tersimpan: sama seperti "Isi dari
+   * screenshot" di panel olahraga. Baris yang sudah ditulis user dijawab per
+   * baris tanpa disentuh namanya; form kosong diisi dari yang terlihat.
+   */
+  const isiDariFoto = () => {
+    if (file === null) return;
+
+    const tertulis = items.filter((i) => i.name.trim() !== '');
+    const susunan = susunItem(tertulis, false);
+    const adaTulisan = tertulis.length > 0;
+
+    if (adaTulisan && 'error' in susunan) {
+      setError(susunan.error);
+      return;
+    }
+
+    setError(null);
+
+    scan.mutate(
+      { file, items: adaTulisan && 'items' in susunan ? susunan.items : undefined },
+      {
+        onSuccess: ({ items: hasil, ...cek }) => {
+          setCekFoto(cek);
+          setItems(
+            adaTulisan
+              ? tertulis.map((baris, i) => {
+                  const h = hasil[i];
+                  return h ? barisDariScan(baris, h) : baris;
+                })
+              : hasil.map((h) => barisDariScan(barisKosong(), h)),
+          );
+        },
+        onError: (e) => {
+          setBacaGagal(true);
+          setError(toApiError(e).message);
+        },
+      },
+    );
+  };
 
   const simpan = () => {
+    // Foto yang belum dibaca mengisi form dulu, bukan langsung tersimpan.
+    if (file !== null && cekFoto === null && !bacaGagal && perluDibaca(items)) {
+      isiDariFoto();
+      return;
+    }
+
     // Tanpa foto tidak ada yang bisa menaksir berat, jadi beratnya wajib.
     const susunan = susunItem(items, file === null);
 
@@ -96,11 +160,12 @@ export const FoodPanel = () => {
         // hari dipakai sebagai jam netral karena jam sesungguhnya sudah tidak
         // bisa diingat lagi.
         logged_at: hariIni ? undefined : wibToISO(tanggal, '12:00'),
+        scan: cekFoto ?? undefined,
       },
       {
         onError: (e) => setError(toApiError(e).message),
         onSuccess: () => {
-          setFile(null);
+          gantiFoto(null);
           setItems([barisKosong()]);
         },
       },
@@ -117,49 +182,72 @@ export const FoodPanel = () => {
         <div className="stack">
           <ChipGroup options={MEAL_OPTIONS} value={jenis} onChange={setJenis} labels={MEAL_LABEL} />
 
+          <div className="stack-xs">
+            <span className="t-label c-secondary">Foto (opsional)</span>
+            <div style={{ maxWidth: 260 }}>
+              <PhotoPicker label="Foto makanan" file={file} onPick={gantiFoto} />
+            </div>
+            {file !== null && cekFoto === null ? (
+              <div>
+                <Button
+                  label={scan.isPending ? 'Membaca foto…' : 'Isi dari foto'}
+                  variant="secondary"
+                  onClick={isiDariFoto}
+                  loading={scan.isPending}
+                  disabled={sibuk}
+                  icon={<SparkleIcon size={16} weight="fill" />}
+                />
+              </div>
+            ) : null}
+          </div>
+
           {/*
-            Daftar makanan yang ditulis user adalah sumber kebenarannya. Foto
-            cuma pelengkap untuk menaksir berat yang dikosongkan. Dulu terbalik:
-            foto wajib, tulisan opsional, dan jumlah porsi diabaikan model.
+            Daftar makanan di form adalah sumber kebenarannya, siapa pun yang
+            mengisinya. Foto mengisi form, tidak pernah langsung tersimpan: dulu
+            hasil analisa baru bisa dibetulkan setelah tersimpan.
           */}
           <FoodItemsEditor
             items={items}
             onChange={setItems}
             beratWajib={file === null}
-            disabled={create.isPending}
+            disabled={sibuk}
           />
 
-          <div className="stack-xs">
-            <span className="t-label c-secondary">Foto (opsional)</span>
-            <span className="t-caption c-tertiary">
-              Kalau ada foto, berat yang kamu kosongkan ditaksir dari sana. Tanpa foto, isi
-              perkiraan beratnya sendiri.
-            </span>
-            <div style={{ maxWidth: 260 }}>
-              <PhotoPicker label="Foto makanan" file={file} onPick={setFile} />
+          {cekFoto?.photo_matches === false && !cekFoto.photo_dismissed ? (
+            <div className="food-peringatan">
+              <WarningCircleIcon size={16} color={colors.warning} weight="duotone" />
+              <span className="t-caption c-warning flex-1">
+                Foto terlihat berbeda dari yang ditulis.
+                {cekFoto.photo_note ? ' ' + cekFoto.photo_note : ''}
+              </span>
+              <Button
+                label="Abaikan"
+                variant="ghost"
+                size="sm"
+                onClick={() => setCekFoto({ ...cekFoto, photo_dismissed: true })}
+              />
             </div>
-          </div>
+          ) : null}
 
-          {error ? <ErrorNote message={error} /> : null}
-
-          {/* Analisa Groq bisa memakan puluhan detik, jadi keadaan memuatnya
-              dijelaskan, bukan cuma tombol berputar tanpa keterangan. */}
-          {create.isPending ? (
-            <span className="t-caption c-secondary">
-              {file
-                ? 'Menaksir berat dan gizinya dari foto… ini bisa sampai satu menit.'
-                : 'Mengambil nilai gizinya… sebentar.'}
+          {cekFoto?.confidence === 'low' ? (
+            <span className="t-caption c-warning">
+              AI kurang yakin dengan foto ini. Periksa lagi nama dan beratnya.
             </span>
           ) : null}
 
-          <Button
-            label={file ? 'Analisa dan simpan' : 'Hitung dan simpan'}
-            size="lg"
-            full
-            onClick={simpan}
-            loading={create.isPending}
-            icon={<SparkleIcon size={16} weight="fill" />}
-          />
+          {error ? <ErrorNote message={error} /> : null}
+
+          {/* Pembacaan Groq bisa memakan puluhan detik, jadi keadaan memuatnya
+              dijelaskan, bukan cuma tombol berputar tanpa keterangan. */}
+          {sibuk ? (
+            <span className="t-caption c-secondary">
+              {scan.isPending
+                ? 'Membaca makanan dari foto… ini bisa sampai satu menit.'
+                : 'Menyimpan catatanmu… sebentar.'}
+            </span>
+          ) : null}
+
+          <Button label="Simpan" size="lg" full onClick={simpan} loading={create.isPending} />
         </div>
       </Card>
 

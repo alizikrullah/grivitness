@@ -556,6 +556,145 @@ describe('pemeriksaan kemasan', () => {
   });
 });
 
+describe('taksiran dari scan foto', () => {
+  const taksiran = {
+    grams_per_portion: 300,
+    kcal_per_100: 170,
+    protein_per_100: 6,
+    carbs_per_100: 25,
+    fat_per_100: 5,
+    sugar_per_100: 1,
+  };
+  const nasiGoreng = { name: 'Nasi Goreng', portions: 1, unit: 'g' as const, weight: 300 };
+
+  it('membuat model tidak dipanggil lagi, dengan foto sekalipun', () => {
+    const item = { ...nasiGoreng, estimate: taksiran };
+
+    expect(kebutuhanModel(item, null, true)).toEqual({ gizi: false, gula: false, berat: false });
+    expect(perluModel([item], [null], true)).toBe(false);
+  });
+
+  it('gula yang kosong di taksiran tidak jadi alasan bertanya lagi', () => {
+    const item = { ...nasiGoreng, estimate: { ...taksiran, sugar_per_100: null } };
+
+    expect(perluModel([item], [null], true)).toBe(false);
+  });
+
+  it('baris yang namanya diganti tidak membawa taksiran, jadi tetap ditanyakan', () => {
+    const lain = { name: 'Nasi Goreng Kampung', portions: 1, unit: 'g' as const, weight: 300 };
+
+    expect(perluModel([{ ...nasiGoreng, estimate: taksiran }, lain], [null, null], true)).toBe(
+      true,
+    );
+  });
+
+  it('sumbernya tetap AI, angkanya dihitung backend', () => {
+    const a = susunAnalisa([{ ...nasiGoreng, portions: 2, estimate: taksiran }], {}, 'PHOTO', {
+      modelDipanggil: false,
+    });
+    const [item] = a.items;
+
+    expect(item?.nutrition_source).toBe('AI');
+    expect(item?.sugar_source).toBe('AI');
+    expect(item?.weight_source).toBe('AI');
+    expect(item?.calories).toBe(1020);
+    expect(item?.nutrition_missing).toBe(false);
+  });
+
+  it('berat yang diubah user jadi USER, gizinya tetap taksiran', () => {
+    const a = susunAnalisa([{ ...nasiGoreng, weight: 200, estimate: taksiran }], {}, 'PHOTO');
+    const [item] = a.items;
+
+    expect(item?.weight_source).toBe('USER');
+    expect(item?.calories).toBe(340);
+  });
+
+  it('nilai dari client tetap dipagari', () => {
+    const a = susunAnalisa(
+      [{ ...nasiGoreng, estimate: { ...taksiran, kcal_per_100: 5000, sugar_per_100: 90 } }],
+      {},
+      'PHOTO',
+    );
+
+    expect(a.items[0]?.kcal_per_100).toBe(900);
+    expect(a.items[0]?.sugar_per_100).toBe(25);
+  });
+
+  it('nama yang cocok catatan: gizi dari catatan, berat dari foto', () => {
+    const catatan: IngatanItem = {
+      weight_per_portion: 250,
+      label: null,
+      per100: per100(130, { carbs: 28, sugar: 0 }),
+      sugar_per_portion: null,
+    };
+    const a = susunAnalisa(
+      [
+        {
+          name: 'Nasi putih',
+          portions: 1,
+          unit: 'g',
+          weight: 200,
+          from_memory: true,
+          estimate: { ...taksiran, grams_per_portion: 200 },
+        },
+      ],
+      {},
+      'PHOTO',
+      { ingatan: [catatan] },
+    );
+    const [item] = a.items;
+
+    expect(item?.nutrition_source).toBe('PREVIOUS');
+    expect(item?.weight_source).toBe('AI');
+    expect(item?.calories).toBe(260);
+  });
+
+  it('kemasan tetap menang atas taksiran', () => {
+    const a = susunAnalisa(
+      [{ ...nasiGoreng, label: { kcal: 400 }, estimate: taksiran }],
+      {},
+      'PHOTO',
+    );
+
+    expect(a.items[0]?.nutrition_source).toBe('LABEL');
+    expect(a.items[0]?.calories).toBe(400);
+  });
+
+  it('hasil pemeriksaan foto saat scan ikut tersimpan', () => {
+    const a = susunAnalisa(
+      [{ ...nasiGoreng, estimate: taksiran }],
+      { photo_matches: false, photo_note: 'Foto menampilkan soto.', confidence: 'low' },
+      'PHOTO',
+      { modelDipanggil: true },
+    );
+
+    expect(a.photo_matches).toBe(false);
+    expect(a.photo_note).toBe('Foto menampilkan soto.');
+    expect(a.confidence).toBe('low');
+  });
+
+  it('Abaikan di form sebelum disimpan, tandanya sama dengan Abaikan sesudahnya', () => {
+    const a = susunAnalisa(
+      [{ ...nasiGoreng, estimate: taksiran }],
+      { photo_matches: false, photo_note: 'Foto menampilkan soto.' },
+      'PHOTO',
+      { modelDipanggil: true, fotoDiabaikan: true },
+    );
+
+    expect(a.photo_matches).toBe(true);
+    expect(a.photo_note).toBeNull();
+    expect(a.photo_dismissed).toBe(true);
+  });
+
+  it('tanpa pemeriksaan foto tetap ditulis tidak diperiksa, bukan cocok', () => {
+    const a = susunAnalisa([{ ...nasiGoreng, estimate: taksiran }], {}, 'PHOTO', {
+      modelDipanggil: false,
+    });
+
+    expect(a.photo_matches).toBeNull();
+  });
+});
+
 describe('karbo nol di kemasan lama', () => {
   it('nol yang tidak menjelaskan kalori dianggap tidak diisi: jatuh ke rasio kalori', () => {
     // Teh botol 120 kkal tersimpan dengan karbo 0 karena kolomnya tidak diisi.

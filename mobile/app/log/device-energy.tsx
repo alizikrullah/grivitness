@@ -1,4 +1,3 @@
-import { InfoIcon, WatchIcon } from 'phosphor-react-native';
 import { useRef, useState } from 'react';
 import { StyleSheet, type TextInput, View } from 'react-native';
 
@@ -17,7 +16,6 @@ import {
   Screen,
   Text,
 } from '@/components/ui';
-import { colors, metricColors } from '@/constants/colors';
 import { spacing } from '@/constants/theme';
 import { useTanggalAwal } from '@/hooks/useTanggalAwal';
 import { toApiError } from '@/lib/api';
@@ -54,7 +52,7 @@ type Jenis = (typeof JENIS)[number];
  */
 export default function DeviceEnergyScreen() {
   const [tanggal, setTanggal] = useState(useTanggalAwal());
-  const kolomPerangkat = useRef<TextInput>(null);
+  const kolomKalori = useRef<TextInput>(null);
 
   const hari = useDeviceEnergyDate(tanggal);
   const simpanKalori = useSaveDeviceEnergy();
@@ -200,34 +198,45 @@ export default function DeviceEnergyScreen() {
 
       <DateNav value={tanggal} onChange={setTanggal} section="device-energy" />
 
-      {/*
-          Jam tangan tidak semuanya menampilkan angka yang sama. Sebagian punya
-          keduanya, sebagian HANYA kalori aktif. Menanyakannya di depan lebih
-          baik daripada menolak angkanya belakangan dengan pesan error.
-        */}
-      <Card variant="outline" padding="md">
-        <View style={styles.hint}>
-          <InfoIcon size={20} color={colors.warning} weight="duotone" />
-          <Text variant="caption" tone="secondary" style={styles.hintText}>
-            Kalori total sudah termasuk yang terbakar saat kamu diam; kalori aktif belum. Pilih yang
-            sesuai dengan angka di jam tanganmu, dan sisanya dihitung di sini.
-          </Text>
-        </View>
-      </Card>
-
       {hari.isPending ? (
         <Loading />
       ) : (
         <>
           <Card>
             <View style={styles.card}>
-              <View style={styles.iconRow}>
-                <WatchIcon size={26} color={metricColors.device} weight="duotone" />
-                <Text variant="overline" tone="tertiary">
-                  {'Kalori keluar ' + dayPhrase(tanggal)}
-                </Text>
-              </View>
+              {/*
+                Perangkat di atas karena biasanya sudah terisi sendiri. Kolom
+                kalori jadi isian terakhir: tombol selesai di keyboard menutupnya,
+                dan tombol simpan ada tepat di bawahnya.
+              */}
+              <Input
+                next={kolomKalori}
+                label="Perangkat"
+                value={perangkat}
+                onChangeText={setPerangkat}
+                placeholder="Opsional. Misalnya: Galaxy Watch"
+                autoCapitalize="words"
+                maxLength={64}
+              />
+              {namaPerangkat.length > 1 ? (
+                <View style={styles.perangkat}>
+                  {namaPerangkat.map((nama) => (
+                    <Chip
+                      key={nama}
+                      size="sm"
+                      label={nama}
+                      active={perangkat.trim() === nama}
+                      onPress={() => setPerangkat(nama)}
+                    />
+                  ))}
+                </View>
+              ) : null}
 
+              {/*
+                Jam tangan tidak semuanya menampilkan angka yang sama. Sebagian
+                punya keduanya, sebagian HANYA kalori aktif. Menanyakannya di
+                depan lebih baik daripada menolak angkanya belakangan.
+              */}
               <View style={styles.group}>
                 <Text variant="label" tone="secondary">
                   Jam tanganmu menampilkan yang mana?
@@ -242,7 +251,7 @@ export default function DeviceEnergyScreen() {
               </View>
 
               <Input
-                next={kolomPerangkat}
+                ref={kolomKalori}
                 label={pakaiAktif ? 'Kalori aktif hari ini' : 'Kalori total hari ini'}
                 value={kalori}
                 onChangeText={setKalori}
@@ -285,28 +294,20 @@ export default function DeviceEnergyScreen() {
                 </View>
               ) : null}
 
-              <Input
-                ref={kolomPerangkat}
-                label="Perangkat"
-                value={perangkat}
-                onChangeText={setPerangkat}
-                placeholder="Opsional. Misalnya: Galaxy Watch"
-                autoCapitalize="words"
-                maxLength={64}
-              />
-              {namaPerangkat.length > 1 ? (
-                <View style={styles.perangkat}>
-                  {namaPerangkat.map((nama) => (
-                    <Chip
-                      key={nama}
-                      size="sm"
-                      label={nama}
-                      active={perangkat.trim() === nama}
-                      onPress={() => setPerangkat(nama)}
-                    />
-                  ))}
-                </View>
+              {error ? <ErrorNote message={error} /> : null}
+              {pesan ? (
+                <Text variant="caption" tone="success" align="center">
+                  {pesan}
+                </Text>
               ) : null}
+
+              <Button
+                label={hari.data ? 'Perbarui angka' : 'Simpan angka'}
+                onPress={simpan}
+                loading={simpanKalori.isPending}
+                disabled={!angkaValid}
+                size="lg"
+              />
             </View>
           </Card>
 
@@ -359,37 +360,6 @@ export default function DeviceEnergyScreen() {
               </View>
             </Card>
           ) : null}
-
-          {error ? <ErrorNote message={error} /> : null}
-          {pesan ? (
-            <Text variant="caption" tone="success" align="center">
-              {pesan}
-            </Text>
-          ) : null}
-
-          <Button
-            label={hari.data ? 'Perbarui angka' : 'Simpan angka'}
-            onPress={simpan}
-            loading={simpanKalori.isPending}
-            disabled={!angkaValid}
-            size="lg"
-          />
-
-          <Card variant="outline" padding="md">
-            <Text variant="caption" tone="tertiary">
-              Kalori aktif jam ditambahkan ke metabolisme dan pekerjaanmu, bukan menggantikannya.
-              Jam cuma melihat gerak saat dipakai, jadi hari jamnya dilepas tidak lagi jatuh ke
-              sekitar BMR. Olahraga yang kamu centang terekam jam tidak ditambah lagi, karena sudah
-              ada di angka aktif itu.
-            </Text>
-          </Card>
-
-          <Card variant="outline" padding="md">
-            <Text variant="caption" tone="tertiary">
-              Jatah kalori harianmu tidak ikut berubah. Jatah itu memang sengaja stabil supaya kamu
-              tahu berapa yang boleh dimakan sejak pagi, bukan baru setelah harinya berakhir.
-            </Text>
-          </Card>
         </>
       )}
     </Screen>
@@ -400,11 +370,6 @@ const styles = StyleSheet.create({
   perangkat: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   card: { gap: spacing.lg },
   group: { gap: spacing.md },
-  iconRow: { alignItems: 'center', gap: spacing.sm },
-  hint: { flexDirection: 'row', gap: spacing.md },
-  /* flex: 1 supaya teksnya membungkus, bukan menembus keluar kartu. Teks di
-     dalam baris mendatar tidak pernah membungkus sendiri tanpa ini. */
-  hintText: { flex: 1 },
   hitungan: { gap: spacing.sm },
   banding: { gap: spacing.sm },
 });

@@ -20,7 +20,7 @@ import {
   putuskan,
   susunAnalisa,
 } from '../../utils/food-math.js';
-import { convertToWebP, toAnalysisBuffer } from '../../utils/sharp.js';
+import { convertToWebP, toAnalysisBuffer, toFoodScanBuffer } from '../../utils/sharp.js';
 import { timestampDayFilter } from '../../utils/query.js';
 import { fileUrl } from '../files/files.service.js';
 import { recordActivitySafely } from '../streaks/streaks.service.js';
@@ -28,15 +28,19 @@ import {
   bacaIngatan,
   cocokkanIngatan,
   type FoodMemory,
+  type FoodSuggestion,
   giziTersimpan,
-  kaloriPerPorsi,
+  keSaran,
   kunciIngatan,
+  namaTersering,
   saranMakanan,
 } from './food-memory.js';
+import { foodScanPrompt, type FoodScanResult, hasilTebakan, hasilTertulis } from './food-scan.js';
 import type {
   CreateFoodDto,
   FoodDayStatusDto,
   FoodItemEditDto,
+  FoodScanDto,
   ForgetSuggestionDto,
   UpdateFoodDto,
 } from './food.validation.js';
@@ -68,7 +72,9 @@ const untukPrompt = (
     const butuh = kebutuhanModel(item, simpan, adaFoto);
     const ditanya = hanyaYangBaru === null || hanyaYangBaru[i] === true;
     const berat =
-      item.weight ?? (butuh.berat ? undefined : (simpan?.weight_per_portion ?? undefined));
+      item.weight ??
+      item.estimate?.grams_per_portion ??
+      (butuh.berat ? undefined : (simpan?.weight_per_portion ?? undefined));
 
     return {
       name: item.name,
@@ -99,6 +105,11 @@ const kolomAngka = (a: FoodAnalysis) => ({
  * Item yang dipilih dari saran (from_memory) memakai gizi catatan sebelumnya
  * dan tidak ditanyakan ke model. Item yang diketik ditaksir dari nol, walau
  * namanya sama persis.
+ *
+ * Item yang sudah melewati scan membawa `estimate`: model sudah ditanya dan
+ * user sudah memeriksanya di form, jadi model tidak dipanggil lagi. Baris yang
+ * namanya diganti sesudah scan tidak membawanya, dan cuma baris itu yang
+ * ditanyakan di sini.
  *
  * Ini operasi lintas sistem, jadi dibungkus unitOfWork: berkas yang sudah
  * terlanjur terunggah didaftarkan lewat onRollback supaya kegagalan di langkah
@@ -133,10 +144,14 @@ export const create = async (
   const converted = photo === null ? null : await convertToWebP(photo);
   const perlu = perluModel(data.items, ingatan, adaFoto);
   const prompt = foodPrompt(untukPrompt(data.items, ingatan, adaFoto), adaFoto);
+  // Foto sudah dilihat model saat scan, hasilnya ikut terkirim dari form.
+  const sudahDiperiksa = adaFoto && typeof data.scan?.photo_matches === 'boolean';
 
   const log = await unitOfWork(async (tx) => {
     let fileId: string | null = null;
-    let analisaMentah: Record<string, unknown> = {};
+    let analisaMentah: Record<string, unknown> = sudahDiperiksa
+      ? { ...data.scan, sumber: 'scan' }
+      : {};
 
     if (converted) {
       const file = await uploadWebP(
@@ -163,7 +178,8 @@ export const create = async (
 
     const analisa = susunAnalisa(data.items, analisaMentah, converted ? 'PHOTO' : 'TEXT', {
       ingatan,
-      modelDipanggil: perlu,
+      modelDipanggil: perlu || sudahDiperiksa,
+      fotoDiabaikan: data.scan?.photo_dismissed === true,
     });
 
     const repo = forUser(userId, tx);
@@ -185,28 +201,51 @@ export const create = async (
   return denganFoto(log);
 };
 
-/** Satu saran nama untuk form makanan, siap dipakai tanpa memanggil model. */
-export interface FoodSuggestion {
-  name: string;
-  unit: 'g' | 'ml';
-  weight_per_portion: number | null;
-  label: {
-    kcal: number;
-    protein_g?: number;
-    carbs_g?: number;
-    fat_g?: number;
-    sugar_g?: number;
-  } | null;
-  kcal_per_100: number;
-  protein_per_100: number;
-  carbs_per_100: number;
-  fat_per_100: number;
-  /** Kalori satu porsi kalau saran ini dipilih apa adanya, untuk ditampilkan di chip. */
-  kcal_per_portion: number | null;
-  origin: 'LABEL' | 'EDITED' | 'AI';
-  times: number;
-  last_logged_at: string;
-}
+/**
+ * Foto makanan jadi isian form. TIDAK menyimpan apa pun: fotonya tidak diunggah,
+ * streak tidak jalan, dan hasilnya baru jadi catatan lewat create() saat user
+ * menekan Simpan.
+ *
+ * Baris yang sudah ditulis user dijawab per baris, nama dan porsinya tidak
+ * disentuh. Form kosong berarti model menyebut apa yang terlihat. Baris yang
+ * sudah tertutup kemasan atau catatan tidak membuat model dipanggil.
+ */
+export const scan = async (
+  userId: string,
+  photo: Buffer | null,
+  data: FoodScanDto,
+): Promise<FoodScanResult> => {
+  if (photo === null) throw AppError.badRequest('Pilih fotonya dulu');
+
+  const [gambar, peta] = await Promise.all([toFoodScanBuffer(photo), bacaIngatan(userId)]);
+
+  if (data.items) {
+    const ingatan = cocokkanIngatan(peta, data.items);
+
+    if (!perluModel(data.items, ingatan, true)) {
+      return hasilTertulis(data.items, ingatan, {});
+    }
+
+    const raw = await analyzeImages(
+      [gambar],
+      foodPrompt(untukPrompt(data.items, ingatan, true), true),
+    );
+    return hasilTertulis(data.items, ingatan, raw);
+  }
+
+  const hasil = hasilTebakan(
+    await analyzeImages([gambar], foodScanPrompt(namaTersering(peta))),
+    peta,
+  );
+
+  if (hasil.items.length === 0) {
+    throw AppError.badRequest(
+      'Makanan di foto tidak terbaca. Coba foto yang lebih jelas, atau tulis makanannya sendiri.',
+    );
+  }
+
+  return hasil;
+};
 
 /**
  * Saran nama dari catatan user sendiri. Kosong berarti yang paling sering.
@@ -214,20 +253,7 @@ export interface FoodSuggestion {
  * "Nescafe Classic bubuk", berat dan gizinya ikut terisi.
  */
 export const suggestions = async (userId: string, cari: string): Promise<FoodSuggestion[]> =>
-  saranMakanan(await bacaIngatan(userId), cari).map((m) => ({
-    name: m.name,
-    unit: m.unit,
-    weight_per_portion: m.weight_per_portion,
-    label: m.label,
-    kcal_per_100: m.per100.kcal,
-    protein_per_100: m.per100.protein,
-    carbs_per_100: m.per100.carbs,
-    fat_per_100: m.per100.fat,
-    kcal_per_portion: kaloriPerPorsi(m),
-    origin: m.origin,
-    times: m.times,
-    last_logged_at: m.last_logged_at,
-  }));
+  saranMakanan(await bacaIngatan(userId), cari).map(keSaran);
 
 /**
  * Melupakan satu nama dari ingatan makanan (tekan lama chip saran).

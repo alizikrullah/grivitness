@@ -13,6 +13,7 @@ import {
   CreateFoodSchema,
   FoodDateSchema,
   FoodDayStatusSchema,
+  FoodScanSchema,
   FoodSuggestionSchema,
   ForgetSuggestionSchema,
   UpdateFoodSchema,
@@ -37,6 +38,10 @@ router.post(
 // Jawaban "belum lengkap" atau "memang segini" untuk hari yang makannya di
 // bawah separuh jatah. Hari belum lengkap tidak ikut rata-rata mana pun.
 router.put('/day-status', validateBody(FoodDayStatusSchema), foodController.setDayStatus);
+
+// Foto jadi isian form. TIDAK menyimpan apa pun: user memeriksa dulu, lalu
+// hasilnya ikut terkirim lewat POST / saat dia menekan Simpan.
+router.post('/scan', upload.single('photo'), validateBody(FoodScanSchema), foodController.scan);
 
 // upload.single dijalankan SEBELUM validateBody. Field non-file di request
 // multipart baru tersedia di req.body setelah Multer selesai mem-parse-nya.
