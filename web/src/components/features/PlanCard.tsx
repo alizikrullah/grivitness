@@ -1,6 +1,5 @@
 import { FireIcon, FootprintsIcon, TrendDownIcon, WarningCircleIcon } from '@phosphor-icons/react';
 
-import { ObservedTdeeNote } from '@/components/features/ObservedTdeeNote';
 import { Card, Divider, Row } from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
 import type { DailyTargets, GoalWithProgress } from '@/types';
@@ -53,6 +52,9 @@ export const PlanCard = ({ goal, targets }: PlanCardProps) => {
   }
 
   const turun = plan.daily_deficit > 0;
+  // Jatah yang diketik user tidak ditahan pagar aman; rencananya dihitung dari
+  // angka itu, jadi peringatannya tidak boleh menyebut batas aman.
+  const dikunci = goal.budget_manual;
   const tanggalNyata =
     plan.projected_days === null ? null : shiftDays(todayWIB(), plan.projected_days);
 
@@ -87,12 +89,7 @@ export const PlanCard = ({ goal, targets }: PlanCardProps) => {
           label={turun ? 'Defisit harian' : 'Surplus harian'}
           value={thousands(Math.abs(plan.daily_deficit)) + ' kkal'}
         />
-        <Row
-          label={goal.observed_tdee?.measured === null ? 'Perkiraan pengeluaran' : 'Pengeluaran'}
-          value={thousands(plan.tdee) + ' kkal'}
-        />
-
-        {goal.observed_tdee ? <ObservedTdeeNote observed={goal.observed_tdee} /> : null}
+        <Row label="Pengeluaran hari biasa" value={thousands(plan.tdee) + ' kkal'} />
 
         {targets?.macros ? (
           <>
@@ -113,17 +110,26 @@ export const PlanCard = ({ goal, targets }: PlanCardProps) => {
             <WarningCircleIcon size={18} color={colors.warning} weight="duotone" />
 
             <div className="stack-xs flex-1">
-              <span className="t-label">Targetmu lebih cepat dari yang aman</span>
-
-              <span className="t-caption c-secondary">
-                Mengejar tanggal itu butuh defisit {thousands(plan.required_deficit)} kkal per hari.
-                Jatah di atas ditahan di batas aman supaya kamu tidak kehilangan otot.
-                {tanggalNyata
-                  ? ' Dengan jatah itu, targetmu tercapai sekitar ' + longDate(tanggalNyata) + '.'
-                  : ''}
+              <span className="t-label">
+                {dikunci
+                  ? 'Jatahmu belum mengejar tanggal itu'
+                  : 'Targetmu lebih cepat dari yang aman'}
               </span>
 
-              {plan.extra_steps_needed > 0 ? (
+              <span className="t-caption c-secondary">
+                Mengejar tanggal itu butuh {plan.required_deficit < 0 ? 'surplus' : 'defisit'}{' '}
+                {thousands(Math.abs(plan.required_deficit))} kkal per hari.
+                {dikunci
+                  ? ''
+                  : ' Jatah di atas ditahan di batas aman supaya kamu tidak kehilangan otot.'}
+                {tanggalNyata
+                  ? ' Dengan jatah itu, targetmu tercapai sekitar ' + longDate(tanggalNyata) + '.'
+                  : dikunci
+                    ? ' Dengan jatah itu, beratmu tidak sampai ke target berapa pun lama waktunya; yang menentukan angka jatahnya.'
+                    : ''}
+              </span>
+
+              {plan.extra_steps_needed > 0 && !(dikunci && tanggalNyata === null) ? (
                 <span className="plan-steps t-caption c-secondary">
                   <FootprintsIcon size={14} color={metricColors.steps} weight="fill" />
                   {plan.extra_steps_needed <= LANGKAH_TAMBAHAN_MAKS
@@ -132,7 +138,9 @@ export const PlanCard = ({ goal, targets }: PlanCardProps) => {
                       ' langkah per hari kalau mau mengejar tanggal aslinya.'
                     : 'Selisihnya setara ' +
                       thousands(plan.extra_steps_needed) +
-                      ' langkah per hari, dan itu tidak realistis dikejar lewat gerak. Tanggal targetnya yang perlu digeser, bukan usahamu yang kurang.'}
+                      (dikunci
+                        ? ' langkah per hari, dan itu tidak realistis dikejar lewat gerak. Tanggal targetnya atau jatahnya yang perlu digeser.'
+                        : ' langkah per hari, dan itu tidak realistis dikejar lewat gerak. Tanggal targetnya yang perlu digeser, bukan usahamu yang kurang.')}
                 </span>
               ) : null}
             </div>

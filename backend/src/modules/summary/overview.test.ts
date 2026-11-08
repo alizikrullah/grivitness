@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { type OverviewDay, type OverviewInput, susunOverview } from './overview.js';
+import {
+  lajuSearahTarget,
+  type OverviewDay,
+  type OverviewInput,
+  susunOverview,
+} from './overview.js';
 
 /** Satu hari yang "baik-baik saja", tiap tes cukup mengubah yang dibahasnya. */
 const hari = (date: string, ubah: Partial<OverviewDay> = {}): OverviewDay => ({
@@ -244,6 +249,31 @@ describe('susunOverview', () => {
 
       const datar = turun.map((w) => ({ ...w, kg: 95.4 }));
       expect(cari(susunOverview(input({ weights: datar })), 'weight')?.title).toBe('Berat datar');
+    });
+
+    /**
+     * Target turun yang sudah terlewati dibaca sebagai target naik. Jatah
+     * dikunci yang masih defisit punya laju turun; itu bukan rencana menuju
+     * target, jadi tidak boleh tampil sebagai "rencana" di bawah "Berat naik".
+     */
+    it('laju rencana yang menjauhi target tidak ditampilkan', () => {
+      const naik = turun.map((w, i) => ({ ...w, kg: 89 + i * 0.2 }));
+      const laju = lajuSearahTarget({ weekly_rate_kg: 0.23 }, false);
+
+      expect(laju).toBe(-0.23);
+      const item = cari(
+        susunOverview(input({ weights: naik, losing: false, plannedWeeklyRate: laju })),
+        'weight',
+      );
+      expect(item?.title).toBe('Berat naik');
+      expect(item?.detail).not.toContain('rencana');
+    });
+
+    it('laju rencana searah target: turun apa adanya, naik dibalik', () => {
+      expect(lajuSearahTarget({ weekly_rate_kg: 0.3 }, true)).toBe(0.3);
+      expect(lajuSearahTarget({ weekly_rate_kg: -0.25 }, false)).toBe(0.25);
+      expect(lajuSearahTarget(null, true)).toBeNull();
+      expect(lajuSearahTarget({ weekly_rate_kg: 0.3 }, null)).toBeNull();
     });
 
     it('penimbangan yang terlalu sedikit atau terlalu rapat tidak dinilai', () => {

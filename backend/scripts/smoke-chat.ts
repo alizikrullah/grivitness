@@ -43,8 +43,15 @@ const SKENARIO: Record<string, string[]> = {
     'Untuk makan gmn? yang murah aja',
     'Gua gasuka telur dadar',
   ],
-  // Rilis 1.2.0: gula hari ini dan susunan kalori keluar dengan jam tangan.
+  // Rilis backend 0.8.0: gula hari ini dan susunan kalori keluar dengan jam tangan.
   gula: ['Gula gua hari ini udah kebanyakan belum?', 'Kalori keluar gua hari ini dari mana aja?'],
+  // Jatah DIKUNCI user di atas yang dibutuhkan (8 Nov 2026): model tidak boleh
+  // menyebut pagar aman yang "menahan" jatahnya, dan tidak menyebut angka baru.
+  kunci: [
+    'gua bakal nyampe target tepat waktu ga?',
+    'Jatah gua ditahan batas aman ya makanya segitu?',
+    'Kalau mau lebih cepet gua harus gimana?',
+  ],
 };
 
 const main = async (): Promise<void> => {
@@ -76,10 +83,16 @@ const main = async (): Promise<void> => {
   // 40 hari), persis kasus nyatanya, supaya baris required_deficit teruji.
   const cepat = skenario === 'cepat';
   const target = new Date(Date.now() + (cepat ? 40 : 120) * 86_400_000).toISOString().slice(0, 10);
+  // Skenario "kunci" mengetik jatahnya sendiri (budget_manual), 2.400 kkal,
+  // terlalu longgar untuk 11 kg dalam 120 hari.
   await request(app)
     .post('/api/goals')
     .set(auth)
-    .send({ target_weight_kg: cepat ? 80 : 85, target_date: target });
+    .send({
+      target_weight_kg: cepat ? 80 : 85,
+      target_date: target,
+      ...(skenario === 'kunci' ? { daily_calorie_budget: 2400 } : {}),
+    });
 
   await request(app)
     .post('/api/food')

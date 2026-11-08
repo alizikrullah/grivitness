@@ -8,7 +8,6 @@ import { ACTIVITY_LEVEL_LABEL } from '../../constants/enums.js';
 import { type EnergyProfile, loadEnergyProfile } from '../../data/energy-profile.js';
 import { AppError } from '../../utils/api-error.js';
 import { calculateAge, calculateBMR } from '../../utils/calories.js';
-import type { ObservedTdee } from '../../utils/observed-tdee.js';
 import { toNumber } from '../../utils/number.js';
 import type { CreateProfileDto, UpdateMeDto, UpdateProfileDto } from './users.validation.js';
 
@@ -54,17 +53,11 @@ export interface ProfileWithDerived {
    * Kalau ikut naik-turun mengikuti aktivitas harian, user tidak pernah tahu
    * berapa yang boleh dimakan sampai harinya berakhir.
    *
-   * Sudah dikoreksi pengukuran kalau datanya memadai, lihat `observed_tdee`.
+   * Murni rumus. Koreksi dari timbangan dicabut 7 Nov 2026.
    */
   tdee: number | null;
-  /**
-   * Hasil mengukur TDEE dari catatan berat dan makanan user sendiri.
-   *
-   * Rumus cuma titik awal. Begitu ada cukup data, angkanya digeser ke arah yang
-   * benar-benar terjadi pada tubuh user ini, karena Mifflin-St Jeor tahu soal
-   * 498 orang di tahun 1990, dan tidak tahu apa-apa soal orang ini.
-   */
-  observed_tdee: ObservedTdee | null;
+  /** Selalu null sejak backend 0.14.0; dikirim karena APK sampai 0.13.0 membacanya. */
+  observed_tdee: null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -136,7 +129,7 @@ const withDerived = (profile: UserProfileRecord, energy: EnergyProfile): Profile
     current_weight_kg: weightKg,
     bmr,
     tdee: energy.baselineTdee,
-    observed_tdee: energy.observed,
+    observed_tdee: null,
     created_at: profile.created_at,
     updated_at: profile.updated_at,
   };

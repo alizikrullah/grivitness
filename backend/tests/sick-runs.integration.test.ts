@@ -8,7 +8,7 @@ import { todayInJakarta } from '../src/utils/daily-key.js';
 import { cleanupTestUsers, testEmail } from './helpers/directus-cleanup.js';
 
 /**
- * Rilis 1.4.0 lewat API sungguhan: tanda sakit sebagai rentang, sesi lari
+ * Rilis 0.11.0 lewat API sungguhan: tanda sakit sebagai rentang, sesi lari
  * dari screenshot (pace, HR, kalori TOTAL), MET dari kecepatan untuk lari
  * tanpa angka kalori, dan Lari/Jalan yang sudah digabung.
  */

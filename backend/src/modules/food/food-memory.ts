@@ -16,8 +16,8 @@ import type {
  * dulu tidak pernah terjadi: dipakai ulang. Setiap kali user mencatat, model
  * ditanya dari nol, dan dua model (vision untuk foto, teks tanpa foto) punya
  * tabel gizi yang berbeda di bobotnya. Americano yang sama dapat 21 kkal hari
- * ini dan 7 kkal besok. Bias yang konsisten masih bisa dikalibrasi
- * observeTDEE dari timbangan; goyangan acak seperti itu tidak.
+ * ini dan 7 kkal besok. Bias yang konsisten masih terbaca dari arah
+ * timbangan dari minggu ke minggu; goyangan acak seperti itu tidak.
  *
  * Ingatan HANYA dipakai untuk item yang user pilih dari saran (from_memory).
  * Nama yang diketik sama persis tetap ditaksir dari nol: klik berarti "sama

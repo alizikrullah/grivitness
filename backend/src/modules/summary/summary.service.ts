@@ -3,19 +3,19 @@ import { forUser } from '../../data/scoped.js';
 import { loadEnergyProfile } from '../../data/energy-profile.js';
 import { hariBelumLengkap } from '../../data/food-day-status.js';
 import { AppError } from '../../utils/api-error.js';
-import {
-  applyOutCorrection,
-  dailyCaloriesOut,
-  type WorkoutForOut,
-  workoutDayTotals,
-} from '../../utils/calories.js';
+import { dailyCaloriesOut, type WorkoutForOut, workoutDayTotals } from '../../utils/calories.js';
 import { jakartaDate, todayInJakarta } from '../../utils/daily-key.js';
 import { activePlan, effectiveBudget } from '../goals/goals.service.js';
 import type { CalendarSection } from './summary.validation.js';
 import { toNumber } from '../../utils/number.js';
 import { dateRangeFilter, timestampDayFilter, timestampRangeFilter } from '../../utils/query.js';
 import { type DailyTargets, dailyTargets, waterTargetMl } from '../../utils/targets.js';
-import { type DailyOverview, type OverviewDay, susunOverview } from './overview.js';
+import {
+  type DailyOverview,
+  lajuSearahTarget,
+  type OverviewDay,
+  susunOverview,
+} from './overview.js';
 import { tanggalSakit } from '../sick-periods/sick-days.js';
 
 /**
@@ -34,19 +34,27 @@ export interface EnergyBreakdown {
    */
   baseline: number;
   /**
-   * Kalori bersih olahraga yang ikut dijumlahkan. Tanpa angka jam: semua
-   * olahraga. Dengan angka jam: hanya yang tidak terekam jam, karena yang
-   * terekam sudah ada di kalori aktif jam.
+   * Kalori olahraga yang ikut dijumlahkan di luar bagian jam. Tanpa angka jam:
+   * semua olahraga. Dengan angka jam: hanya yang tidak terekam jam, karena yang
+   * terekam masuk di device_active_kcal.
    */
   workout_calories: number;
-  /** Kalori aktif jam tangan yang dijumlahkan. Null kalau hari itu tanpa angka jam. */
+  /**
+   * Bagian jam tangan yang dijumlahkan: sesi terekam jam ditambah gerak jam di
+   * atas ruang gerak PAR pekerjaan (dailyCaloriesOut). Null tanpa angka jam.
+   */
   device_active_kcal: number | null;
   /**
-   * Koreksi timbangan dalam kkal, sudah termasuk di calories_out (negatif
-   * berarti dikurangi). Null selama pengukurannya belum layak. Lihat
-   * outCorrectionFactor() di utils/calories.ts.
+   * Kalori aktif jam apa adanya, angka yang user isi (total dikurangi BMR kalau
+   * yang diisi total). Cuma untuk ditampilkan; yang dihitung device_active_kcal.
    */
-  scale_correction: number | null;
+  device_reported_active_kcal: number | null;
+  /**
+   * Selalu null sejak backend 0.14.0 (koreksi timbangan dicabut); field-nya tetap ada
+   * karena APK sampai 0.13.0 (versionCode 22) membaca angkanya dan rusak kalau
+   * field hilang.
+   */
+  scale_correction: null;
 }
 
 /** Jenis catatan yang ADA di satu tanggal, untuk halaman Catat per tanggal. */
@@ -76,13 +84,14 @@ export interface DailySummary {
   calories_out: number;
   /**
    * Angka TOTAL smartwatch hari itu apa adanya, kalau user mencatatnya.
-   * Sekadar keterangan; yang masuk hitungan adalah kalori aktifnya, lihat
-   * energy.device_active_kcal.
+   * Sekadar keterangan; yang masuk hitungan adalah kelebihan kalori aktifnya,
+   * lihat energy.device_active_kcal.
    */
   device_kcal: number | null;
   /**
-   * "device" berarti kalori aktif jam ikut dijumlahkan hari itu (BMR x PAL +
-   * aktif jam + olahraga tanpa jam). "formula" berarti tanpa angka jam.
+   * "device" berarti hari itu punya angka jam, jadi aktif jam yang melebihi
+   * ruang gerak harian ikut dijumlahkan (dailyCaloriesOut). "formula" berarti
+   * tanpa angka jam.
    */
   calories_out_source: 'formula' | 'device';
   calorie_budget: number | null;
@@ -221,7 +230,7 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
   const beratHitung = weightKg ?? metrics.weightKg;
 
   /**
-   * Kalori keluar lewat metode faktorial, dengan angka jam tangan DITAMBAHKAN
+   * Kalori keluar lewat metode faktorial, ditambah kelebihan aktif jam tangan
    * kalau ada. Aturannya ditulis sekali di dailyCaloriesOut (utils/calories.ts)
    * supaya beranda, riwayat, dan chat tidak pernah menyebut dua angka berbeda
    * untuk hari yang sama.
@@ -244,9 +253,6 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
 
   const kaloriDevice = deviceLog?.total_kcal ?? null;
 
-  // Koreksi timbangan: defisit di layar mengikuti yang terbaca timbangan.
-  const terkoreksi = applyOutCorrection(keluar.calories_out, metrics.outFactor);
-
   // Pertanyaan "belum lengkap?" cuma masuk akal untuk hari yang sudah lewat:
   // jam sepuluh pagi, separuh jatah memang belum termakan.
   const makanRendah =
@@ -256,7 +262,7 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
     date,
     weight_kg: weightKg,
     calories_in: kaloriMasuk,
-    calories_out: terkoreksi.calories_out,
+    calories_out: keluar.calories_out,
     device_kcal: kaloriDevice,
     calories_out_source: keluar.source,
     calorie_budget: budget,
@@ -269,7 +275,8 @@ export const getDaily = async (userId: string, date: string): Promise<DailySumma
             baseline: keluar.baseline,
             workout_calories: keluar.workout_calories,
             device_active_kcal: keluar.device_active_kcal,
-            scale_correction: terkoreksi.correction,
+            device_reported_active_kcal: keluar.device_reported_active_kcal,
+            scale_correction: null,
           },
     protein_g: protein,
     carbs_g: karbo,
@@ -539,8 +546,7 @@ export interface HistorySummary {
  *
  * Kalori keluar dihitung lewat dailyCaloriesOut(), fungsi yang sama dengan
  * getDaily(): BMR x PAL dari tidur dan olahraga hari itu, ditambah semua
- * olahraga, atau ditambah kalori aktif jam dan olahraga yang tidak terekam
- * jam kalau angka jamnya ada. Bedanya cuma BMR-nya memakai berat terakhir
+ * olahraga, ditambah kelebihan aktif jam kalau angka jamnya ada. Bedanya cuma BMR-nya memakai berat terakhir
  * untuk semua hari, bukan berat pada hari itu, karena menarik berat per hari
  * untuk 30 hari demi selisih beberapa kalori tidak sepadan.
  *
@@ -639,17 +645,14 @@ export const getHistory = async (userId: string, days: number): Promise<HistoryS
       ...workoutDayTotals(h.olahraga),
       device: h.perangkat,
     });
-    // Koreksi timbangan yang sama dengan getDaily, supaya kedua layar tetap
-    // menyebut angka yang sama untuk hari yang sama.
-    const terkoreksi = applyOutCorrection(keluar.calories_out, metrics.outFactor);
 
     hasil.push({
       date: tanggal,
       calories_in: Math.round(h.masuk),
-      calories_out: terkoreksi.calories_out,
+      calories_out: keluar.calories_out,
       calories_out_source: keluar.source,
       calorie_budget: budget,
-      balance: Math.round(terkoreksi.calories_out - h.masuk),
+      balance: Math.round(keluar.calories_out - h.masuk),
       logged: h.adaMakan,
       incomplete: h.adaMakan && belumLengkap.has(tanggal),
     });
@@ -846,7 +849,7 @@ export const getOverview = async (userId: string): Promise<DailyOverview> => {
       date: tanggal,
       calories_in: h.adaMakan ? Math.round(h.masuk) : null,
       incomplete: h.adaMakan && belumLengkap.has(tanggal),
-      calories_out: applyOutCorrection(keluar.calories_out, metrics.outFactor).calories_out,
+      calories_out: keluar.calories_out,
       protein_g: Math.round(h.protein * 10) / 10,
       sugar_g: Math.round(h.gula * 10) / 10,
       water_ml: h.air,
@@ -874,6 +877,7 @@ export const getOverview = async (userId: string): Promise<DailyOverview> => {
     workoutMinutes: 0,
     customStepTarget: metrics.stepTarget,
   });
+  const losing = goal ? toNumber(goal.target_weight_kg) < metrics.weightKg : null;
 
   return susunOverview({
     today: hariIni,
@@ -887,8 +891,8 @@ export const getOverview = async (userId: string): Promise<DailyOverview> => {
     budget,
     sickDays: [...hariSakit],
     weights: timbang.map((w) => ({ date: w.logged_at, kg: toNumber(w.weight_kg) })),
-    plannedWeeklyRate: goal ? (activePlan(goal, metrics)?.weekly_rate_kg ?? null) : null,
-    losing: goal ? toNumber(goal.target_weight_kg) < metrics.weightKg : null,
+    plannedWeeklyRate: lajuSearahTarget(goal ? activePlan(goal, metrics) : null, losing),
+    losing,
   });
 };
 

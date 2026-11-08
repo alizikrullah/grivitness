@@ -1,7 +1,6 @@
 import { FireIcon, FootprintsIcon, TrendDownIcon, WarningCircleIcon } from 'phosphor-react-native';
 import { StyleSheet, View } from 'react-native';
 
-import { ObservedTdeeNote } from '@/components/features/ObservedTdeeNote';
 import { Card, Divider, IconCircle, Row, Text } from '@/components/ui';
 import { colors, metricColors } from '@/constants/colors';
 import { radius, spacing } from '@/constants/theme';
@@ -54,6 +53,9 @@ export const PlanCard = ({ goal, targets }: PlanCardProps) => {
   }
 
   const turun = plan.daily_deficit > 0;
+  // Jatah yang diketik user tidak ditahan pagar aman; rencananya dihitung dari
+  // angka itu, jadi peringatannya tidak boleh menyebut batas aman.
+  const dikunci = goal.budget_manual;
   const tanggalNyata =
     plan.projected_days === null ? null : shiftDays(todayWIB(), plan.projected_days);
 
@@ -89,12 +91,7 @@ export const PlanCard = ({ goal, targets }: PlanCardProps) => {
           label={turun ? 'Defisit harian' : 'Surplus harian'}
           value={thousands(Math.abs(plan.daily_deficit)) + ' kkal'}
         />
-        <Row
-          label={goal.observed_tdee?.measured === null ? 'Perkiraan pengeluaran' : 'Pengeluaran'}
-          value={thousands(plan.tdee) + ' kkal'}
-        />
-
-        {goal.observed_tdee ? <ObservedTdeeNote observed={goal.observed_tdee} /> : null}
+        <Row label="Pengeluaran hari biasa" value={thousands(plan.tdee) + ' kkal'} />
 
         {targets?.macros ? (
           <>
@@ -116,18 +113,25 @@ export const PlanCard = ({ goal, targets }: PlanCardProps) => {
 
             <View style={styles.warnText}>
               <Text variant="label" tone="primary">
-                Targetmu lebih cepat dari yang aman
+                {dikunci
+                  ? 'Jatahmu belum mengejar tanggal itu'
+                  : 'Targetmu lebih cepat dari yang aman'}
               </Text>
 
               <Text variant="caption" tone="secondary">
-                Mengejar tanggal itu butuh defisit {thousands(plan.required_deficit)} kkal per hari.
-                Jatah di atas ditahan di batas aman supaya kamu tidak kehilangan otot.
+                Mengejar tanggal itu butuh {plan.required_deficit < 0 ? 'surplus' : 'defisit'}{' '}
+                {thousands(Math.abs(plan.required_deficit))} kkal per hari.
+                {dikunci
+                  ? ''
+                  : ' Jatah di atas ditahan di batas aman supaya kamu tidak kehilangan otot.'}
                 {tanggalNyata
                   ? ' Dengan jatah itu, targetmu tercapai sekitar ' + longDate(tanggalNyata) + '.'
-                  : ''}
+                  : dikunci
+                    ? ' Dengan jatah itu, beratmu tidak sampai ke target berapa pun lama waktunya; yang menentukan angka jatahnya.'
+                    : ''}
               </Text>
 
-              {plan.extra_steps_needed > 0 ? (
+              {plan.extra_steps_needed > 0 && !(dikunci && tanggalNyata === null) ? (
                 <View style={styles.steps}>
                   <FootprintsIcon
                     size={14}
@@ -142,7 +146,9 @@ export const PlanCard = ({ goal, targets }: PlanCardProps) => {
                         ' langkah per hari kalau mau mengejar tanggal aslinya.'
                       : 'Selisihnya setara ' +
                         thousands(plan.extra_steps_needed) +
-                        ' langkah per hari, dan itu tidak realistis dikejar lewat gerak. Tanggal targetnya yang perlu digeser, bukan usahamu yang kurang.'}
+                        (dikunci
+                          ? ' langkah per hari, dan itu tidak realistis dikejar lewat gerak. Tanggal targetnya atau jatahnya yang perlu digeser.'
+                          : ' langkah per hari, dan itu tidak realistis dikejar lewat gerak. Tanggal targetnya yang perlu digeser, bukan usahamu yang kurang.')}
                   </Text>
                 </View>
               ) : null}

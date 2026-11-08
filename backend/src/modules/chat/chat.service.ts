@@ -22,8 +22,8 @@ import * as workoutsService from '../workouts/workouts.service.js';
  * Ada dua jenis angka, dan aturannya SENGAJA berbeda.
  *
  * Angka milik user (kalori masuk, keluar, jatah, sisa, defisit, TDEE, BMR,
- * target, laju) hanya boleh datang dari DATA. Semuanya dihitung calories.ts,
- * targets.ts, dan observed-tdee.ts dari rumus yang ada rujukannya, dan model
+ * target, laju) hanya boleh datang dari DATA. Semuanya dihitung calories.ts
+ * dan targets.ts dari rumus yang ada rujukannya, dan model
  * bahasa buruk dalam aritmetika sekaligus percaya diri saat salah. Satu
  * kalimat karangan soal defisit bisa membatalkan semua itu tanpa user tahu.
  *
@@ -60,7 +60,7 @@ ATURAN:
 
 1. Hanya topik kebugaran, gizi, olahraga, tidur, dan kesehatan yang berkaitan. Topik lain ditolak singkat.
 2. Kamu bukan dokter. Gejala, nyeri, obat, dugaan penyakit: arahkan ke tenaga kesehatan.
-3. Jangan menulis rencana makan di bawah jatah di DATA, jangan menyuruh mengurangi jatah, dan JANGAN PERNAH menyebut angka jatah baru untuknya. Jatah ditahan di batas aman (NIH/NHLBI). Ini pagar untuk saranmu, bukan alasan jadi tembok; lihat KALAU DIA MAU LEBIH CEPAT.
+3. Jangan menulis rencana makan di bawah jatah di DATA, jangan menyuruh mengurangi jatah, dan JANGAN PERNAH menyebut angka jatah baru untuknya. Jatah yang dihitung aplikasi ditahan di batas aman (NIH/NHLBI); jatah yang di DATA tertulis DIKUNCI adalah pilihan dia sendiri dan tidak ditahan pagar apa pun. Ini pagar untuk saranmu, bukan alasan jadi tembok; lihat KALAU DIA MAU LEBIH CEPAT.
 4. Kalau DATA berlawanan dengan tebakan umum, ikuti DATA. "Belum dicatat" artinya belum dicatat, bukan nol.
 5. Perhatikan jam di DATA. Pagi hari catatan makan dan minum kosong itu wajar.
 6. Saran harus realistis untuk orang yang kerja duduk. Jangan menyarankan hal per jam kerja. Kalau dia bilang capek atau tepar, percaya dan turunkan dosis.
@@ -69,7 +69,7 @@ ATURAN:
 KALAU DIA MAU LEBIH CEPAT DARI JATAH:
 
 a. Cek DATA dulu: kalau defisit yang dibutuhkan melebihi atau mendekati TDEE-nya, bilang terus terang targetnya mustahil secara fisika, sebut angkanya.
-b. Jelaskan pagar mana yang menahan jatahnya: batas bawah kalori, defisit maksimal 25% TDEE, atau laju maksimal 1% berat badan per minggu.
+b. Kalau jatahnya dihitung aplikasi, jelaskan pagar mana yang menahannya: batas bawah kalori, defisit maksimal 25% TDEE, atau laju maksimal 1% berat badan per minggu. Kalau jatahnya DIKUNCI, jangan menyebut pagar: laju dan tanggalnya mengikuti angka yang dia kunci, dan angka itu cuma dia yang mengubah di form target.
 c. Akui yang benar dari argumennya: pada lemak tubuh tinggi, defisit besar lebih bisa ditoleransi karena simpanan lemak menyuplai lebih banyak energi per hari, dan otot yang pernah ada lebih mudah dibangun kembali. Pedoman 0,5 sampai 1 kg per minggu itu pedoman populasi umum.
 d. Sebut yang benar-benar hilang kalau terlalu agresif: energi dan konsentrasi (yang justru dia keluhkan), otot, tidur, kepatuhan. Penurunan cepat minggu pertama sebagian besar air.
 e. Kalau dia tetap mau, hormati. Aplikasi membolehkan dia menimpa jatah sendiri di form target; angkanya dia yang pilih, bukan kamu. Kamu tidak menulis rencana di bawah jatah, tapi bantu meminimalkan kerugiannya: protein sekitar 2 g per kg berat badan, latihan beban ringan 2 sampai 3 kali seminggu, tidur cukup, dan tanda harus berhenti: pusing saat berdiri, jantung berdebar, tidur rusak, tidak kuat beraktivitas. Begitu jatah barunya ada di DATA, kamu bantu susun makan di angka itu.
@@ -198,16 +198,8 @@ export const susunFakta = (
     if (profil.current_weight_kg !== null)
       b.push(`Berat terakhir: ${profil.current_weight_kg} kg.`);
     if (profil.bmr !== null) b.push(`BMR: ${angka(profil.bmr)} kkal.`);
-    if (profil.tdee !== null) b.push(`TDEE hari biasa: ${angka(profil.tdee)} kkal.`);
-
-    const o = profil.observed_tdee;
-    if (o?.measured != null) {
-      b.push(
-        `TDEE terukur dari catatannya sendiri: ${angka(o.measured)} kkal (bobot keyakinan ${Math.round(o.confidence * 100)}%). Ini lebih dipercaya daripada angka rumus.`,
-      );
-    } else if (o?.reason) {
-      b.push(`TDEE belum bisa diukur dari datanya. Alasan: ${o.reason}.`);
-    }
+    if (profil.tdee !== null)
+      b.push(`TDEE hari biasa (tanpa olahraga, dasar jatah): ${angka(profil.tdee)} kkal.`);
   } else {
     b.push('Profil belum diisi, jadi metabolismenya belum bisa dihitung.');
   }
@@ -229,8 +221,14 @@ export const susunFakta = (
     }
     const p = goal.plan;
     if (p) {
+      // Jatah di atas TDEE (dikunci, atau target naik) adalah surplus. Ditulis
+      // sebagai defisit minus, model bisa menyebut "defisit lu -88".
       b.push(
-        `Rencana: defisit ${angka(p.daily_deficit)} kkal per hari, laju ${p.weekly_rate_kg} kg per minggu (batas aman ${p.safe_weekly_rate_kg} kg per minggu).`,
+        p.daily_deficit > 0
+          ? `Rencana: defisit ${angka(p.daily_deficit)} kkal per hari, laju ${p.weekly_rate_kg} kg per minggu (batas aman ${p.safe_weekly_rate_kg} kg per minggu).`
+          : p.daily_deficit < 0
+            ? `Rencana: surplus ${angka(-p.daily_deficit)} kkal per hari, berat naik sekitar ${Math.abs(p.weekly_rate_kg)} kg per minggu.`
+            : 'Rencana: makan setara TDEE, berat diperkirakan tetap.',
       );
       if (p.achievable) {
         b.push('Dengan jatah ini targetnya tercapai tepat waktu.');
@@ -244,20 +242,26 @@ export const susunFakta = (
             ? `Itu lebih besar dari seluruh TDEE-nya (${angka(p.tdee)} kkal), jadi tidak mungkin tercapai tepat waktu bahkan dengan tidak makan sama sekali.`
             : `Itu ${Math.round((p.required_deficit / p.tdee) * 100)}% dari TDEE-nya ${angka(p.tdee)} kkal, artinya makan cuma sekitar ${angka(Math.max(0, p.tdee - p.required_deficit))} kkal per hari.`;
         b.push(
-          `Untuk tepat waktu dibutuhkan defisit ${angka(p.required_deficit)} kkal per hari. ${banding}`,
+          p.required_deficit < 0
+            ? `Untuk tepat waktu dibutuhkan surplus ${angka(-p.required_deficit)} kkal per hari, artinya makan sekitar ${angka(p.tdee - p.required_deficit)} kkal per hari.`
+            : `Untuk tepat waktu dibutuhkan defisit ${angka(p.required_deficit)} kkal per hari. ${banding}`,
         );
         if (p.projected_days !== null) {
           b.push(
             // Ambang yang sama dengan kartu rencana: di atas 6.000 langkah
             // tambahan bukan saran, itu angka absurd yang cuma bikin malu.
-            `Dengan jatah yang aman, perkiraan realistis: ${p.projected_days} hari dari sekarang.${p.extra_steps_needed > 0 && p.extra_steps_needed <= LANGKAH_TAMBAHAN_MAKS ? ` Kalau ditambah ${angka(p.extra_steps_needed)} langkah per hari, bisa tepat waktu.` : ''}`,
+            `Dengan jatah ${goal.budget_manual ? 'yang dia kunci' : 'yang aman'}, perkiraan realistis: ${p.projected_days} hari dari sekarang.${p.extra_steps_needed > 0 && p.extra_steps_needed <= LANGKAH_TAMBAHAN_MAKS ? ` Kalau ditambah ${angka(p.extra_steps_needed)} langkah per hari, bisa tepat waktu.` : ''}`,
           );
         } else {
-          b.push('Dengan jatah yang aman, target ini tidak akan tercapai.');
+          b.push(
+            `Dengan jatah ${goal.budget_manual ? 'yang dia kunci' : 'yang aman'}, target ini tidak akan tercapai.`,
+          );
         }
       }
       b.push(
-        'Jatah harian ini dihitung aplikasi dan ditahan di batas aman, tapi user BERHAK menimpanya sendiri lewat form target (kolom jatah kalori manual). Angkanya dia yang menentukan; kamu tidak menyebut angka jatah untuknya.',
+        goal.budget_manual
+          ? 'Jatah harian ini DIKUNCI user sendiri lewat form target, bukan hitungan aplikasi, dan tidak ditahan batas aman. Rencana di atas dihitung dari angka itu. Angkanya dia yang menentukan; kamu tidak menyebut angka jatah untuknya.'
+          : 'Jatah harian ini dihitung aplikasi dari rumus dan ditahan di batas aman, tapi user BERHAK menimpanya sendiri lewat form target (kolom jatah kalori manual). Angkanya dia yang menentukan; kamu tidak menyebut angka jatah untuknya.',
       );
     }
   } else {
@@ -291,27 +295,25 @@ export const susunFakta = (
     );
   }
   // Susunan kalori keluar ikut dikirim, supaya model tidak menebak dari mana
-  // angkanya. Dengan angka jam: aktif jam DITAMBAHKAN ke metabolisme dan
-  // pekerjaan, bukan menggantikannya.
-  //
-  // Koreksi timbangan disebut sebagai bagian tersendiri, supaya model tidak
-  // menjumlahkan bagian-bagiannya lalu mendapat angka lain dari layar.
+  // angkanya. Dengan angka jam: yang dijumlahkan dari jam cuma sesi terekam jam
+  // dan gerak jam di atas yang sudah dihitung dari pekerjaannya, bukan angka
+  // aktif mentah, supaya model tidak menjumlahkan ulang lalu mendapat angka
+  // lain dari layar.
   const e = harian.energy;
-  const koreksi =
-    e && e.scale_correction !== null
-      ? `, dikoreksi timbangan ${e.scale_correction < 0 ? 'minus ' : 'plus '}${angka(Math.abs(e.scale_correction))} supaya defisitnya sesuai berat yang benar-benar turun`
-      : '';
   if (e && harian.calories_out_source === 'device') {
     b.push(
-      `Kalori keluar ${angka(harian.calories_out)} kkal: metabolisme dan pekerjaan ${angka(e.baseline)}, ditambah kalori aktif dari jam tangannya ${angka(e.device_active_kcal ?? 0)}${e.workout_calories > 0 ? `, ditambah olahraga tercatat yang tidak terekam jam ${angka(e.workout_calories)}` : ''}${koreksi}.`,
+      `Kalori keluar ${angka(harian.calories_out)} kkal: metabolisme dan pekerjaan ${angka(e.baseline)}, ditambah ${angka(e.device_active_kcal ?? 0)} kkal dari jam tangannya (sesi yang terekam jam, plus kalori aktif yang melebihi gerak harian pekerjaannya${e.device_reported_active_kcal !== null ? `; jamnya sendiri mencatat kalori aktif ${angka(e.device_reported_active_kcal)} kkal seharian` : ''})${e.workout_calories > 0 ? `, ditambah olahraga tercatat yang tidak terekam jam ${angka(e.workout_calories)} kkal` : ''}.`,
     );
   } else if (e) {
     b.push(
-      `Kalori keluar ${angka(harian.calories_out)} kkal: metabolisme dan pekerjaan ${angka(e.baseline)}, olahraga ${angka(e.workout_calories)}${koreksi}.`,
+      `Kalori keluar ${angka(harian.calories_out)} kkal: metabolisme dan pekerjaan ${angka(e.baseline)}, olahraga ${angka(e.workout_calories)}.`,
     );
   } else {
     b.push(`Kalori keluar ${angka(harian.calories_out)} kkal.`);
   }
+  // smoke:chat 8 Nov: tanpa baris ini model menulis "langkah belum tercatat,
+  // jadi tidak ada tambahan dari jalan", seolah langkah menambah kalori keluar.
+  b.push('Langkah cuma pantauan dan tidak pernah menambah kalori keluar.');
   if (harian.calorie_budget !== null) {
     b.push(
       `Jatah kalori ${angka(harian.calorie_budget)} kkal, sisa ${angka(harian.calories_remaining ?? 0)} kkal.`,

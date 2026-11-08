@@ -509,7 +509,7 @@ export const collections: CollectionDef[] = [
         field: 'tracked_by_device',
         type: 'boolean',
         defaultValue: false,
-        note: 'true kalau sesi ini terekam jam tangan, jadi kalorinya SUDAH ada di kalori aktif device_energy_logs hari itu dan tidak ditambahkan lagi. Berpengaruh hanya di hari yang punya angka jam.',
+        note: 'true kalau sesi ini terekam jam tangan, jadi kalorinya SUDAH ada di kalori aktif device_energy_logs hari itu. Sesinya tetap dijumlahkan, bagian aktifnya dikurangkan dari kalori aktif jam. Berpengaruh hanya di hari yang punya angka jam.',
       },
       // Rincian sesi dari jam atau aplikasi lari, biasanya lewat screenshot
       // (POST /api/workouts/scan). Semuanya opsional: olahraga lain cukup
@@ -590,7 +590,7 @@ export const collections: CollectionDef[] = [
     collection: 'device_energy_logs',
     typeName: 'DeviceEnergyLogRecord',
     icon: 'watch',
-    note: 'Kalori smartwatch user, satu baris per user per hari. Kalori AKTIF-nya DITAMBAHKAN ke BMR x PAL hari itu, bersama olahraga yang tidak terekam jam. Angka total diubah dulu jadi aktif (total dikurangi BMR).',
+    note: 'Kalori smartwatch user, satu baris per user per hari. Kalori AKTIF-nya cuma menambah BMR x PAL plus olahraga kalau melebihi gerak harian di PAR pekerjaan dan sesi yang terekam jam. Angka total diubah dulu jadi aktif (total dikurangi BMR).',
     fields: [
       pk(),
       userFk('device_energy_logs'),
@@ -767,7 +767,7 @@ export const collections: CollectionDef[] = [
       pk(),
       userFk('food_day_status'),
       enumField('status', FOOD_DAY_STATUS, {
-        note: 'COMPLETE: memang segitu makannya. INCOMPLETE: ada yang lupa dicatat, jadi hari ini dikeluarkan dari rata-rata dan dari TDEE terukur.',
+        note: 'COMPLETE: memang segitu makannya. INCOMPLETE: ada yang lupa dicatat, jadi hari ini dikeluarkan dari rata-rata.',
       }),
       loggedAtDate(),
       userDateKey(),

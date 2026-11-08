@@ -5,7 +5,6 @@ import {
   activeKcalFromDevice,
   activeMinutesFromHold,
   activeMinutesFromReps,
-  applyOutCorrection,
   baselineTDEE,
   calculateAge,
   calculateBMR,
@@ -19,7 +18,7 @@ import {
   kcalPerMinuteWithIntensity,
   metFromSpeed,
   netKcalPerMinuteAt70,
-  outCorrectionFactor,
+  planAtIntake,
   planWeightChange,
   restingPartitionPAL,
   safeWeeklyLossKg,
@@ -513,8 +512,8 @@ describe('daysBetween', () => {
 });
 
 /**
- * Kalori keluar dengan dan tanpa angka jam tangan. Rumus ini disepakati
- * dengan angka nyata 30 Sep 2026, dan tes ini yang menjaga hasilnya.
+ * Kalori keluar dengan dan tanpa angka jam tangan. Angka acuannya 30 Sep 2026:
+ * BMR 1.866, tidur 350 menit, sesi 96 menit terekam jam 250 kkal, aktif jam 367.
  */
 describe('dailyCaloriesOut', () => {
   const dasar = {
@@ -526,17 +525,18 @@ describe('dailyCaloriesOut', () => {
     untrackedWorkoutCalories: 0,
   };
 
-  it('30 Sep: BMR x PAL + aktif jam, olahraga terekam jam tidak ditambah lagi', () => {
+  it('30 Sep: aktif jam yang tertutup ruang gerak dan sesi terekam tidak menambah apa pun', () => {
     const hasil = dailyCaloriesOut({
       ...dasar,
       device: { total_kcal: 2233, active_kcal: 367 },
     });
 
-    // PAL partisi (350 + 96 + 994 x 1,6) / 1.440 = 1,4142
+    // PAL partisi (350 + 96 + 994 x 1,6) / 1.440 = 1,4142. Ruang gerak
+    // 1.866 x 0,2 x 994 / 1.440 = 258, jadi 367 - 258 - 250 di bawah nol.
     expect(hasil.baseline).toBe(2639);
-    expect(hasil.calories_out).toBe(2639 + 367);
+    expect(hasil.calories_out).toBe(2639 + 250);
     expect(hasil.source).toBe('device');
-    expect(hasil.device_active_kcal).toBe(367);
+    expect(hasil.device_active_kcal).toBe(250);
     expect(hasil.workout_calories).toBe(0);
   });
 
@@ -548,23 +548,59 @@ describe('dailyCaloriesOut', () => {
     expect(hasil.device_active_kcal).toBeNull();
   });
 
-  it('olahraga yang tidak terekam jam tetap ditambahkan di atas aktif jam', () => {
+  it('olahraga yang tidak terekam jam tetap ditambahkan, terpisah dari bagian jam', () => {
     const hasil = dailyCaloriesOut({
       ...dasar,
+      workoutCalories: 250 + 481,
       untrackedWorkoutCalories: 481,
       device: { total_kcal: 2233, active_kcal: 367 },
     });
 
-    expect(hasil.calories_out).toBe(2639 + 367 + 481);
+    expect(hasil.calories_out).toBe(2639 + 250 + 481);
+    expect(hasil.device_active_kcal).toBe(250);
     expect(hasil.workout_calories).toBe(481);
   });
 
   /**
-   * Celah 11: hari jamnya dilepas (aktif 4 kkal, 78 langkah) dulu anjlok ke
-   * sekitar BMR karena angka jam MENGGANTIKAN rumus. Sekarang metabolisme dan
-   * pekerjaan tetap dihitung, jam cuma menambah yang dia lihat.
+   * Jalan kecil sepanjang hari sudah dibayar PAR 1,6, jadi cuma kelebihan aktif
+   * jam di atas ruang itu yang ditambahkan. Versi lama menambahkan 600 penuh.
    */
-  it('hari jam dilepas tidak lagi anjlok ke BMR', () => {
+  it('cuma aktif jam yang MELEBIHI ruang gerak pekerjaan yang ditambahkan', () => {
+    const hasil = dailyCaloriesOut({
+      ...dasar,
+      sleepMinutes: null,
+      workoutMinutes: 0,
+      workoutCalories: 0,
+      device: { total_kcal: 2466, active_kcal: 600 },
+    });
+
+    // 8 jam tidur: PAL 1,4, baseline 2.612. Ruang 1.866 x 0,2 x 960 / 1.440 = 249.
+    expect(hasil.baseline).toBe(2612);
+    expect(hasil.device_active_kcal).toBe(351);
+    expect(hasil.calories_out).toBe(2612 + 351);
+  });
+
+  it('ruang gerak ikut PAR pekerjaannya: kerja berat sudah membayar lebih banyak gerak', () => {
+    const hasil = dailyCaloriesOut({
+      ...dasar,
+      activityLevel: 'MODERATELY_ACTIVE' as const,
+      sleepMinutes: null,
+      workoutMinutes: 0,
+      workoutCalories: 0,
+      device: { total_kcal: 2466, active_kcal: 600 },
+    });
+
+    // Ruang 1.866 x (2,05 - 1,4) x 960 / 1.440 = 809, di atas 600.
+    expect(hasil.device_active_kcal).toBe(0);
+    expect(hasil.calories_out).toBe(hasil.baseline);
+  });
+
+  /**
+   * Celah 11: hari jamnya dilepas (aktif 4 kkal, 78 langkah) dulu anjlok ke
+   * sekitar BMR karena angka jam MENGGANTIKAN rumus. Jam tidak pernah
+   * menurunkan angka: tanpa kelebihan, keluarnya tetap BMR x PAL.
+   */
+  it('hari jam dilepas tidak anjlok ke BMR', () => {
     const hasil = dailyCaloriesOut({
       ...dasar,
       sleepMinutes: null,
@@ -573,8 +609,7 @@ describe('dailyCaloriesOut', () => {
       device: { total_kcal: 1870, active_kcal: 4 },
     });
 
-    // 8 jam tidur: PAL 1,4
-    expect(hasil.calories_out).toBe(Math.round(1866 * 1.4) + 4);
+    expect(hasil.calories_out).toBe(Math.round(1866 * 1.4));
     expect(hasil.calories_out).toBeGreaterThan(2500);
   });
 
@@ -622,29 +657,6 @@ describe('kcalPerMinuteWithIntensity', () => {
 });
 
 /**
- * Koreksi timbangan, data pemilik 26 Okt 2026: rumus 3.174, timbangan 2.080,
- * keyakinan 0,841.
- */
-describe('outCorrectionFactor dan applyOutCorrection', () => {
-  it('mencampur hasil ukur dengan keyakinannya, sama seperti jatah', () => {
-    const k = outCorrectionFactor({ measured: 2080, confidence: 0.841, formulaAverage: 3174 });
-
-    expect(k).toBe(0.71);
-    expect(applyOutCorrection(3174, k)).toEqual({ calories_out: 2254, correction: -920 });
-  });
-
-  it('tidak mengoreksi apa pun selama pengukurannya belum layak', () => {
-    expect(outCorrectionFactor({ measured: null, confidence: 0, formulaAverage: 3174 })).toBe(1);
-    expect(applyOutCorrection(3174.4, 1)).toEqual({ calories_out: 3174, correction: null });
-  });
-
-  it('ditahan 0,5 sampai 1,5', () => {
-    expect(outCorrectionFactor({ measured: 500, confidence: 1, formulaAverage: 3000 })).toBe(0.5);
-    expect(outCorrectionFactor({ measured: 6000, confidence: 1, formulaAverage: 3000 })).toBe(1.5);
-  });
-});
-
-/**
  * Kalori MANUAL adalah angka TOTAL dari jam, termasuk istirahat selama sesi.
  * Lari pemilik 28 Okt 2026: 45 menit, total 360 kkal, BMR 1.876, tidur 7 jam.
  */
@@ -683,15 +695,30 @@ describe('kalori total dari jam (MANUAL)', () => {
     expect(hasil.calories_out).toBe(2940);
   });
 
-  it('hari berangka jam: sesi terekam jam tidak dijumlah, istirahatnya tetap di BMR', () => {
+  it('hari berangka jam: sesi terekam jam dijumlah dari catatannya, menitnya keluar dari partisi', () => {
     const hasil = dailyCaloriesOut({
       ...dasar,
       ...workoutDayTotals([lari]),
       device: { total_kcal: 2300, active_kcal: 400 },
     });
 
-    expect(hasil.baseline).toBe(2638);
-    expect(hasil.calories_out).toBe(2638 + 400);
+    // Bagian gerak sesi 360 - 1.876 x 45 / 1.440 = 301, ruang 254: aktif 400
+    // sudah tertutup, jam tidak menambah.
+    expect(hasil.baseline).toBe(2580);
+    expect(hasil.device_active_kcal).toBe(360);
+    expect(hasil.calories_out).toBe(2580 + 360);
+  });
+
+  it('aktif jam di atas sesi dan ruang gerak: kelebihannya ditambahkan', () => {
+    const hasil = dailyCaloriesOut({
+      ...dasar,
+      ...workoutDayTotals([lari]),
+      device: { total_kcal: 2800, active_kcal: 900 },
+    });
+
+    // 900 - 254 - 301 = 345 kkal gerak di luar sesi dan di luar ruang.
+    expect(hasil.device_active_kcal).toBe(360 + 345);
+    expect(hasil.calories_out).toBe(2580 + 360 + 345);
   });
 
   it('hari berangka jam: sesi TANPA jam dijumlah dan menitnya keluar dari partisi', () => {
@@ -702,8 +729,11 @@ describe('kalori total dari jam (MANUAL)', () => {
       device: { total_kcal: 2300, active_kcal: 400 },
     });
 
+    // Tidak ada sesi terekam, jadi cuma ruang gerak 254 yang dikurangkan.
     expect(hasil.baseline).toBe(2580);
-    expect(hasil.calories_out).toBe(2580 + 400 + 360);
+    expect(hasil.device_active_kcal).toBe(146);
+    expect(hasil.workout_calories).toBe(360);
+    expect(hasil.calories_out).toBe(2580 + 146 + 360);
   });
 
   it('menit yang ditanggung tidak pernah melebihi menit olahraga', () => {
@@ -740,5 +770,105 @@ describe('metFromSpeed', () => {
   it('kecepatan dari pace', () => {
     expect(speedFromPace(684)).toBeCloseTo(5.263, 3);
     expect(speedFromPace(0)).toBeNull();
+  });
+});
+
+/**
+ * Jatah dikunci: angkanya milik user, rencananya dihitung dari angka itu.
+ * Pemilik 7 Nov 2026: 95,5 kg, 165 cm, 25 tahun, kerja duduk, target 90 kg.
+ */
+describe('planAtIntake', () => {
+  const pemilik = {
+    currentWeightKg: 95.5,
+    targetWeightKg: 90,
+    heightCm: 165,
+    age: 25,
+    gender: 'MALE' as const,
+    activityLevel: 'SEDENTARY' as const,
+  };
+
+  it('memakai angka kunci apa adanya, defisit dan laju dari angka itu', () => {
+    const r = planAtIntake({ ...pemilik, daysRemaining: 145 }, 2281);
+
+    expect(r.daily_calorie_budget).toBe(2281);
+    expect(r.tdee).toBe(2612);
+    expect(r.daily_deficit).toBe(2612 - 2281);
+    expect(r.weekly_rate_kg).toBe(0.3);
+    expect(r.achievable).toBe(true);
+  });
+
+  it('sama dengan jatah otomatis kalau angkanya sama', () => {
+    const otomatis = planWeightChange({ ...pemilik, daysRemaining: 145 });
+    const kunci = planAtIntake({ ...pemilik, daysRemaining: 145 }, otomatis.daily_calorie_budget);
+
+    expect(kunci.daily_deficit).toBe(otomatis.daily_deficit);
+    expect(kunci.required_deficit).toBe(otomatis.required_deficit);
+    expect(kunci.achievable).toBe(true);
+  });
+
+  it('tidak ditahan pagar aman, dan menyebut kapan tercapai kalau telat', () => {
+    // Kunci 2.400 untuk target 1 Jan 2027 (55 hari): jauh dari cukup.
+    const r = planAtIntake({ ...pemilik, daysRemaining: 55 }, 2400);
+
+    expect(r.daily_calorie_budget).toBe(2400);
+    expect(r.achievable).toBe(false);
+    expect(r.projected_days).toBeGreaterThan(55);
+    expect(r.extra_steps_needed).toBeGreaterThan(0);
+
+    // Di bawah lantai 1.500 tetap dipakai: itu keputusan user.
+    expect(planAtIntake({ ...pemilik, daysRemaining: 55 }, 1200).daily_calorie_budget).toBe(1200);
+  });
+
+  it('jatah di atas pengeluaran tidak pernah mencapai target turun', () => {
+    const r = planAtIntake({ ...pemilik, daysRemaining: 145 }, 2700);
+
+    expect(r.daily_deficit).toBeLessThan(0);
+    expect(r.projected_days).toBeNull();
+    expect(r.achievable).toBe(false);
+  });
+});
+
+/** Temuan review 8 Nov 2026: batas tepi rencana. */
+describe('rencana di tepi', () => {
+  const pemilik = {
+    targetWeightKg: 90,
+    heightCm: 165,
+    age: 25,
+    gender: 'MALE' as const,
+    activityLevel: 'SEDENTARY' as const,
+  };
+
+  it('jatah kunci defisit saat berat sudah di atau melewati target: tercapai', () => {
+    for (const berat of [90, 89.8]) {
+      const r = planAtIntake({ ...pemilik, currentWeightKg: berat, daysRemaining: 30 }, 2281);
+
+      expect(r.achievable).toBe(true);
+      expect(r.required_deficit).toBe(0);
+      expect(r.projected_days).toBe(0);
+      expect(r.extra_steps_needed).toBe(0);
+      expect(r.daily_calorie_budget).toBe(2281);
+    }
+  });
+
+  it('target mustahil: defisit yang dibutuhkan melebihi seluruh TDEE', () => {
+    // 97,2 ke 80 kg dalam 40 hari. Dulu tertahan di TDEE - 200 karena
+    // pencarian asupan mulai dari 200 kkal.
+    const r = planWeightChange({
+      ...pemilik,
+      currentWeightKg: 97.2,
+      targetWeightKg: 80,
+      daysRemaining: 40,
+    });
+
+    expect(r.required_deficit).toBeGreaterThan(r.tdee);
+    expect(r.achievable).toBe(false);
+    expect(r.daily_calorie_budget).toBeGreaterThanOrEqual(1500);
+  });
+
+  it('target wajar tidak berubah oleh batas pencarian yang baru', () => {
+    const r = planWeightChange({ ...pemilik, currentWeightKg: 95.5, daysRemaining: 145 });
+
+    expect(r.daily_calorie_budget).toBe(2281);
+    expect(r.achievable).toBe(true);
   });
 });

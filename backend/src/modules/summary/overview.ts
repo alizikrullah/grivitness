@@ -1,4 +1,4 @@
-import { lajuPerHari } from '../../utils/observed-tdee.js';
+import { lajuPerHari } from '../../utils/weight-trend.js';
 import type { SleepTarget } from '../../utils/targets.js';
 
 /**
@@ -92,7 +92,10 @@ export interface OverviewInput {
   sickDays: string[];
   /** Penimbangan dari tujuh hari lalu sampai hari ini. */
   weights: { date: string; kg: number }[];
-  /** Laju rencana, kg per minggu, positif. Null tanpa rencana otomatis. */
+  /**
+   * Laju rencana searah target, kg per minggu (lajuSearahTarget). Nol atau
+   * negatif tidak ditampilkan. Null tanpa rencana.
+   */
   plannedWeeklyRate: number | null;
   /** True kalau targetnya menurunkan berat. Null tanpa target. */
   losing: boolean | null;
@@ -123,8 +126,8 @@ const TERLALU_DI_BAWAH_JATAH = 500;
 /** Gula kemarin di atas 1,5 kali batas dihitung jauh. Perkiraan. */
 const GULA_JAUH = 1.5;
 /**
- * observeTDEE() menolak menghitung di bawah 70% hari tercatat. Tujuh hari
- * dikali 0,7 dibulatkan ke atas.
+ * Tujuh hari dikali 0,7 dibulatkan ke atas. Ambang 70% warisan TDEE terukur
+ * (dicabut 7 Nov 2026), tetap dipakai sebagai tanda catatan cukup lengkap.
  */
 const MIN_HARI_MAKAN = 5;
 /** Laju berat di bawah ini dianggap datar, kg per minggu. Perkiraan. */
@@ -491,7 +494,7 @@ const catatanMakan = (input: OverviewInput): OverviewItem | null => {
     title: 'Catatan makan bolong',
     value: `${String(tercatat)} dari 7 hari`,
     detail:
-      'TDEE terukur butuh minimal 70% hari tercatat. Hari yang kelewat bisa diisi lewat kalender di layar makanan.',
+      'Rata-rata kalori dan defisit cuma dihitung dari hari yang tercatat. Hari yang kelewat bisa diisi lewat kalender di layar makanan.',
     progress: progres(tercatat, 7),
   };
 };
@@ -528,6 +531,19 @@ const langkah = (input: OverviewInput): OverviewItem | null => {
 
 const urutKunci = (a: OverviewItem, b: OverviewItem): number =>
   URUTAN.indexOf(a.key) - URUTAN.indexOf(b.key);
+
+/**
+ * Laju rencana searah target, kg per minggu: positif kalau rencananya menuju
+ * target. weekly_rate_kg positif berarti TURUN, jadi untuk target naik
+ * tandanya dibalik. Jatah dikunci bisa defisit di target naik (atau target
+ * turun yang sudah terlewati), dan tanpa ini laju turunnya tampil sebagai
+ * "rencana" di bawah judul "Berat naik".
+ */
+export const lajuSearahTarget = (
+  plan: { weekly_rate_kg: number } | null,
+  losing: boolean | null,
+): number | null =>
+  plan === null || losing === null ? null : losing ? plan.weekly_rate_kg : -plan.weekly_rate_kg;
 
 export const susunOverview = (input: OverviewInput): DailyOverview => {
   const semua = [

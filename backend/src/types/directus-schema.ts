@@ -234,8 +234,8 @@ export interface WorkoutLogRecord {
   intensity: WorkoutIntensity | null;
   /**
    * true kalau sesi ini terekam jam tangan, jadi kalorinya SUDAH ada di kalori aktif
-   * device_energy_logs hari itu dan tidak ditambahkan lagi. Berpengaruh hanya di hari yang
-   * punya angka jam.
+   * device_energy_logs hari itu. Sesinya tetap dijumlahkan, bagian aktifnya dikurangkan dari
+   * kalori aktif jam. Berpengaruh hanya di hari yang punya angka jam.
    */
   tracked_by_device: boolean;
   /** Jarak sesi, km. Untuk lari dan jalan. */
@@ -295,9 +295,9 @@ export interface StepLogRecord {
 }
 
 /**
- * Kalori smartwatch user, satu baris per user per hari. Kalori AKTIF-nya DITAMBAHKAN ke
- * BMR x PAL hari itu, bersama olahraga yang tidak terekam jam. Angka total diubah dulu
- * jadi aktif (total dikurangi BMR).
+ * Kalori smartwatch user, satu baris per user per hari. Kalori AKTIF-nya cuma menambah BMR
+ * x PAL plus olahraga kalau melebihi gerak harian di PAR pekerjaan dan sesi yang terekam
+ * jam. Angka total diubah dulu jadi aktif (total dikurangi BMR).
  */
 export interface DeviceEnergyLogRecord {
   id: string;
@@ -449,7 +449,7 @@ export interface FoodDayStatusRecord {
   user_id: string;
   /**
    * COMPLETE: memang segitu makannya. INCOMPLETE: ada yang lupa dicatat, jadi hari ini
-   * dikeluarkan dari rata-rata dan dari TDEE terukur.
+   * dikeluarkan dari rata-rata.
    */
   status: 'COMPLETE' | 'INCOMPLETE';
   /** Tanggal log dalam format YYYY-MM-DD */

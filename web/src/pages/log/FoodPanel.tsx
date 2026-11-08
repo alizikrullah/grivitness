@@ -256,7 +256,7 @@ export const FoodPanel = () => {
       {/*
         Hari yang sudah lewat dengan makan di bawah separuh jatah ditanya:
         belum lengkap atau memang segini. Hari belum lengkap tidak ikut
-        rata-rata riwayat, chat, maupun TDEE terukur.
+        rata-rata riwayat, rekap, maupun chat.
       */}
       {!hariIni && ringkasan.data?.food_low && ringkasan.data.food_day_status === null ? (
         <Card variant="outline" padding="md">

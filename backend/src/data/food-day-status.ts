@@ -7,7 +7,7 @@ import { forUser } from './scoped.js';
  *
  * Satu tempat untuk aturan "hari belum lengkap tidak dihitung", karena aturan
  * itu harus sama persis di semua yang merata-ratakan kalori masuk: riwayat
- * kalori, rekap mingguan dan bulanan, chat, dan TDEE terukur. Kalau satu saja
+ * kalori, rekap mingguan dan bulanan, overview, dan chat. Kalau satu saja
  * lupa, dua layar menyebut dua rata-rata berbeda untuk minggu yang sama.
  *
  * Separuh catatan bukan separuh makan. Nol kalori yang lupa dicatat terbaca

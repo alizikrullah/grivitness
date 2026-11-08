@@ -52,8 +52,9 @@ export interface WorkoutInput extends RincianSesiInput {
   /**
    * true kalau sesi ini sudah ikut terhitung di angka smartwatch hari itu.
    *
-   * Menentukan apakah kalorinya boleh ditambahkan di atas angka perangkat.
-   * Jalan santai sambil memakai jam sudah masuk di sana; berenang belum.
+   * Sesinya tetap dijumlahkan dari catatan ini; bagian geraknya dikurangkan
+   * dari kalori aktif jam supaya tidak dihitung dua kali. Jalan santai sambil
+   * memakai jam sudah masuk di sana; berenang belum.
    */
   tracked_by_device?: boolean;
   /** Porsi waktu bergerak, hanya untuk olahraga menit yang kalorinya ditaksir. */

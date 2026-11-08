@@ -1,5 +1,5 @@
 /**
- * Isi ulang gula untuk catatan makan dari sebelum fitur gula (rilis 1.2.0).
+ * Isi ulang gula untuk catatan makan dari sebelum fitur gula (rilis backend 0.8.0).
  *
  * Jalankan:
  *   npx tsx scripts/isi-gula.ts uji [folder]         cadangkan, taksir, simpan rencana. TIDAK menulis.

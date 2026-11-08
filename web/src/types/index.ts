@@ -66,12 +66,8 @@ export interface Profile {
   age: number;
   current_weight_kg: number | null;
   bmr: number | null;
-  /**
-   * TDEE hari biasa: tidur normal, gerak seadanya, tanpa olahraga.
-   * Sudah dikoreksi pengukuran kalau datanya memadai.
-   */
+  /** TDEE hari biasa dari rumus: tidur normal, gerak seadanya, tanpa olahraga. */
   tdee: number | null;
-  observed_tdee: ObservedTdee | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -115,37 +111,6 @@ export interface WeightPlan {
   extra_steps_needed: number;
 }
 
-/** Kenapa TDEE terukur belum bisa dipakai. */
-export type ObservedReason =
-  | 'BELUM_CUKUP_HARI'
-  | 'BELUM_CUKUP_TIMBANGAN'
-  | 'RENTANG_TIMBANG_PENDEK'
-  | 'CATATAN_MAKAN_KURANG'
-  | 'HASIL_TIDAK_WAJAR';
-
-/**
- * TDEE yang diukur dari catatan berat dan makanan user sendiri.
- *
- * Rumus cuma titik awal. Begitu datanya cukup, angkanya digeser ke arah yang
- * benar-benar terjadi pada tubuh user ini, karena Mifflin-St Jeor tahu soal
- * 498 orang di tahun 1990, dan tidak tahu apa-apa soal orang ini.
- */
-export interface ObservedTdee {
-  /** Yang dipakai: campuran pengukuran dan estimasi rumus. */
-  tdee: number;
-  /** Hasil murni rumus, sebelum dikoreksi. */
-  estimated: number;
-  /** Hasil murni pengukuran. Null selama datanya belum layak. */
-  measured: number | null;
-  /** 0 sampai 1, bobot pengukuran di dalam `tdee`. */
-  confidence: number;
-  reason: ObservedReason | null;
-  days: number;
-  logged_days: number;
-  weigh_ins: number;
-  weekly_rate_kg: number | null;
-}
-
 /** Goal aktif berikut turunannya. Semua dihitung ulang tiap kali dibaca. */
 export interface GoalWithProgress extends Goal {
   current_weight_kg: number | null;
@@ -154,7 +119,6 @@ export interface GoalWithProgress extends Goal {
   tdee: number | null;
   achievable: boolean | null;
   plan: WeightPlan | null;
-  observed_tdee: ObservedTdee | null;
 }
 
 export interface WeightLog {
@@ -625,17 +589,22 @@ export interface EnergyBreakdown {
   /** Metabolisme basal dikali PAL: hidup, pekerjaan, dan gerak kecil sehari-hari. */
   baseline: number;
   /**
-   * Kalori olahraga yang ikut dijumlahkan. Tanpa angka jam: semua olahraga.
-   * Dengan angka jam: hanya yang tidak terekam jam.
+   * Kalori olahraga yang ikut dijumlahkan di luar bagian jam. Tanpa angka jam:
+   * semua olahraga. Dengan angka jam: hanya yang tidak terekam jam.
    */
   workout_calories: number;
-  /** Kalori aktif jam tangan yang DITAMBAHKAN. Null kalau hari itu tanpa angka jam. */
+  /**
+   * Bagian jam tangan yang dijumlahkan: sesi terekam jam, ditambah kalori
+   * aktif yang melebihi gerak harian pekerjaan. Bukan angka aktif mentah.
+   * Null kalau hari itu tanpa angka jam.
+   */
   device_active_kcal: number | null;
   /**
-   * Koreksi timbangan dalam kkal, sudah termasuk di calories_out (negatif
-   * berarti dikurangi). Null selama pengukurannya belum layak.
+   * Kalori aktif jam apa adanya, angka yang user isi (total dikurangi BMR
+   * kalau yang diisi total). Cuma untuk ditampilkan. Tidak ada di respons
+   * backend sebelum 0.14.0.
    */
-  scale_correction: number | null;
+  device_reported_active_kcal?: number | null;
 }
 
 /** Rentang sakit. end_date null berarti masih sakit. */
@@ -699,7 +668,7 @@ export interface DailySummary {
   calories_out: number;
   /** Angka TOTAL smartwatch apa adanya, kalau dicatat hari itu. Sekadar keterangan. */
   device_kcal: number | null;
-  /** "device": kalori aktif jam ikut DITAMBAHKAN ke metabolisme hari itu. */
+  /** "device": hari itu punya angka jam; cuma kelebihan aktifnya yang ditambahkan. */
   calories_out_source: 'formula' | 'device';
   calorie_budget: number | null;
   calories_remaining: number | null;

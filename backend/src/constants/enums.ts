@@ -44,8 +44,8 @@ export type MealType = (typeof MEAL_TYPE)[number];
  *
  * COMPLETE    memang segitu makannya, hari itu dihitung seperti biasa
  * INCOMPLETE  ada yang lupa dicatat; hari itu dikeluarkan dari rata-rata
- *             riwayat, chat, dan TDEE terukur, karena nol kalori yang tidak
- *             dicatat bukan defisit
+ *             riwayat, rekap, dan chat, karena nol kalori yang tidak dicatat
+ *             bukan defisit
  */
 export const FOOD_DAY_STATUS = ['COMPLETE', 'INCOMPLETE'] as const;
 export type FoodDayStatus = (typeof FOOD_DAY_STATUS)[number];

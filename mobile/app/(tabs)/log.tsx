@@ -159,10 +159,11 @@ export default function LogHubScreen() {
       Icon: WatchIcon,
       color: metricColors.device,
       harian: true,
-      // Yang dihitung bagian AKTIF-nya, jadi itu yang disebut di sini.
+      // Angka yang user isi dari jamnya, bukan bagian yang dihitung: yang
+      // dihitung cuma kelebihannya, dan itu dirinci di layar jam.
       status: status(ada?.device, () =>
-        d?.energy?.device_active_kcal != null
-          ? 'aktif ' + thousands(d.energy.device_active_kcal) + ' kkal'
+        d?.energy?.device_reported_active_kcal != null
+          ? 'aktif ' + thousands(d.energy.device_reported_active_kcal) + ' kkal'
           : thousands(d?.device_kcal ?? 0) + ' kkal',
       ),
       done: ada?.device ?? false,

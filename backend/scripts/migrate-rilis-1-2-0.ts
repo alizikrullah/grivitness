@@ -1,5 +1,6 @@
 /**
- * Migrasi satu kali untuk rilis 1.2.0, Oktober 2026.
+ * Migrasi satu kali untuk rilis backend 0.8.0, Oktober 2026. Nama berkasnya
+ * memakai penomoran lama (1.2.0), sengaja tidak diganti.
  *
  * Jalankan: npx tsx scripts/migrate-rilis-1-2-0.ts
  *
@@ -100,7 +101,7 @@ const selaraskanCatatan = async (): Promise<void> => {
 };
 
 const main = async (): Promise<void> => {
-  log('Migrasi rilis 1.2.0\n');
+  log('Migrasi rilis backend 0.8.0\n');
   await longgarkan();
   await selaraskanCatatan();
   log('\nSelesai');

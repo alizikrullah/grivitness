@@ -380,7 +380,7 @@ export const WorkoutPanel = () => {
                 label="Sesi ini terekam jam tangan"
                 checked={terekam}
                 onChange={setTerekam}
-                hint="Kalorinya sudah ada di dalam angka aktif jam hari itu, jadi tidak ditambah lagi."
+                hint="Kalorinya sudah ada di dalam angka aktif jam hari itu, jadi tidak dihitung dua kali."
               />
             </>
           ) : null}

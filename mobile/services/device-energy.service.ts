@@ -25,10 +25,11 @@ export interface DeviceEnergyInput {
 /**
  * Kalori keluar harian menurut smartwatch.
  *
- * Angka ini MENGGANTIKAN hitungan TDEE hari itu di backend, tidak ditambahkan
- * ke atasnya. Jam tangan sudah memuat jalan kaki dan kegiatan sehari-hari yang
- * juga dihitung dari step_logs dan activity_level, jadi menjumlahkan keduanya
- * berarti menghitung jam yang sama dua kali.
+ * Backend TIDAK memakai angka ini sebagai pengganti rumus, dan tidak
+ * menambahkannya penuh. Kalori keluar = BMR x PAL + semua olahraga, lalu
+ * kalori aktif jam cuma menambah bagian yang melebihi gerak harian di PAR
+ * pekerjaan dan sesi yang terekam jam (dailyCaloriesOut di backend). Jalan dan
+ * gerak kecil sehari-hari sudah ada di PAR pekerjaan; langkah tidak dihitung.
  */
 export const useDeviceEnergyDate = (date: string) => {
   const iniHariIni = date === todayWIB();

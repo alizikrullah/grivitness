@@ -181,6 +181,149 @@ describe('susunFakta', () => {
     expect(fakta).toContain('BERHAK menimpanya sendiri lewat form target');
   });
 
+  it('jatah kunci di atas TDEE ditulis surplus, bukan defisit minus', () => {
+    const fakta = susunFakta(
+      harian(),
+      pekan,
+      riwayat(),
+      null,
+      {
+        id: 'g1',
+        user_id: 'u1',
+        target_weight_kg: '90.00',
+        target_date: '2027-04-01',
+        daily_calorie_budget: 2700,
+        budget_manual: true,
+        is_active: true,
+        created_at: null,
+        updated_at: null,
+        current_weight_kg: 95.5,
+        remaining_kg: 5.5,
+        days_remaining: 145,
+        tdee: 2612,
+        achievable: false,
+        observed_tdee: null,
+        plan: {
+          daily_calorie_budget: 2700,
+          daily_deficit: -88,
+          required_deficit: 331,
+          achievable: false,
+          tdee: 2612,
+          weekly_rate_kg: -0.08,
+          safe_weekly_rate_kg: 0.96,
+          projected_days: null,
+          extra_steps_needed: 12500,
+        },
+      },
+      null,
+      null,
+      '06.12',
+    );
+
+    expect(fakta).toContain(
+      'Rencana: surplus 88 kkal per hari, berat naik sekitar 0.08 kg per minggu.',
+    );
+    expect(fakta).toContain('Untuk tepat waktu dibutuhkan defisit 331 kkal per hari.');
+    expect(fakta).not.toContain('defisit -');
+    expect(fakta).toContain('Dengan jatah yang dia kunci, target ini tidak akan tercapai.');
+  });
+
+  it('target naik yang butuh lebih banyak makan ditulis surplus yang dibutuhkan', () => {
+    const fakta = susunFakta(
+      harian(),
+      pekan,
+      riwayat(),
+      null,
+      {
+        id: 'g1',
+        user_id: 'u1',
+        target_weight_kg: '100.00',
+        target_date: '2027-03-07',
+        daily_calorie_budget: 2500,
+        budget_manual: true,
+        is_active: true,
+        created_at: null,
+        updated_at: null,
+        current_weight_kg: 95.5,
+        remaining_kg: -4.5,
+        days_remaining: 120,
+        tdee: 2612,
+        achievable: false,
+        observed_tdee: null,
+        plan: {
+          daily_calorie_budget: 2500,
+          daily_deficit: 112,
+          required_deficit: -356,
+          achievable: false,
+          tdee: 2612,
+          weekly_rate_kg: 0.1,
+          safe_weekly_rate_kg: 0.96,
+          projected_days: null,
+          extra_steps_needed: 0,
+        },
+      },
+      null,
+      null,
+      '06.12',
+    );
+
+    expect(fakta).toContain(
+      'Untuk tepat waktu dibutuhkan surplus 356 kkal per hari, artinya makan sekitar 2.968 kkal per hari.',
+    );
+    expect(fakta).not.toContain('defisit -');
+  });
+
+  it('jatah dikunci disebut milik user, rencananya dari angka itu', () => {
+    const fakta = susunFakta(
+      harian(),
+      pekan,
+      riwayat(),
+      null,
+      {
+        id: 'g1',
+        user_id: 'u1',
+        target_weight_kg: '85.00',
+        target_date: '2027-01-19',
+        daily_calorie_budget: 1995,
+        budget_manual: true,
+        is_active: true,
+        created_at: null,
+        updated_at: null,
+        current_weight_kg: 96,
+        remaining_kg: 11,
+        days_remaining: 120,
+        tdee: 2660,
+        achievable: false,
+        observed_tdee: null,
+        plan: {
+          daily_calorie_budget: 1995,
+          daily_deficit: 665,
+          required_deficit: 780,
+          achievable: false,
+          tdee: 2660,
+          weekly_rate_kg: 0.6,
+          safe_weekly_rate_kg: 0.96,
+          projected_days: 145,
+          extra_steps_needed: 3600,
+        },
+      },
+      null,
+      null,
+      '06.12',
+    );
+
+    expect(fakta).toContain('Target 85 kg pada 2027-01-19, sisa 120 hari.');
+    expect(fakta).toContain('Masih 11 kg lagi.');
+    expect(fakta).toContain('defisit 665 kkal per hari, laju 0.6 kg per minggu');
+    expect(fakta).toContain('Untuk tepat waktu dibutuhkan defisit 780 kkal per hari.');
+    expect(fakta).toContain('29% dari TDEE-nya 2.660 kkal');
+    expect(fakta).toContain('perkiraan realistis: 145 hari dari sekarang');
+    expect(fakta).toContain('ditambah 3.600 langkah per hari');
+    expect(fakta).toContain('Jatah harian ini DIKUNCI user sendiri');
+    expect(fakta).toContain('Dengan jatah yang dia kunci, perkiraan realistis');
+    expect(fakta).not.toContain('ditahan di batas aman, tapi');
+  });
+
   it('bilang mustahil secara fisika kalau defisit yang dibutuhkan melebihi TDEE', () => {
     const fakta = susunFakta(
       harian(),
@@ -337,48 +480,19 @@ describe('rapikanBalasan', () => {
   });
 });
 
-describe('susunFakta: koreksi timbangan', () => {
-  it('disebut sebagai bagian tersendiri dari kalori keluar', () => {
+describe('susunFakta: kalori keluar dari rumus', () => {
+  it('jam tangan cuma menyumbang sesi terekam dan kelebihannya, tanpa koreksi timbangan', () => {
     const fakta = susunFakta(
       harian({
-        calories_out: 2254,
+        calories_out: 2889,
         calories_out_source: 'device',
         device_kcal: 2233,
         energy: {
-          pal: 1.611,
-          baseline: 2807,
-          workout_calories: 0,
-          device_active_kcal: 367,
-          scale_correction: -920,
-        },
-      }),
-      pekan,
-      riwayat(),
-      null,
-      null,
-      null,
-      null,
-      '21.00',
-    );
-
-    expect(fakta).toContain(
-      'Kalori keluar 2.254 kkal: metabolisme dan pekerjaan 2.807, ditambah kalori aktif dari jam tangannya 367, dikoreksi timbangan minus 920',
-    );
-  });
-});
-
-describe('susunFakta: rilis 1.2.0', () => {
-  it('menyebut susunan kalori keluar dengan jam tangan: aktif jam DITAMBAHKAN', () => {
-    const fakta = susunFakta(
-      harian({
-        calories_out: 3006,
-        calories_out_source: 'device',
-        device_kcal: 2233,
-        energy: {
-          pal: 1.611,
+          pal: 1.548,
           baseline: 2639,
           workout_calories: 0,
-          device_active_kcal: 367,
+          device_active_kcal: 250,
+          device_reported_active_kcal: 367,
           scale_correction: null,
         },
       }),
@@ -392,7 +506,40 @@ describe('susunFakta: rilis 1.2.0', () => {
     );
 
     expect(fakta).toContain(
-      'Kalori keluar 3.006 kkal: metabolisme dan pekerjaan 2.639, ditambah kalori aktif dari jam tangannya 367.',
+      'Kalori keluar 2.889 kkal: metabolisme dan pekerjaan 2.639, ditambah 250 kkal dari jam tangannya (sesi yang terekam jam, plus kalori aktif yang melebihi gerak harian pekerjaannya; jamnya sendiri mencatat kalori aktif 367 kkal seharian).',
+    );
+    expect(fakta).not.toContain('timbangan');
+    expect(fakta).not.toContain('terukur');
+  });
+});
+
+describe('susunFakta: rilis backend 0.8.0', () => {
+  it('menyebut susunan kalori keluar dengan jam tangan dan olahraga di luar jam', () => {
+    const fakta = susunFakta(
+      harian({
+        calories_out: 3370,
+        calories_out_source: 'device',
+        device_kcal: 2233,
+        energy: {
+          pal: 1.806,
+          baseline: 2639,
+          workout_calories: 481,
+          device_active_kcal: 250,
+          device_reported_active_kcal: null,
+          scale_correction: null,
+        },
+      }),
+      pekan,
+      riwayat(),
+      null,
+      null,
+      null,
+      null,
+      '21.00',
+    );
+
+    expect(fakta).toContain(
+      'Kalori keluar 3.370 kkal: metabolisme dan pekerjaan 2.639, ditambah 250 kkal dari jam tangannya (sesi yang terekam jam, plus kalori aktif yang melebihi gerak harian pekerjaannya), ditambah olahraga tercatat yang tidak terekam jam 481 kkal.',
     );
   });
 

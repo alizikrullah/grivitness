@@ -3,10 +3,14 @@ import { forUser } from '../../data/scoped.js';
 import { unitOfWork } from '../../data/unit-of-work.js';
 import type { GoalRecord } from '../../types/directus-schema.js';
 import { AppError } from '../../utils/api-error.js';
-import { daysBetween, planWeightChange, type WeightPlan } from '../../utils/calories.js';
+import {
+  daysBetween,
+  planAtIntake,
+  planWeightChange,
+  type WeightPlan,
+} from '../../utils/calories.js';
 import { todayInJakarta } from '../../utils/daily-key.js';
 import { toNumber } from '../../utils/number.js';
-import type { ObservedTdee } from '../../utils/observed-tdee.js';
 import type { CreateGoalDto, UpdateGoalDto } from './goals.validation.js';
 
 /**
@@ -37,33 +41,28 @@ export interface GoalWithProgress extends GoalRecord {
    */
   plan: WeightPlan | null;
   /**
-   * Hasil mengukur TDEE dari catatan berat dan makanan user sendiri.
-   *
-   * Ini yang membedakan angka di sini dari kalkulator mana pun: rumus cuma
-   * dipakai sebagai titik awal, lalu digeser ke arah yang benar-benar terjadi
-   * pada tubuh user ini. Null kalau profil belum lengkap.
+   * Dulu TDEE terukur dari catatan makan dan timbangan. Dicabut 7 Nov 2026,
+   * jatah sekarang murni rumus (lihat data/energy-profile.ts). Tetap dikirim
+   * null karena APK sampai 0.13.0 (versionCode 22) masih membacanya.
    */
-  observed_tdee: ObservedTdee | null;
+  observed_tdee: null;
 }
 
 /**
- * Rasio TDEE terukur terhadap hasil rumus.
+ * Menyusun rencana untuk goal ini, atau null kalau datanya belum cukup.
  *
- * Dikirim ke simulasi sebagai RASIO, bukan angka mutlak, supaya koreksinya ikut
- * menyusut bersama berat badan sepanjang program.
+ * Jatah otomatis: asupan dicari supaya tepat waktu, ditahan pagar aman. Jatah
+ * dikunci: asupannya angka user, yang dihitung laju dan tanggal realistisnya.
  */
-const faktorKoreksi = (p: EnergyProfile): number =>
-  p.observed && p.observed.estimated > 0 ? p.observed.tdee / p.observed.estimated : 1;
-
-/** Menyusun rencana untuk goal ini, atau null kalau datanya belum cukup. */
 const susunRencana = (
-  goal: Pick<GoalRecord, 'target_weight_kg' | 'target_date'>,
+  goal: Pick<GoalRecord, 'target_weight_kg' | 'target_date'> &
+    Partial<Pick<GoalRecord, 'budget_manual' | 'daily_calorie_budget'>>,
   p: EnergyProfile,
   daysRemaining: number,
 ): WeightPlan | null => {
   if (!p.complete) return null;
 
-  return planWeightChange({
+  const input = {
     currentWeightKg: p.weightKg,
     targetWeightKg: toNumber(goal.target_weight_kg),
     heightCm: p.heightCm,
@@ -71,8 +70,11 @@ const susunRencana = (
     gender: p.gender,
     activityLevel: p.activityLevel,
     daysRemaining: Math.max(daysRemaining, 1),
-    tdeeFactor: faktorKoreksi(p),
-  });
+  };
+
+  return goal.budget_manual && goal.daily_calorie_budget !== undefined
+    ? planAtIntake(input, goal.daily_calorie_budget)
+    : planWeightChange(input);
 };
 
 /**
@@ -97,12 +99,10 @@ export const effectiveBudget = (goal: GoalRecord, p: EnergyProfile): number => {
 
 /**
  * Rencana yang berlaku untuk goal ini, dengan profil yang sudah dimuat
- * pemanggil. Null untuk jatah manual: rencananya menghitung jatah sendiri,
- * jadi lajunya bukan laju jatah yang benar-benar dipakai user.
+ * pemanggil. Untuk jatah dikunci, lajunya laju jatah yang benar-benar dipakai
+ * user (planAtIntake), bukan laju jatah otomatis.
  */
 export const activePlan = (goal: GoalRecord, p: EnergyProfile): WeightPlan | null => {
-  if (goal.budget_manual) return null;
-
   const sisaHari = Math.max(daysBetween(todayInJakarta(), goal.target_date), 0);
   return susunRencana(goal, p, sisaHari);
 };
@@ -126,7 +126,7 @@ const withProgress = (goal: GoalRecord, m: EnergyProfile): GoalWithProgress => {
     tdee: rencana?.tdee ?? null,
     achievable: rencana?.achievable ?? null,
     plan: rencana,
-    observed_tdee: m.observed,
+    observed_tdee: null,
   };
 };
 

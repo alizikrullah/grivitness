@@ -43,10 +43,12 @@ type Jenis = (typeof JENIS)[number];
 /**
  * Mencatat kalori jam tangan seharian. Padanan layar mobile.
  *
- * Kalori AKTIF jam DITAMBAHKAN ke metabolisme dan pekerjaan hari itu (BMR x
- * PAL), bersama olahraga yang ditandai TIDAK terekam jam. Versi lama memakai
- * angka jam sebagai PENGGANTI rumus, dan hari jamnya dilepas jatuh ke sekitar
- * BMR. Angka total jam diubah jadi aktif di backend: total dikurangi BMR.
+ * Kalori keluar = metabolisme dan pekerjaan (BMR x PAL) + semua olahraga, lalu
+ * kalori AKTIF jam cuma menambah bagian yang melebihi gerak harian di PAR
+ * pekerjaan dan gerak sesi yang terekam jam (dailyCaloriesOut di backend).
+ * Versi pertama memakai angka jam sebagai PENGGANTI rumus, backend 0.8.0
+ * sampai 0.13.0 menambahkannya penuh dan jalan kecil terbayar dua kali. Angka total jam
+ * diubah jadi aktif di backend: total dikurangi BMR.
  */
 export const DeviceEnergyPanel = () => {
   /** Tanggal yang sedang dilihat. Bawaannya hari ini. */
@@ -125,8 +127,9 @@ export const DeviceEnergyPanel = () => {
   const pakaiAktif = jenis === 'ACTIVE';
 
   /**
-   * Bagian aktif yang akan dihitung, diperlihatkan sebelum disimpan. Angka
-   * total jam memuat istirahat versi jam, yang sudah ditanggung BMR x PAL.
+   * Kalori aktif dari angka total jam, diperlihatkan sebelum disimpan. Angka
+   * total jam memuat istirahat versi jam, yang sudah ditanggung BMR x PAL. Dari
+   * aktif ini pun yang ditambahkan cuma kelebihan di atas gerak harian.
    */
   const aktifDihitung = ((): number | null => {
     if (!angkaValid) return null;
@@ -238,13 +241,13 @@ export const DeviceEnergyPanel = () => {
                     value={thousands(Math.round(bmr)) + ' kkal'}
                   />
                   <Row
-                    label="Bagian aktif yang ditambahkan"
+                    label="Kalori aktif"
                     value={thousands(aktifDihitung ?? 0) + ' kkal'}
                     tone="accent"
                   />
                   <span className="t-caption c-tertiary">
-                    Istirahatmu sudah dihitung aplikasi dari BMR dan jenis pekerjaanmu, jadi dari
-                    angka total jam yang ditambahkan cuma bagian aktifnya.
+                    Istirahat dan gerak harianmu sudah dihitung dari BMR dan jenis pekerjaanmu, jadi
+                    yang ditambahkan cuma kalori aktif yang melebihi itu.
                   </span>
                 </div>
               ) : null}
@@ -299,7 +302,7 @@ export const DeviceEnergyPanel = () => {
                 ) : (
                   <>
                     <Row
-                      label="Kalori aktif jam"
+                      label="Dari jam tangan"
                       value={thousands(energi.device_active_kcal) + ' kkal'}
                     />
                     <Row
@@ -308,20 +311,6 @@ export const DeviceEnergyPanel = () => {
                     />
                   </>
                 )}
-                {/*
-                  Selisih rumus dengan yang terukur dari timbangan (observeTDEE).
-                  Tampil hanya kalau datanya sudah layak dihitung.
-                */}
-                {energi.scale_correction === null ? null : (
-                  <Row
-                    label="Koreksi timbangan"
-                    value={
-                      (energi.scale_correction > 0 ? '+' : '') +
-                      thousands(energi.scale_correction) +
-                      ' kkal'
-                    }
-                  />
-                )}
                 <Row
                   label={'Kalori keluar ' + dayPhrase(tanggal)}
                   value={thousands(ringkasan.calories_out) + ' kkal'}
@@ -329,7 +318,8 @@ export const DeviceEnergyPanel = () => {
                 />
                 {hari.data ? null : (
                   <span className="t-caption c-tertiary">
-                    Simpan angka jam tanganmu, dan kalori aktifnya ditambahkan ke sini.
+                    Simpan angka jam tanganmu. Kalori aktif yang melebihi gerak harianmu ditambahkan
+                    ke sini.
                   </span>
                 )}
               </div>

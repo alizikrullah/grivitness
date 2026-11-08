@@ -253,6 +253,10 @@ describe('jatah kalori otomatis dan manual', () => {
     expect(ubah.status).toBe(200);
     expect(ubah.body.data.budget_manual).toBe(true);
     expect(ubah.body.data.daily_calorie_budget).toBe(1800);
+    // Kartu rencana dan chat membaca rencana dari angka yang dikunci, bukan
+    // dari jatah otomatis.
+    expect(ubah.body.data.plan.daily_calorie_budget).toBe(1800);
+    expect(ubah.body.data.plan.daily_deficit).toBe(ubah.body.data.plan.tdee - 1800);
 
     const koreksi = await request(app)
       .patch(`/api/weight/${beratHariIni}`)

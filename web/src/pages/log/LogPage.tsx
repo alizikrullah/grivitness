@@ -129,10 +129,11 @@ const JENIS: JenisCatat[] = [
     Panel: DeviceEnergyPanel,
     kunci: 'device',
     harian: true,
-    // Yang dihitung bagian AKTIF-nya, jadi itu yang disebut di sini.
+    // Angka yang user isi dari jamnya, bukan bagian yang dihitung: yang
+    // dihitung cuma kelebihannya, dan itu dirinci di panel jam.
     status: (d) =>
-      d.energy?.device_active_kcal != null
-        ? 'aktif ' + thousands(d.energy.device_active_kcal) + ' kkal'
+      d.energy?.device_reported_active_kcal != null
+        ? 'aktif ' + thousands(d.energy.device_reported_active_kcal) + ' kkal'
         : thousands(d.device_kcal ?? 0) + ' kkal',
   },
   {

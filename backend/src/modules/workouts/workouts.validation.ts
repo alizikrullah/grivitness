@@ -161,8 +161,9 @@ export const CreateWorkoutSchema = z
      * true kalau sesi ini terekam jam tangan, jadi kalorinya SUDAH ada di
      * kalori aktif jam hari itu.
      *
-     * Menentukan apakah kalorinya ditambahkan di atas kalori aktif jam. Jalan
-     * santai dan berkebun yang dilakukan sambil memakai jam tangan sudah masuk
+     * Sesinya tetap dijumlahkan dari catatan ini; yang ditentukan centang ini
+     * adalah bagian aktifnya dikurangkan dari kalori aktif jam, supaya tidak
+     * dobel. Jalan santai yang dilakukan sambil memakai jam tangan sudah masuk
      * di sana; berenang atau sesi yang jamnya dilepas belum.
      *
      * Terpisah dari calories_burned dengan sengaja. "Kalorinya diisi manual"

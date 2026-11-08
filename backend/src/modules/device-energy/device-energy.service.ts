@@ -15,11 +15,12 @@ import type { CreateDeviceEnergyDto } from './device-energy.validation.js';
  * ditambahkan di sini karena kalori aktif memang mengukur pengeluaran di ATAS
  * istirahat, sehingga metabolisme basalnya justru bagian yang belum terhitung.
  *
- * Di summary, kalori AKTIF-nya DITAMBAHKAN ke BMR x PAL hari itu, bersama
- * olahraga yang TIDAK terekam jam (workout_logs.tracked_by_device). Angka
- * total diubah dulu jadi aktif dengan mengurangkan BMR. Aturan lengkapnya,
- * dan kenapa versi lama yang memakai angka jam sebagai PENGGANTI rumus
- * keliru, ada di dailyCaloriesOut (utils/calories.ts).
+ * Di summary, kalori AKTIF-nya cuma menambah BMR x PAL plus olahraga kalau
+ * MELEBIHI gerak harian yang sudah ada di PAR pekerjaan dan sesi yang terekam
+ * jam (workout_logs.tracked_by_device). Angka total diubah dulu jadi aktif
+ * dengan mengurangkan BMR. Aturan lengkapnya, dan kenapa versi yang memakai
+ * angka jam sebagai PENGGANTI rumus atau menambahkannya penuh keliru, ada di
+ * dailyCaloriesOut (utils/calories.ts).
  */
 
 /**

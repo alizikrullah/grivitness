@@ -334,6 +334,21 @@ export interface PalInput {
 }
 
 /**
+ * Menit tidur ditambah olahraga, dan sisa hari di luar keduanya.
+ *
+ * Data yang tidak masuk akal (tidur 20 jam plus olahraga 6 jam) tidak boleh
+ * membuat sisa hari jadi negatif dan menghasilkan PAL yang mustahil.
+ */
+const potongHari = (
+  sleepMinutes: number | null,
+  workoutMinutes: number,
+): { terpakai: number; sisa: number } => {
+  const tidur = Math.max(sleepMinutes ?? TIDUR_DEFAULT_MENIT, 0);
+  const terpakai = Math.min(tidur + Math.max(workoutMinutes, 0), MENIT_SEHARI);
+  return { terpakai, sisa: MENIT_SEHARI - terpakai };
+};
+
+/**
  * Menghitung PAL satu hari dengan membagi habis 24 jam: tidur, olahraga, dan
  * sisa hari.
  *
@@ -354,14 +369,10 @@ export const restingPartitionPAL = ({
   workoutMinutes,
   coveredMinutes = 0,
 }: PalInput): number => {
-  const tidur = Math.max(sleepMinutes ?? TIDUR_DEFAULT_MENIT, 0);
   const olahraga = Math.max(workoutMinutes, 0);
   const tertanggung = Math.min(Math.max(coveredMinutes, 0), olahraga);
 
-  // Data yang tidak masuk akal (tidur 20 jam plus olahraga 6 jam) tidak boleh
-  // membuat sisa hari jadi negatif dan menghasilkan PAL yang mustahil.
-  const terpakai = Math.min(tidur + olahraga, MENIT_SEHARI);
-  const sisa = MENIT_SEHARI - terpakai;
+  const { terpakai, sisa } = potongHari(sleepMinutes, workoutMinutes);
 
   // Menit yang ditanggung angka total tetap mengurangi sisa hari, tapi tidak
   // dibayar PAR apa pun di sini: energinya sudah ada di angka total itu.
@@ -519,42 +530,66 @@ export interface DailyOut {
   /** BMR x PAL partisi: hidup, pekerjaan, dan gerak kecil sepanjang hari. */
   baseline: number | null;
   /**
-   * Kalori olahraga yang BENAR-BENAR dijumlahkan: semua olahraga kalau tanpa
-   * angka jam, cuma yang tidak terekam jam kalau ada angka jam.
+   * Kalori olahraga yang dijumlahkan DI LUAR bagian jam: semua olahraga kalau
+   * tanpa angka jam, cuma yang tidak terekam jam kalau ada angka jam.
    */
   workout_calories: number;
-  /** Kalori aktif jam yang dijumlahkan. Null kalau hari itu tanpa angka jam. */
+  /**
+   * Bagian dari jam tangan yang dijumlahkan: kalori sesi yang terekam jam,
+   * ditambah gerak jam yang melebihi ruang gerak di PAR pekerjaan. Null kalau
+   * hari itu tanpa angka jam. Bukan angka aktif mentah dari jam.
+   */
   device_active_kcal: number | null;
+  /**
+   * Kalori aktif jam apa adanya (angka total dikurangi BMR kalau yang diisi
+   * total). Cuma untuk ditampilkan sebagai angka yang user isi; yang masuk
+   * hitungan device_active_kcal. Null tanpa angka jam atau tanpa BMR.
+   */
+  device_reported_active_kcal: number | null;
 }
+
+/**
+ * PAR duduk tenang, alas gerak harian di dalam PAR pekerjaan. PERKIRAAN
+ * APLIKASI: tabel PAR FAO/WHO/UNU 2001 (Annex 5) menaruh duduk di sekitar 1,3
+ * sampai 1,5, dan 1,4 titik tengahnya. Selisih PAR pekerjaan di atas angka ini
+ * adalah jalan dan gerak kecil sepanjang hari yang sudah dibayar rumus.
+ * Menggesernya 1,3 sampai 1,5 mengubah rata-rata keluar pemilik 48 hari cuma
+ * 3.006 sampai 3.068 kkal.
+ */
+const PAR_DASAR = 1.4;
 
 /**
  * Kalori keluar satu hari. SATU-SATUNYA tempat aturan ini ditulis; beranda,
  * riwayat kalori, rekap, dan chat semuanya lewat sini.
  *
  *   Tanpa angka jam : BMR x PAL + semua olahraga
- *   Ada angka jam   : BMR x PAL + kalori aktif jam + olahraga yang tidak terekam jam
+ *   Ada angka jam   : sama, ditambah aktif jam yang MELEBIHI ruang gerak
+ *                     harian dan sesi yang terekam jam
  *
- * Angka jam tangan DITAMBAHKAN, bukan menggantikan rumus. Versi lama memakai
- * angka total jam sebagai pengganti seluruh hitungan, dan itu keliru: jam
- * cuma melihat gerak saat dipakai, jadi hari jamnya dilepas jatuh ke sekitar
- * BMR, dan bagian istirahatnya memakai taksiran jam sendiri. Di sini
- * istirahat dan pekerjaan tetap dari BMR x PAL, jam menyumbang gerak yang dia
- * ukur.
+ *   ruang   = BMR x (PAR pekerjaan - PAR_DASAR) x menit sisa hari / 1.440
+ *   tambahan = maks(0, aktif jam - ruang - bagian aktif sesi terekam jam)
  *
- * Olahraga yang dicentang "terekam jam tangan" tidak ditambahkan lagi, karena
- * kalorinya sudah ada di dalam angka aktif jam. Menitnya tetap dihitung PAR
- * 1,0 di partisi, sama seperti tanpa jam, supaya jam yang sama tidak dibayar
- * dua kali oleh PAR pekerjaan.
+ * Kenapa cuma kelebihannya: PAR pekerjaan (1,6 untuk kerja duduk) sudah
+ * memuat jalan dan gerak kecil sepanjang hari, dan kalori aktif jam mengukur
+ * gerak yang sama. Versi lama menambahkan aktif jam penuh, jadi jalan kecil itu
+ * dibayar dua kali. MyFitnessPal memakai bentuk yang sama: yang dikreditkan
+ * cuma selisih perangkat di atas taksirannya sendiri.
  *
- * Contoh nyata 30 Sep 2026: BMR 1.866, tidur 350 menit, olahraga 96 menit
- * terekam jam, aktif jam 367. PAL partisi = (350 + 96 + 994 x 1,6) / 1.440
- * = 1,414, jadi 1.866 x 1,414 + 367 = 3.005 kkal.
+ * Jam tidak pernah MENURUNKAN angka: hari jamnya dilepas tetap BMR x PAL,
+ * bukan jatuh ke sekitar BMR seperti waktu angka jam masih menggantikan rumus.
+ * Sesi terekam jam dijumlahkan dari catatannya sendiri, dan bagian aktifnya
+ * dikurangkan dari aktif jam supaya tidak dobel.
+ *
+ * Contoh 30 Sep 2026: BMR 1.866, tidur 350 menit, olahraga 96 menit terekam
+ * jam 250 kkal, aktif jam 367. Ruang 1.866 x 0,2 x 994 / 1.440 = 258, jadi
+ * 367 - 258 - 250 di bawah nol dan jam tidak menambah: keluar 2.639 + 250 =
+ * 2.889 kkal. Versi lama 3.006.
  *
  * Kalori olahraga MANUAL adalah angka TOTAL dari jam: sudah termasuk
- * istirahat selama sesi. Kalau dijumlahkan, menit sesinya dikeluarkan dari
- * partisi (coveredMinutes), supaya istirahat itu tidak dibayar lagi oleh BMR.
- * Contoh lari 28 Okt 2026: 45 menit, total 360 kkal, BMR 1.876. Metabolisme
- * turun 1.876 x 45 / 1.440 = 59 kkal, olahraga tetap tampil 360.
+ * istirahat selama sesi, jadi menit sesinya dikeluarkan dari partisi
+ * (coveredMinutes) supaya istirahat itu tidak dibayar lagi oleh BMR. Contoh
+ * lari 28 Okt 2026: 45 menit, total 360 kkal, BMR 1.876. Metabolisme turun
+ * 1.876 x 45 / 1.440 = 59 kkal, olahraga tetap tampil 360.
  *
  * Langkah tetap tidak masuk, lihat catatan LANGKAH di atas.
  */
@@ -572,6 +607,7 @@ export const dailyCaloriesOut = (input: DailyOutInput): DailyOut => {
           baseline: null,
           workout_calories: input.workoutCalories,
           device_active_kcal: null,
+          device_reported_active_kcal: null,
         }
       : {
           calories_out: input.device.total_kcal + input.untrackedWorkoutCalories,
@@ -580,88 +616,64 @@ export const dailyCaloriesOut = (input: DailyOutInput): DailyOut => {
           baseline: null,
           workout_calories: input.untrackedWorkoutCalories,
           device_active_kcal: null,
+          device_reported_active_kcal: null,
         };
   }
 
-  // Menit yang energinya sudah dibawa angka total sesi: hanya sesi yang
-  // kalorinya BENAR-BENAR dijumlahkan hari ini. Sesi terekam jam di hari
-  // berangka jam tidak dijumlahkan, jadi istirahatnya tetap ditanggung BMR.
-  const tertanggung =
-    input.device === null
-      ? (input.grossWorkoutMinutes ?? 0)
-      : (input.untrackedGrossWorkoutMinutes ?? 0);
+  const menitTotal = input.grossWorkoutMinutes ?? 0;
 
+  // Semua sesi dijumlahkan, jadi menit semua sesi berangka total keluar dari
+  // partisi, terekam jam atau tidak.
   const baseline = round(
     input.bmr *
       restingPartitionPAL({
         activityLevel: input.activityLevel,
         sleepMinutes: input.sleepMinutes,
         workoutMinutes: input.workoutMinutes,
-        coveredMinutes: tertanggung,
+        coveredMinutes: menitTotal,
       }),
     0,
   );
 
-  const aktif = input.device === null ? null : activeKcalFromDevice(input.device, input.bmr);
-  const olahraga = aktif === null ? input.workoutCalories : input.untrackedWorkoutCalories;
-  const keluar = baseline + (aktif ?? 0) + olahraga;
+  const tanpaJam = baseline + input.workoutCalories;
+
+  if (input.device === null) {
+    return {
+      calories_out: tanpaJam,
+      source: 'formula',
+      pal: input.bmr > 0 ? round(tanpaJam / input.bmr, 3) : 0,
+      baseline,
+      workout_calories: input.workoutCalories,
+      device_active_kcal: null,
+      device_reported_active_kcal: null,
+    };
+  }
+
+  const aktif = activeKcalFromDevice(input.device, input.bmr);
+
+  const { sisa } = potongHari(input.sleepMinutes, input.workoutMinutes);
+  const ruang =
+    (input.bmr * Math.max(ACTIVITY_PAR[input.activityLevel] - PAR_DASAR, 0) * sisa) / MENIT_SEHARI;
+
+  // Kalori sesi terekam jam. Yang MANUAL angka total, termasuk istirahat selama
+  // sesi; kalori aktif jam tidak memuat istirahat itu, jadi yang dikurangkan
+  // dari aktif jam cuma bagian geraknya.
+  const sesiJam = input.workoutCalories - input.untrackedWorkoutCalories;
+  const menitTotalJam = Math.max(menitTotal - (input.untrackedGrossWorkoutMinutes ?? 0), 0);
+  const sesiJamAktif = Math.max(sesiJam - (input.bmr * menitTotalJam) / MENIT_SEHARI, 0);
+
+  const tambahan = Math.max(Math.round(aktif - ruang - sesiJamAktif), 0);
+  const keluar = tanpaJam + tambahan;
 
   return {
     calories_out: keluar,
-    source: aktif === null ? 'formula' : 'device',
+    source: 'device',
     pal: input.bmr > 0 ? round(keluar / input.bmr, 3) : 0,
     baseline,
-    workout_calories: olahraga,
-    device_active_kcal: aktif,
+    workout_calories: input.untrackedWorkoutCalories,
+    device_active_kcal: sesiJam + tambahan,
+    device_reported_active_kcal: aktif,
   };
-};
-
-/**
- * Faktor koreksi timbangan untuk kalori KELUAR.
- *
- * Rumus keluar (BMR x PAL, olahraga, kalori aktif jam) dibandingkan dengan yang
- * terbaca timbangan lewat observeTDEE(). Data pemiliknya 26 Okt 2026: rumus
- * rata-rata 3.174 kkal di hari makan lengkap, timbangan 2.080. Beranda
- * menampilkan defisit 1.440 sehari padahal berat turun 0,31 kg per minggu
- * (sekitar 345), selisih yang membuat semua angka defisit tidak bisa dipercaya.
- *
- * Sasarannya dicampur dengan keyakinan pengukuran, sama seperti jatah, bukan
- * melompat penuh ke hasil ukur, supaya angka harian tidak berayun mengikuti
- * fluktuasi air. Ditahan 0,5 sampai 1,5: di luar itu yang bermasalah datanya.
- *
- * observeTDEE() tidak diubah dan tetap murni makanan dan timbangan. Angka
- * jam tangan cuma ikut di sisi RUMUS yang dibandingkan dengannya.
- *
- * Penyebab selisihnya tidak bisa dipisahkan: rumus atau jam yang kebesaran,
- * atau makanan yang tidak tercatat. Koreksi ini membuat DEFISIT sesuai
- * timbangan; kalau penyebabnya makanan yang terlewat, kalori keluarnya jadi
- * lebih kecil dari yang sebenarnya dibakar.
- */
-export const outCorrectionFactor = (input: {
-  /** Hasil ukur murni observeTDEE, null kalau belum layak. */
-  measured: number | null;
-  confidence: number;
-  /** Rata-rata kalori keluar versi rumus di hari makan lengkap jendela yang sama. */
-  formulaAverage: number;
-}): number => {
-  if (input.measured === null || input.confidence <= 0 || input.formulaAverage <= 0) return 1;
-
-  const sasaran = input.confidence * input.measured + (1 - input.confidence) * input.formulaAverage;
-  return round(Math.min(Math.max(sasaran / input.formulaAverage, 0.5), 1.5), 3);
-};
-
-export interface CorrectedOut {
-  calories_out: number;
-  /** Selisih koreksi dalam kkal (negatif berarti dikurangi). Null kalau tidak dikoreksi. */
-  correction: number | null;
-}
-
-export const applyOutCorrection = (rawOut: number, factor: number): CorrectedOut => {
-  const mentah = Math.round(rawOut);
-  if (factor === 1) return { calories_out: mentah, correction: null };
-
-  const hasil = Math.round(rawOut * factor);
-  return { calories_out: hasil, correction: hasil - mentah };
 };
 
 /**
@@ -741,20 +753,18 @@ export interface PlanInput {
   activityLevel: ActivityLevel;
   /** Jumlah hari tersisa menuju target. */
   daysRemaining: number;
-  /**
-   * Koreksi TDEE dari pengukuran nyata, sebagai rasio terhadap hasil rumus.
-   * 1 berarti belum ada koreksi dan rumus dipakai apa adanya.
-   *
-   * Dipakai sebagai RASIO, bukan angka mutlak, supaya koreksinya ikut menyusut
-   * bersama berat badan selama simulasi. Menyuntikkan satu angka tetap akan
-   * membuat TDEE berhenti turun saat badan mengurus, persis kesalahan yang
-   * simulasi hari-per-hari ini dibuat untuk menghindarinya.
-   */
-  tdeeFactor?: number;
 }
 
-/** TDEE acuan setelah dikoreksi pengukuran, pada berat badan tertentu. */
-const tdeeTerkoreksi = (weightKg: number, input: PlanInput): number => {
+/**
+ * TDEE hari biasa dari rumus pada berat badan tertentu.
+ *
+ * Murni rumus, tanpa koreksi dari timbangan. Versi yang menggeser TDEE ke
+ * hasil ukur catatan makan dan timbangan dicabut 7 Nov 2026 atas keputusan
+ * pemilik: berat bisa macet berminggu-minggu lalu turun drastis, dan jatah
+ * yang mengikuti timbangan mencekik justru saat macet itu (1.500 kkal untuk
+ * target yang menurut rumus 2.200-an, padahal dia rutin olahraga).
+ */
+const tdeeRumus = (weightKg: number, input: PlanInput): number => {
   const bmr = calculateBMR({
     weightKg,
     heightCm: input.heightCm,
@@ -762,7 +772,7 @@ const tdeeTerkoreksi = (weightKg: number, input: PlanInput): number => {
     gender: input.gender,
   });
 
-  return round(baselineTDEE(bmr, input.activityLevel) * (input.tdeeFactor ?? 1), 0);
+  return baselineTDEE(bmr, input.activityLevel);
 };
 
 /**
@@ -782,7 +792,7 @@ const simulasi = (
   let tdee = 0;
 
   for (let i = 0; i < days; i++) {
-    tdee = tdeeTerkoreksi(berat, input);
+    tdee = tdeeRumus(berat, input);
 
     berat -= (tdee - intake) / KALORI_PER_KG;
 
@@ -799,7 +809,13 @@ const simulasi = (
 
 /** Asupan yang membuat simulasi mendarat tepat di berat target pada hari ke-`days`. */
 const cariAsupan = (days: number, input: PlanInput): number => {
-  let bawah = 200;
+  // Batas bawahnya NEGATIF: asupan ideal di bawah nol berarti puasa total pun
+  // tidak cukup. Dulu batasnya 200 kkal, jadi defisit yang dibutuhkan tidak
+  // pernah melebihi TDEE dikurangi 200, cabang "mustahil secara fisika" di chat
+  // tidak pernah menyala, dan target 40 hari untuk 17 kg terbaca "makan cuma
+  // sekitar 200 kkal per hari". Penjaga berat 20 kg di simulasi menjaga hasilnya
+  // tetap monoton.
+  let bawah = -20_000;
   let atas = 12_000;
 
   // Berat akhir naik secara monoton terhadap asupan, jadi pencarian biner selalu
@@ -853,7 +869,7 @@ const proyeksiHari = (intake: number, input: PlanInput): number | null => {
   const turun = input.targetWeightKg < input.currentWeightKg;
 
   for (let hari = 1; hari <= MAKS_HARI; hari++) {
-    berat -= (tdeeTerkoreksi(berat, input) - intake) / KALORI_PER_KG;
+    berat -= (tdeeRumus(berat, input) - intake) / KALORI_PER_KG;
 
     if (turun ? berat <= input.targetWeightKg : berat >= input.targetWeightKg) return hari;
     if (berat < 20) return null;
@@ -874,13 +890,19 @@ const proyeksiHari = (intake: number, input: PlanInput): number | null => {
  * tambahan yang bisa menutup selisihnya, karena defisit yang tidak boleh datang
  * dari makanan masih boleh datang dari gerak.
  */
+/** Langkah tambahan yang menutup kekurangan defisit, dibulatkan ke ratusan. */
+const langkahPenutup = (kurang: number, weightKg: number, turun: boolean): number =>
+  turun && kurang > 0
+    ? Math.round(kurang / (weightKg * KKAL_BERSIH_PER_LANGKAH_PER_KG) / 100) * 100
+    : 0;
+
 export const planWeightChange = (input: PlanInput): WeightPlan => {
   const { currentWeightKg, targetWeightKg, gender } = input;
 
   const hari = Math.max(input.daysRemaining, 1);
   const turun = targetWeightKg < currentWeightKg;
 
-  const tdee = tdeeTerkoreksi(currentWeightKg, input);
+  const tdee = tdeeRumus(currentWeightKg, input);
 
   const asupanIdeal = cariAsupan(hari, input);
 
@@ -913,13 +935,8 @@ export const planWeightChange = (input: PlanInput): WeightPlan => {
   // Ini anjuran, bukan kredit. Langkah harian tidak masuk calories_out, jadi
   // jalan tambahan itu baru terhitung kalau dicatat sebagai olahraga, atau
   // lewat kalori aktif jam tangan. Secara fisik anjurannya tetap benar: jalan
-  // lebih banyak membakar lebih banyak, dan observeTDEE menangkapnya dari
-  // berat yang benar-benar turun.
-  const kurang = Math.max(defisitDibutuhkan - defisit, 0);
-  const langkahTambahan =
-    turun && kurang > 0
-      ? Math.round(kurang / (currentWeightKg * KKAL_BERSIH_PER_LANGKAH_PER_KG) / 100) * 100
-      : 0;
+  // lebih banyak membakar lebih banyak, dan timbangan yang akhirnya menunjukkan.
+  const langkahTambahan = langkahPenutup(defisitDibutuhkan - defisit, currentWeightKg, turun);
 
   return {
     daily_calorie_budget: budget,
@@ -931,6 +948,68 @@ export const planWeightChange = (input: PlanInput): WeightPlan => {
     safe_weekly_rate_kg: lajuAman,
     projected_days: tercapai ? hari : proyeksiHari(budget, input),
     extra_steps_needed: langkahTambahan,
+  };
+};
+
+/**
+ * Rencana untuk jatah yang DIKUNCI user: asupannya tetap, yang dihitung laju
+ * dan kapan targetnya tercapai pada asupan itu.
+ *
+ * Pagar aman tidak menahan angka ini, karena itu keputusannya. Dulu jatah
+ * dikunci tetap diberi rencana versi jatah otomatis, jadi kartu rencana dan
+ * chat menyebut jatah, defisit, dan tanggal yang bukan milik angka yang
+ * benar-benar dipakai. Di sini achievable cuma menjawab "tercapai tepat waktu
+ * atau tidak", dan required_deficit tetap defisit untuk tepat waktu.
+ */
+export const planAtIntake = (input: PlanInput, intake: number): WeightPlan => {
+  const hari = Math.max(input.daysRemaining, 1);
+  const turun = input.targetWeightKg < input.currentWeightKg;
+
+  const tdee = tdeeRumus(input.currentWeightKg, input);
+  const budget = round(intake, 0);
+  const defisit = round(tdee - budget, 0);
+  const laju = round((defisit * 7) / KALORI_PER_KG, 2);
+  const lajuAman = safeWeeklyLossKg(input.currentWeightKg);
+
+  // Berat sudah menyentuh atau melewati target, dan jatah kuncinya masih defisit:
+  // targetnya tercapai. Tanpa ini arah dibaca dari berat sekarang, target turun
+  // yang sudah terlewati terbaca sebagai target naik, dan jatah defisit dinilai
+  // "tidak akan tercapai" persis di minggu-minggu terakhir, bolak-balik
+  // mengikuti air. Arah yang sama dipakai chat: berat di bawah target berarti
+  // target terlewati, karena goal tidak menyimpan berat awalnya.
+  if (input.currentWeightKg <= input.targetWeightKg && budget <= tdee) {
+    return {
+      daily_calorie_budget: budget,
+      daily_deficit: defisit,
+      required_deficit: 0,
+      achievable: true,
+      tdee,
+      weekly_rate_kg: laju,
+      safe_weekly_rate_kg: lajuAman,
+      projected_days: 0,
+      extra_steps_needed: 0,
+    };
+  }
+
+  // Dibandingkan dalam kalori bulat, sama seperti jatah otomatis. Kalau
+  // lewat proyeksi hari, angka kunci yang sama persis dengan jatah otomatis
+  // bisa terbaca telat sehari cuma karena pembulatan.
+  const asupanIdeal = round(cariAsupan(hari, input), 0);
+  const defisitDibutuhkan = tdee - asupanIdeal;
+  const tercapai = turun ? budget <= asupanIdeal : budget >= asupanIdeal;
+
+  const proyeksi = proyeksiHari(budget, input);
+
+  return {
+    daily_calorie_budget: budget,
+    daily_deficit: defisit,
+    required_deficit: defisitDibutuhkan,
+    achievable: tercapai,
+    tdee,
+    weekly_rate_kg: laju,
+    safe_weekly_rate_kg: lajuAman,
+    projected_days: tercapai ? Math.min(proyeksi ?? hari, hari) : proyeksi,
+    extra_steps_needed: langkahPenutup(defisitDibutuhkan - defisit, input.currentWeightKg, turun),
   };
 };
 

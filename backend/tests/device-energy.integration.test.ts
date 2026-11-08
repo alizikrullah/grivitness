@@ -3,20 +3,44 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createApp } from '../src/app.js';
+import { dailyCaloriesOut } from '../src/utils/calories.js';
 import { todayInJakarta } from '../src/utils/daily-key.js';
 import { cleanupTestUsers, testEmail } from './helpers/directus-cleanup.js';
 
 /**
- * Aturan kalori smartwatch sejak rilis 1.2.0: kalori AKTIF jam DITAMBAHKAN ke
- * BMR x PAL hari itu, bersama olahraga yang tidak terekam jam. Olahraga yang
- * terekam jam tidak ditambahkan lagi, karena kalorinya sudah ada di angka
- * aktif. Angka total diubah dulu jadi aktif (total dikurangi BMR).
+ * Aturan kalori smartwatch sejak backend 0.14.0: BMR x PAL ditambah SEMUA
+ * olahraga, lalu kalori AKTIF jam cuma menambah bagian yang melebihi ruang
+ * gerak harian di PAR pekerjaan dan bagian gerak sesi yang terekam jam. Angka
+ * total diubah dulu jadi aktif (total dikurangi BMR).
  *
- * Versi lama memakai angka jam sebagai PENGGANTI rumus, dan hari jamnya
- * dilepas jatuh ke sekitar BMR. Rumusnya ada di dailyCaloriesOut dan diuji
- * dengan angka pasti di calories.test.ts; di sini yang diuji penggabungan
- * filter dan agregasi di Directus sungguhan, bukan tiruan.
+ * Versi pertama memakai angka jam sebagai PENGGANTI rumus, dan hari jamnya
+ * dilepas jatuh ke sekitar BMR; backend 0.8.0 sampai 0.13.0 menambahkan aktif
+ * jam penuh, dan jalan kecil yang sudah ada di PAR pekerjaan terbayar dua kali. Rumusnya ada
+ * di dailyCaloriesOut dan diuji dengan angka pasti di calories.test.ts; di
+ * sini yang diuji penggabungan filter dan agregasi di Directus sungguhan,
+ * jadi angka harapannya dihitung lewat fungsi yang sama dari masukan yang
+ * memang disimpan test ini.
  */
+
+/** Profil user uji di bawah: LIGHTLY_ACTIVE, tidur tidak dicatat. */
+const harapan = (
+  bmr: number,
+  olahraga: {
+    workoutMinutes: number;
+    workoutCalories: number;
+    untrackedWorkoutCalories: number;
+    grossWorkoutMinutes: number;
+    untrackedGrossWorkoutMinutes: number;
+  },
+  device: { total_kcal: number; active_kcal: number | null },
+) =>
+  dailyCaloriesOut({
+    bmr,
+    activityLevel: 'LIGHTLY_ACTIVE',
+    sleepMinutes: null,
+    ...olahraga,
+    device,
+  });
 
 let app: Express;
 let token: string;
@@ -159,7 +183,7 @@ describe('POST /api/device-energy', () => {
 });
 
 describe('calories_out pada ringkasan harian', () => {
-  it('menambahkan kalori aktif jam ke BMR x PAL; angka total diubah dulu jadi aktif', async () => {
+  it('menambahkan kelebihan aktif jam di atas ruang gerak; angka total diubah dulu jadi aktif', async () => {
     const ringkasan = await request(app)
       .get('/api/summary/daily')
       .set(auth())
@@ -169,18 +193,31 @@ describe('calories_out pada ringkasan harian', () => {
 
     expect(d.calories_out_source).toBe('device');
     expect(d.device_kcal).toBe(2400);
+    expect(d.energy.scale_correction).toBeNull();
 
-    // Yang tersimpan angka TOTAL 2400, jadi aktifnya 2400 dikurangi BMR.
-    expect(d.energy.device_active_kcal).toBe(2400 - bmrUji);
-    // Belum ada olahraga: metabolisme dan pekerjaan ditambah aktif jam.
+    // Yang tersimpan angka TOTAL 2400, jadi aktifnya 2400 dikurangi BMR, dan
+    // dari situ cuma yang melebihi ruang gerak PAR pekerjaan yang ditambahkan.
+    const kosong = {
+      workoutMinutes: 0,
+      workoutCalories: 0,
+      untrackedWorkoutCalories: 0,
+      grossWorkoutMinutes: 0,
+      untrackedGrossWorkoutMinutes: 0,
+    };
+    const h = harapan(bmrUji, kosong, { total_kcal: 2400, active_kcal: null });
+    expect(d.energy.device_active_kcal).toBe(h.device_active_kcal);
+    expect(d.energy.device_active_kcal).toBeGreaterThan(0);
+    expect(d.energy.device_active_kcal).toBeLessThan(2400 - bmrUji);
+    // Belum ada olahraga: metabolisme dan pekerjaan ditambah kelebihan jam.
+    expect(d.calories_out).toBe(h.calories_out);
     expect(d.calories_out).toBe(d.energy.baseline + d.energy.device_active_kcal);
     // Metabolisme dan pekerjaan tidak lagi digantikan angka jam.
     expect(d.energy.baseline).toBeGreaterThan(bmrUji);
   });
 
-  it('menambahkan HANYA olahraga yang tidak terekam jam tangan', async () => {
-    // Terekam jam: kalorinya sudah ada di dalam 2400, jadi tidak boleh
-    // ditambahkan lagi.
+  it('sesi terekam jam dikurangkan dari aktif jam, olahraga tanpa jam ditambahkan', async () => {
+    // Terekam jam: bagian geraknya sudah ada di dalam 2400, jadi dikurangkan
+    // dari aktif jam supaya tidak dobel.
     const terekam = await request(app).post('/api/workouts').set(auth()).send({
       workout_name: 'Jalan santai',
       duration_minutes: 30,
@@ -211,9 +248,22 @@ describe('calories_out pada ringkasan harian', () => {
 
     const d = ringkasan.body.data;
 
-    // BMR x PAL + aktif jam + 350. Angka 90 dari jalan santai TIDAK ikut,
-    // karena jam tangannya sudah melihatnya.
+    // Kedua sesi berangka MANUAL (angka total), jadi 70 menitnya keluar dari
+    // partisi. Bagian jam = jalan santai 90 + kelebihan aktif jam.
+    const h = harapan(
+      bmrUji,
+      {
+        workoutMinutes: 70,
+        workoutCalories: 440,
+        untrackedWorkoutCalories: 350,
+        grossWorkoutMinutes: 70,
+        untrackedGrossWorkoutMinutes: 40,
+      },
+      { total_kcal: 2400, active_kcal: null },
+    );
     expect(d.energy.workout_calories).toBe(350);
+    expect(d.energy.device_active_kcal).toBe(h.device_active_kcal);
+    expect(d.calories_out).toBe(h.calories_out);
     expect(d.calories_out).toBe(d.energy.baseline + d.energy.device_active_kcal + 350);
 
     // workout_calories tetap melaporkan seluruh olahraga apa adanya. Yang
@@ -264,8 +314,9 @@ describe('calories_out pada ringkasan harian', () => {
  * Dulu jalan yang sama masuk TIGA kali: di kalori aktif jam, di kalori langkah,
  * dan sebagai olahraga versi MET karena tanda "terekam jam" belum bisa
  * dipasang sebelum angka harian ada. Sekarang hasilnya harus PERSIS
- * BMR x PAL + 420 + renang. Tidak ada satu kalori pun dari langkah maupun
- * dari jalan.
+ * BMR x PAL + jalan 180 + renang: aktif jam 420 sudah tertutup jalan itu dan
+ * gerak harian di PAR pekerjaan. Tidak ada satu kalori pun dari langkah, dan
+ * jalannya cuma masuk sekali.
  */
 describe('hari jalan kaki pakai jam, renang tanpa jam, langkah dari pedometer', () => {
   const kemarin = new Date(new Date(`${hariIni}T00:00:00Z`).getTime() - 86_400_000)
@@ -347,7 +398,7 @@ describe('hari jalan kaki pakai jam, renang tanpa jam, langkah dari pedometer', 
     expect(res.body.data.calories_burned ?? null).toBeNull();
   });
 
-  it('calories_out = BMR x PAL + aktif jam + renang, PERSIS, tanpa jalan dan tanpa langkah', async () => {
+  it('calories_out = BMR x PAL + jalan + renang, PERSIS, jalan sekali dan tanpa langkah', async () => {
     const jam = await request(app)
       .post('/api/device-energy')
       .set(auth())
@@ -366,9 +417,24 @@ describe('hari jalan kaki pakai jam, renang tanpa jam, langkah dari pedometer', 
 
     expect(d.calories_out_source).toBe('device');
     expect(d.steps).toBe(6000);
-    expect(d.energy.device_active_kcal).toBe(420);
+    const h = harapan(
+      bmr,
+      {
+        workoutMinutes: 70,
+        workoutCalories: 180 + renangKcal,
+        untrackedWorkoutCalories: renangKcal,
+        grossWorkoutMinutes: 30,
+        untrackedGrossWorkoutMinutes: 0,
+      },
+      { total_kcal: bmr + 420, active_kcal: 420 },
+    );
+    // Bagian jam = jalan 180 saja: 420 tidak melebihi bagian gerak jalan
+    // ditambah ruang gerak harian.
+    expect(d.energy.device_active_kcal).toBe(180);
+    expect(d.energy.device_active_kcal).toBe(h.device_active_kcal);
     expect(d.energy.baseline).toBeGreaterThan(bmr);
-    expect(d.calories_out).toBe(d.energy.baseline + 420 + renangKcal);
+    expect(d.calories_out).toBe(d.energy.baseline + 180 + renangKcal);
+    expect(d.calories_out).toBe(h.calories_out);
 
     // Rincian energi tidak lagi punya suku langkah sama sekali.
     expect(d.energy).not.toHaveProperty('step_calories');
