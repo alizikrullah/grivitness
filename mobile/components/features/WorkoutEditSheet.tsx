@@ -54,7 +54,9 @@ export const WorkoutEditSheet = ({ log, onClose }: WorkoutEditSheetProps) => {
    */
   const [intensitas, setIntensitas] = useState<WorkoutIntensity | null>(log.intensity);
   const pakaiIntensitas =
-    measure === 'TIME' && !manual && !terekam && kaloriDiketik === null && !berjarak;
+    // Sesi terekam jam ikut memakai intensitas sejak backend 0.14.0, lihat
+    // catatan di layar catat olahraga.
+    measure === 'TIME' && !manual && kaloriDiketik === null && !berjarak;
 
   const kolomKalori = useRef<TextInput>(null);
   const kolomCatatan = useRef<TextInput>(null);

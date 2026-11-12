@@ -97,6 +97,27 @@ describe('intensitas olahraga', () => {
     expect(res.body.data.calories_burned).toBe(harapan(60, 'LOW'));
   });
 
+  /**
+   * Sejak backend 0.14.0 sesi terekam jam dijumlahkan dari catatannya, jadi
+   * taksirannya juga harus memakai intensitas. Form mobile 0.14.1 dan web
+   * 0.2.1 mengirimnya; dulu disembunyikan begitu centang terekam dipasang.
+   */
+  it('sesi terekam jam yang kalorinya ditaksir memakai intensitas', async () => {
+    const res = await request(app).post('/api/workouts').set(auth()).send({
+      workout_library_id: renang.id,
+      duration_minutes: 75,
+      intensity: 'MEDIUM',
+      tracked_by_device: true,
+      logged_at: '2020-03-05',
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.tracked_by_device).toBe(true);
+    expect(res.body.data.calories_source).toBe('MET');
+    expect(res.body.data.calories_burned).toBe(harapan(75, 'MEDIUM'));
+    expect(res.body.data.calories_burned).toBeLessThan(harapan(75, null));
+  });
+
   it('kalori yang diketik user tidak disentuh intensitas', async () => {
     const res = await request(app).post('/api/workouts').set(auth()).send({
       workout_library_id: renang.id,

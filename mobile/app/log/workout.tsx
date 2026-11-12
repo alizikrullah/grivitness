@@ -159,14 +159,16 @@ export default function WorkoutScreen() {
   // up memang cuma sekitar 2 kkal, dan angka kecil itu jujur.
   /**
    * Intensitas cuma berlaku untuk olahraga berukuran menit yang kalorinya
-   * ditaksir aplikasi. Sesi yang terekam jam tangan atau kalorinya diketik
-   * sendiri tidak memakainya, sama seperti backend.
+   * ditaksir aplikasi; kalori yang diketik sendiri tidak memakainya, sama
+   * seperti backend. Sesi terekam jam TETAP memakainya sejak backend 0.14.0:
+   * kalorinya dijumlahkan dari catatan ini, jadi taksiran 100% bergerak ikut
+   * masuk kalori keluar.
    */
   /** Lari dan jalan: jarak, durasi, pace, HR menggantikan isian menit. */
   const jenis = measure === 'TIME' ? (pilihan?.jenis ?? null) : null;
 
   const pakaiIntensitas =
-    measure === 'TIME' && !pakaiManual && !terekam && kaloriDiketik === null && jenis === null;
+    measure === 'TIME' && !pakaiManual && kaloriDiketik === null && jenis === null;
 
   /**
    * Lari dan jalan berjarak: kalori dari kecepatannya, cermin backend. Tanpa

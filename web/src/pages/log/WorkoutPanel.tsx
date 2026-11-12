@@ -119,14 +119,15 @@ export const WorkoutPanel = () => {
 
   /**
    * Intensitas cuma berlaku untuk olahraga berukuran menit yang kalorinya
-   * ditaksir aplikasi. Sesi yang terekam jam tangan atau kalorinya diketik
-   * sendiri tidak memakainya, sama seperti backend.
+   * ditaksir aplikasi; kalori yang diketik sendiri tidak memakainya, sama
+   * seperti backend. Sesi terekam jam TETAP memakainya sejak backend 0.14.0:
+   * kalorinya dijumlahkan dari catatan ini, jadi taksiran 100% bergerak ikut
+   * masuk kalori keluar.
    */
   /** Lari dan jalan: jarak, durasi, pace, HR menggantikan isian menit. */
   const jenis = dipilih?.measure === 'TIME' ? (dipilih.distance_kind ?? null) : null;
 
-  const pakaiIntensitas =
-    dipilih?.measure === 'TIME' && !terekam && kaloriDiketik === null && jenis === null;
+  const pakaiIntensitas = dipilih?.measure === 'TIME' && kaloriDiketik === null && jenis === null;
 
   const perMenit = toNum(dipilih?.calories_burned_per_minute) ?? 0;
 
